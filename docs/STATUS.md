@@ -1,6 +1,8 @@
 # Status do projeto
 
-Atualizado em: 2026-09-22 (America/Sao_Paulo)
+Atualizado em: 2026-09-23 (America/Sao_Paulo)
+
+O marco inicial `0.1.0` está resumido em [`docs/ENTREGA_0_1.md`](ENTREGA_0_1.md). O repositório de código é `https://github.com/Arthur-A-C/PRM`; esta pasta `C:\PRM` acompanha `origin/main`. Arquivos de configuração local, planilhas e backups são ignorados pelo Git.
 
 ## Fase atual
 
@@ -24,7 +26,7 @@ Atualizado em: 2026-09-22 (America/Sao_Paulo)
 - `GET /api/v1/health/ready` retorna HTTP 200 com banco disponível.
 - `.env` existe localmente e está ignorado; nenhum segredo foi registrado em logs ou documentos.
 - A política local bloqueia execução direta de `.ps1`; os comandos equivalentes por `.venv\Scripts\python.exe -m ...` funcionam.
-- Git continua indisponível no `PATH`; nenhum commit foi criado.
+- O Git fornecido pelo GitHub Desktop não está no `PATH`, mas seu executável está disponível. O primeiro commit local (`86589ee`, 23/09/2026) foi publicado em `origin/main` pelo operador. A pasta de teste `PRM-git` foi removida em 23/09/2026.
 - Backup anterior à migração 0003: `data/backups/prm_mvp_20260922_134439.dump`, 24.481.003 bytes, formato custom/gzip e inventário de 91 entradas validado com `pg_restore --list`.
 - Backup anterior à migração 0004: `data/backups/prm_mvp_20260922_152540.dump`, 24.487.679 bytes, SHA-256 `d2c5ad575cb37da52ac05047baa8ff552f7ab6d911a3f3ff88f229cf3b217717` e 107 entradas validadas.
 - Backup anterior à migração 0005: `data/backups/prm_mvp_20260922_155755.dump`, 24.497.125 bytes, SHA-256 `5ec6d8544670e66c40850cc08e16dd96bf1e0f2e8bd9f8cb696246d884425443` e 127 entradas validadas.
@@ -68,7 +70,7 @@ A reimportação do XLSX Eco retornou o mesmo `import_id` com `idempotent=true`.
 - Migrações aplicadas transacionalmente; Alembic e inspeção do esquema confirmam a revisão 0006.
 - `alembic check` confirma que os modelos SQLAlchemy e o esquema real não têm operações pendentes.
 - Smoke autenticado no PostgreSQL real cobre dashboard, catálogo, identidade, gráfico, cobertura integral, ordem das empresas próprias, preços, alias `ELFIN`/`NEW ELFIN SRL` e logout.
-- O smoke remove somente seu usuário e sessão temporários. Após a limpeza, o gestor permanente permanece: 1 usuário e 1 sessão; execuções de correspondência não são alteradas.
+- O smoke remove somente seu usuário e sessão temporários. O gestor permanente permanece; a contagem de sessões ativas varia com os logins e o smoke não altera execuções de correspondência.
 - `scripts/reconcile_catalogs.py` reproduz as contagens persistidas sem alterar dados e lista empresas próprias primeiro.
 - Consultas medidas anteriormente na máquina atual: dashboard 207 ms; primeira página 79 ms; busca “SIEMENS” 741 ms; filtro empresas próprias+estoque 39 ms; venda entre 100–500 BRL 358 ms. São amostras, não p95 nem promessa de produção.
 

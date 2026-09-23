@@ -1,5 +1,10 @@
 # Changelog
 
+## Documentação do marco 0.1.0 — 2026-09-23
+
+- README ampliado para apresentar a aplicação, preparar o ambiente Windows, importar catálogos, verificar o banco e localizar a documentação técnica.
+- Retrato da primeira entrega registrado em `docs/ENTREGA_0_1.md`; `docs/STATUS.md` atualizado para continuidade após a publicação no GitHub.
+
 ## 0.1.0 — 2026-09-22
 
 - Inventário do ambiente e reconciliação da planilha Eco Automação.
