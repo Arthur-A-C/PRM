@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="login-layout">
+  <section class="login-card" aria-labelledby="login-title">
+    <div class="brand-mark" aria-hidden="true">PRM</div>
+    <p class="eyebrow">Inteligência de catálogos</p>
+    <h1 id="login-title">Acesse o painel</h1>
+    <p class="muted">Use a conta individual criada pelo gestor.</p>
+    {% if error %}<p class="alert alert-error" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/login" class="stack">
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email" autocomplete="username" required autofocus>
+      <label for="password">Senha</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Entrar</button>
+    </form>
+    <p class="fine-print">A aplicação funciona sem IA e sem integração n8n configurada.</p>
+  </section>
+</main>
+{% endblock %}
+

@@ -1,0 +1,2 @@
+"""Consultas persistentes da aplicação."""
+

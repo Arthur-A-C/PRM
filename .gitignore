@@ -1,0 +1,16 @@
+.env
+.pytest_cache/
+pytest-cache-files-*/
+tests/.generated-*.xlsx
+__pycache__/
+*.py[cod]
+.coverage
+htmlcov/
+.venv/
+data/exports/*
+!data/exports/.gitkeep
+data/backups/*
+!data/backups/.gitkeep
+data/imports/*
+!data/imports/.gitkeep
+*.log

@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="product-brand" href="/" aria-label="PRM — início">
+      <span class="brand-mark brand-mark-small" aria-hidden="true">PRM</span>
+      <span><strong>Catálogos</strong><small>Inteligência comercial</small></span>
+    </a>
+    <nav aria-label="Navegação principal">
+      {% for label, href in nav_items %}
+      <a href="{{ href }}" {% if active_path == href %}aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="sidebar-footer">
+      <span>{{ user.name }}</span>
+      <small>{{ user.role|capitalize }}</small>
+      <form action="/logout" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="button-link" type="submit">Sair</button>
+      </form>
+    </div>
+  </aside>
+  <main class="content" id="conteudo">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Dashboard PRM</p>
+        <h1>{{ title }}</h1>
+      </div>
+      <span class="status-badge">Integrações externas não configuradas</span>
+    </header>
+
+    {% if title == "Visão geral" %}
+    <section class="notice" aria-label="Estado dos dados">
+      <strong>Dados publicados.</strong>
+      <span>Indicadores calculados sobre ofertas ativas; uma exclusão analítica reversível não entra nos totais.</span>
+    </section>
+    <section class="metric-grid" aria-label="Indicadores">
+      <article class="metric"><span>Ofertas no recorte</span><strong>{{ "{:,}".format(summary.offers).replace(',', '.') }}</strong><small>Ativas, sem exclusões analíticas</small></article>
+      <article class="metric"><span>Empresas com catálogo</span><strong>{{ summary.companies }}</strong><small>Empresas próprias em primeiro plano</small></article>
+      <article class="metric"><span>Marcas identificadas</span><strong>{{ summary.brands }}</strong><small>Valores canônicos distintos</small></article>
+      <article class="metric"><span>Cobertura de preço</span><strong>{{ summary.price_coverage }}%</strong><small>Ao menos uma modalidade válida</small></article>
+    </section>
+    {% if matching.summary %}<section class="panel dashboard-match-summary"><div><p class="eyebrow">Cobertura competitiva automática</p><h2>{{ matching.selected_company.name }}</h2><p><strong>{{ matching.summary.coverage_percent }}%</strong> do catálogo concorrente possui correspondência forte ou confirmada no nosso portfólio. Outros {{ matching.summary.candidates }} candidatos aguardam revisão.</p></div><div class="coverage-track" role="img" aria-label="{{ matching.summary.coverage_percent }} por cento de cobertura"><span style="width: {{ matching.summary.coverage_percent }}%"></span></div><a href="/comparador?company={{ matching.selected_company.code }}">Abrir análise completa</a></section>{% endif %}
+    <section class="dashboard-grid">
+    <div class="panel">
+      <div class="panel-heading">
+        <div><p class="eyebrow">Cobertura</p><h2>Catálogos por empresa</h2></div>
+      </div>
+      <div class="company-grid">
+        <h3 class="company-group-title">Nossas empresas</h3>
+        {% for company in summary.company_counts %}
+        {% if company.type == 'nossa' %}
+        <article class="company company-{{ company.code }}">
+          <span class="dot" aria-hidden="true"></span>
+          <div><strong>{{ company.name }}</strong><p>{{ "{:,}".format(company.count).replace(',', '.') }} ofertas</p></div>
+          <a href="/catalogos?company={{ company.code }}">Explorar</a>
+        </article>
+        {% endif %}
+        {% endfor %}
+        <h3 class="company-group-title company-group-other">Outras empresas</h3>
+        {% for company in summary.company_counts %}
+        {% if company.type != 'nossa' %}
+        <article class="company company-{{ company.code }}">
+          <span class="dot" aria-hidden="true"></span>
+          <div><strong>{{ company.name }}</strong><p>{{ "{:,}".format(company.count).replace(',', '.') }} ofertas</p></div>
+          <a href="/catalogos?company={{ company.code }}">Explorar</a>
+        </article>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-heading"><p class="eyebrow">Qualidade</p><h2>Pendências do recorte</h2></div>
+      <ul class="quality-list">
+        <li><strong>{{ summary.missing_brand }}</strong><span>ofertas sem marca/fabricante</span></li>
+        <li><strong>{{ summary.no_valid_price }}</strong><span>ofertas sem preço válido</span></li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="panel-heading"><p class="eyebrow">Disponibilidade</p><h2>Estado declarado</h2></div>
+      <ul class="bar-list">
+      {% for item in summary.availability %}
+        <li><span>{{ item.state|replace('_', ' ')|capitalize }}</span><strong>{{ "{:,}".format(item.count).replace(',', '.') }}</strong></li>
+      {% endfor %}
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="panel-heading"><p class="eyebrow">Marcas</p><h2>Principais no catálogo</h2></div>
+      <ol class="bar-list">
+      {% for item in summary.top_brands %}
+        <li><span>{{ item.name }}</span><strong>{{ "{:,}".format(item.count).replace(',', '.') }}</strong></li>
+      {% endfor %}
+      </ol>
+    </div>
+    </section>
+    {% elif title == "Catálogos" %}
+    <form class="filters panel" method="get" action="/catalogos">
+      <div><label for="q">Buscar por código, nome, marca ou descrição</label><input id="q" name="q" value="{{ selected_filters.search or '' }}"></div>
+      <fieldset><legend>Empresa</legend><span class="filter-group-label">Nossas empresas</span>
+      {% for company in filter_options.companies %}
+        {% if company.type == 'nossa' %}
+        <label class="check"><input type="checkbox" name="company" value="{{ company.code }}" {% if company.code in selected_filters.companies %}checked{% endif %}> {{ company.name }}</label>
+        {% endif %}
+      {% endfor %}
+      <span class="filter-group-label filter-group-other">Outras empresas</span>
+      {% for company in filter_options.companies %}
+        {% if company.type != 'nossa' %}
+        <label class="check"><input type="checkbox" name="company" value="{{ company.code }}" {% if company.code in selected_filters.companies %}checked{% endif %}> {{ company.name }}</label>
+        {% endif %}
+      {% endfor %}
+      </fieldset>
+      <div><label for="brand">Marca</label><select id="brand" name="brand"><option value="">Todas</option>{% for brand in filter_options.brands %}<option {% if brand in selected_filters.brands %}selected{% endif %}>{{ brand }}</option>{% endfor %}</select></div>
+      <div><label for="availability">Disponibilidade</label><select id="availability" name="availability"><option value="">Todas</option>{% for state in filter_options.availability %}<option value="{{ state }}" {% if state in selected_filters.availability %}selected{% endif %}>{{ state|replace('_', ' ')|capitalize }}</option>{% endfor %}</select></div>
+      <button type="submit">Aplicar filtros</button><a href="/catalogos">Limpar</a>
+    </form>
+    <div class="catalog-heading"><p><strong>{{ "{:,}".format(catalog.total).replace(',', '.') }}</strong> ofertas encontradas</p><span>Página {{ catalog.page }} de {{ catalog.pages }}</span></div>
+    <section class="catalog-grid" aria-label="Ofertas">
+      {% for offer in catalog["items"] %}
+      <article class="product-card company-{{ offer.company_code }}">
+        <div class="product-company"><span class="dot" aria-hidden="true"></span>{{ offer.company_name }} {% if offer.company_type == 'nossa' %}<span class="company-focus-badge">Nossa empresa</span>{% endif %}</div>
+        <h2>{{ offer.name }}</h2>
+        <dl><div><dt>Código</dt><dd>{{ offer.external_code }}</dd></div><div><dt>Marca</dt><dd>{{ offer.brand or 'Não informada' }}</dd></div><div><dt>Disponibilidade</dt><dd>{{ offer.availability|replace('_', ' ')|capitalize }}</dd></div></dl>
+        <div class="prices">
+          {% if offer.prices.venda is not none %}<span>Venda <strong>R$ {{ "%.2f"|format(offer.prices.venda) }}</strong></span>{% endif %}
+          {% if offer.prices.pix is not none %}<span>Pix <strong>R$ {{ "%.2f"|format(offer.prices.pix) }}</strong></span>{% endif %}
+          {% if offer.prices.cartao is not none %}<span>Cartão <strong>R$ {{ "%.2f"|format(offer.prices.cartao) }}</strong></span>{% endif %}
+          {% if offer.prices.venda is none and offer.prices.pix is none and offer.prices.cartao is none %}<span>Preço não informado</span>{% endif %}
+        </div>
+        <a href="/api/v1/products/{{ offer.id }}" target="_blank" rel="noopener">Abrir detalhes em nova aba</a>
+      </article>
+      {% else %}<p class="empty-state">Nenhuma oferta corresponde aos filtros.</p>{% endfor %}
+    </section>
+    <nav class="pagination" aria-label="Paginação">
+      {% if catalog.page > 1 %}<a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ catalog.page - 1 }}">← Anterior</a>{% endif %}
+      {% if catalog.page < catalog.pages %}<a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ catalog.page + 1 }}">Próxima →</a>{% endif %}
+    </nav>
+    {% elif title == "Comparador" %}
+      <section class="notice"><strong>Análise automática do catálogo inteiro.</strong><span>As relações são sugestões lexicais auditáveis. Somente revisão humana pode confirmar equivalência comercial.</span></section>
+      <form class="company-switch panel" method="get" action="/comparador"><label for="match-company">Empresa concorrente</label><select id="match-company" name="company">{% for company in matching.companies %}<option value="{{ company.code }}" {% if matching.selected_company and company.code == matching.selected_company.code %}selected{% endif %}>{{ company.name }}</option>{% endfor %}</select><button type="submit">Exibir análise</button></form>
+      {% if matching.run %}
+      <section class="metric-grid match-metrics" aria-label="Cobertura de correspondências">
+        <article class="metric"><span>Produtos concorrentes</span><strong>{{ "{:,}".format(matching.summary.total).replace(',', '.') }}</strong><small>Catálogo analítico completo</small></article>
+        <article class="metric"><span>No nosso portfólio</span><strong>{{ matching.summary.coverage_percent }}%</strong><small>{{ matching.summary.coverage_count }} confirmados ou sugestões fortes</small></article>
+        <article class="metric"><span>Com algum candidato</span><strong>{{ matching.summary.candidate_percent }}%</strong><small>{{ matching.summary.candidates }} candidatos de menor confiança, além dos fortes</small></article>
+        <article class="metric"><span>Sem candidato</span><strong>{{ "{:,}".format(matching.summary.no_candidate).replace(',', '.') }}</strong><small>Nenhuma relação acima do limiar</small></article>
+      </section>
+      <section class="panel coverage-panel">
+        <div class="panel-heading"><p class="eyebrow">Cobertura estimada</p><h2>Produtos do concorrente encontrados no nosso catálogo</h2></div>
+        <div class="coverage-number">{{ matching.summary.coverage_percent }}%</div>
+        <div class="coverage-track" role="img" aria-label="{{ matching.summary.coverage_percent }} por cento com correspondência forte ou confirmada"><span style="width: {{ matching.summary.coverage_percent }}%"></span></div>
+        <p><strong>{{ matching.summary.confirmed }}</strong> confirmados, <strong>{{ matching.summary.suggested }}</strong> sugestões fortes e <strong>{{ matching.summary.candidates }}</strong> candidatos aguardando revisão. Versão {{ matching.run.algorithm_version }}.</p>
+      </section>
+      <section class="match-list" aria-label="Relações sugeridas">
+        {% for item in matching['items'] %}
+        <article class="panel match-card">
+          <header><span class="match-status status-{{ item.status }}">{{ item.status }}</span><strong>{{ item.confidence_percent }}% de confiança lexical</strong></header>
+          <div class="match-pair">
+            <section class="match-product own-product"><p class="eyebrow">Nosso portfólio · {{ item.own.company }}</p><h2>{{ item.own.name }}</h2><small>{{ item.own.code }} · {{ item.own.brand or 'Marca não informada' }}{% if item.own.brand_raw and item.own.brand_raw != item.own.brand %} (fonte: {{ item.own.brand_raw }}){% endif %}</small></section>
+            <span class="match-arrow" aria-hidden="true">↔</span>
+            <section class="match-product"><p class="eyebrow">{{ matching.selected_company.name }}</p><h2>{{ item.competitor.name }}</h2><small>{{ item.competitor.code }} · {{ item.competitor.brand or 'Marca não informada' }}{% if item.competitor.brand_raw and item.competitor.brand_raw != item.competitor.brand %} (fonte: {{ item.competitor.brand_raw }}){% endif %}</small></section>
+          </div>
+          <div class="automatic-price-analysis">
+            <div><span>Nosso preço de referência</span><strong>{% if item.price.own.amount is not none %}R$ {{ "%.2f"|format(item.price.own.amount) }} · {{ item.price.own.modality }}{% else %}Não informado{% endif %}</strong></div>
+            <div><span>Preço concorrente</span><strong>{% if item.price.competitor.amount is not none %}R$ {{ "%.2f"|format(item.price.competitor.amount) }} · {{ item.price.competitor.modality }}{% else %}Não informado{% endif %}</strong></div>
+            <div><span>Posição do nosso preço</span><strong class="price-position position-{{ item.price.our_position }}">{% if item.price.difference_percent is not none %}Nosso preço está {{ item.price.our_position }}{% else %}Não comparável{% endif %}</strong>{% if item.price.difference_percent is not none %}<small>Concorrente {{ "%+.1f"|format(item.price.difference_percent) }}% contra nossa referência</small>{% endif %}</div>
+          </div>
+          {% if item.price.difference_percent is not none and not item.price.same_modality %}<p class="price-warning">Indicador nominal entre modalidades diferentes ({{ item.price.own.modality }} × {{ item.price.competitor.modality }}); não representa margem nem equivalência de condições comerciais.</p>{% endif %}
+          <details><summary>Por que o algoritmo relacionou estes itens?</summary><p>Modelos coincidentes: {{ item.reasons.shared_model_tokens|join(', ') or 'nenhum' }}. Similaridade dos termos do nome: {{ (item.reasons.name_token_similarity * 100)|round(1) }}%. Marca igual: {{ 'sim' if item.reasons.brand_equal else 'não' }}.</p></details>
+        </article>
+        {% else %}<section class="panel empty-state-panel"><h2>Nenhum candidato encontrado</h2><p>A execução terminou sem relações acima do limiar conservador.</p></section>{% endfor %}
+      </section>
+      {% else %}<section class="panel empty-state-panel"><h2>Análise ainda não executada</h2><p>Execute o processo de correspondência para esta empresa. Nenhuma equivalência será confirmada automaticamente.</p></section>{% endif %}
+    {% else %}
+    <section class="panel empty-state-panel">
+      <div class="empty-icon" aria-hidden="true">◇</div>
+      <h2>{{ title }}</h2>
+      <p>Esta área já possui rota própria e controle de sessão. A funcionalidade de domínio será implementada na fase correspondente.</p>
+      <a class="button-secondary" href="/">Voltar à visão geral</a>
+    </section>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}
