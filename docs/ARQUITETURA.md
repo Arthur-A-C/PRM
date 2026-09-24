@@ -11,6 +11,7 @@ Monólito modular FastAPI no mesmo domínio da interface Jinja2. PostgreSQL é o
 - `app/models/`: modelo relacional SQLAlchemy.
 - `app/services/`: autenticação, senhas e tokens sem dependência da camada HTTP.
 - `app/services/catalog_import.py`: leitura XLSX sequencial, prévia validada e publicação transacional.
+- `app/services/catalog_treatment.py`: tratamento determinístico de futuros dados brutos e leitura segura dos campos das planilhas já tratadas.
 - `app/repositories/catalog.py`: consultas, filtros, ordenação com empresas próprias primeiro e prévia do comparador.
 - `app/repositories/comparisons.py`: persistência ordenada de comparações exploratórias.
 - `app/services/catalog_matching.py`: normalização, recuperação por índice invertido e pontuação lexical sem serviço externo.
@@ -18,6 +19,7 @@ Monólito modular FastAPI no mesmo domínio da interface Jinja2. PostgreSQL é o
 - `app/routers/`: API versionada, health checks e páginas HTML.
 - `migrations/`: evolução aditiva do esquema por Alembic.
 - `scripts/`: entrada operacional explícita para Windows.
+- `scripts/import_pipeline_enrichment.py`: prévia e publicação dos atributos tratados, associados por empresa e código externo.
 
 ## Fluxo de autenticação
 
@@ -34,3 +36,7 @@ A migração `20260922_0004` adiciona a oferta de referência à comparação e 
 A migração `20260922_0005` adiciona `catalog_match_runs` e `catalog_matches`. Cada execução registra versão e parâmetros; cada candidato preserva pontuação, ordem, fatores explicativos e estado de revisão. O processamento é local e usa índice invertido para evitar o produto cartesiano completo entre catálogos.
 
 A migração `20260922_0006` adiciona `brand_aliases`, com origem e estado de revisão por organização. O importador resolve aliases antes de criar marcas e preserva o texto original em `offers.brand_raw`. O matcher usa a marca canônica na pontuação; a API expõe separadamente os nomes canônico e bruto para auditoria. A primeira consolidação revisada unifica `NEW ELFIN SRL` em `ELFIN` sem alterar a origem declarada das ofertas.
+
+A migração `20260923_0007` adiciona `offer_enrichments`. A oferta mantém sua fonte e preços originais; o enriquecimento guarda família, modelo, códigos de busca, atributos e proveniência separadamente. A importação bruta trata cada oferta nova ou alterada na mesma transação, antes de disparar a correspondência. Uma planilha externa já tratada pode substituir somente essa camada por código externo, com validação de cobertura e SHA-256. O matcher `lexical-v1.3` utiliza os sinais tratados de ambas as partes, registra motivos e penaliza incompatibilidades técnicas críticas. Não executamos scripts externos do ZIP nem importamos seus cruzamentos previamente calculados.
+
+O dashboard agrega `offer_enrichments` por empresa sobre o recorte analítico e separa a origem `pipeline` do tratamento de regra. O relatório da última execução agrupa apenas relações principais `confirmado`/`sugerido` pelas empresas próprias; o funil mantém candidatos separados da cobertura forte. Até três pares fortes são carregados com preços para destaque, reutilizando o cálculo nominal do comparador e sem declarar margem quando as modalidades diferem.

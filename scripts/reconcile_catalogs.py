@@ -56,6 +56,7 @@ QUERIES = {
                (SELECT count(*) FROM comparison_items) AS comparison_items,
                (SELECT count(*) FROM attribute_definitions) AS attribute_definitions,
                (SELECT count(*) FROM offer_attributes) AS offer_attributes,
+               (SELECT count(*) FROM offer_enrichments) AS offer_enrichments,
                (SELECT count(*) FROM catalog_match_runs) AS catalog_match_runs,
                (SELECT count(*) FROM catalog_matches) AS catalog_matches,
                (SELECT count(*) FROM users) AS users,

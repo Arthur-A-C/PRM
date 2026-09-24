@@ -49,9 +49,17 @@ def main() -> None:
             if response.status_code != 200:
                 raise RuntimeError(f"{name} retornou HTTP {response.status_code}")
             print(f"{name}: HTTP 200 ({len(response.content)} bytes)")
-        own_types = [item["type"] for item in checks["summary_api"].json()["company_counts"]]
+        summary = checks["summary_api"].json()
+        own_types = [item["type"] for item in summary["company_counts"]]
         if own_types[:2] != ["nossa", "nossa"] or own_types[-1:] != ["concorrente"]:
             raise RuntimeError("Empresas próprias não aparecem primeiro no dashboard.")
+        if summary["treated_offers"] != sum(item["treated_count"] for item in summary["company_counts"]):
+            raise RuntimeError("Total de ofertas tratadas diverge do detalhamento por empresa.")
+        if summary["pipeline_offers"] != sum(item["pipeline_count"] for item in summary["company_counts"]):
+            raise RuntimeError("Total do pipeline diverge do detalhamento por empresa.")
+        dashboard_html = checks["dashboard"].text
+        if "Catálogo tratado" not in dashboard_html or dashboard_html.find("Nossas empresas") > dashboard_html.find("Outras empresas"):
+            raise RuntimeError("Dashboard não apresenta tratamento ou prioridade das nossas empresas.")
 
         comparison_page = client.get("/comparador?company=eco-automacao")
         comparison_api = client.get(
@@ -62,6 +70,12 @@ def main() -> None:
         matching = comparison_api.json()
         if matching["summary"]["total"] != 7944 or not matching["items"]:
             raise RuntimeError("Análise automática não retornou a cobertura esperada.")
+        if sum(item["strong_count"] for item in matching["own_portfolio"]) != matching["summary"]["coverage_count"]:
+            raise RuntimeError("Sugestões fortes por empresa divergem da cobertura.")
+        if "Sugestões fortes por empresa própria" not in dashboard_html:
+            raise RuntimeError("Nova análise não aparece no dashboard.")
+        if matching["summary"]["coverage_count"] and "Preços em até três sugestões fortes" not in dashboard_html:
+            raise RuntimeError("Destaques de preço não aparecem no dashboard.")
         if any(item["own"]["company_code"] == "eco-automacao" for item in matching["items"]):
             raise RuntimeError("Concorrente apareceu como oferta do nosso portfólio.")
         elfin_match = next(

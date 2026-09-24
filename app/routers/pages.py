@@ -77,9 +77,12 @@ def render_shell(request: Request, settings: AppSettings, title: str):
         }
         if title == "Visão geral":
             page_context["summary"] = dashboard_summary(db, auth.user.organization_id)
-            page_context["matching"] = catalog_match_report(
-                db, auth.user.organization_id, limit=1
-            )
+            matching = catalog_match_report(db, auth.user.organization_id, limit=3)
+            matching["price_highlights"] = [
+                item for item in matching["items"]
+                if item["status"] in ("confirmado", "sugerido")
+            ]
+            page_context["matching"] = matching
         elif title == "Catálogos":
             query = request.query_params
             try:

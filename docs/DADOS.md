@@ -78,9 +78,25 @@ A migração `20260922_0006` introduziu `brand_aliases`. A importação consulta
 
 O primeiro caso revisado consolida `ELFIN` e `NEW ELFIN SRL` sob a marca canônica `ELFIN`: 14 ofertas vieram como `ELFIN` e 447 como `NEW ELFIN SRL`. O banco passou de 420 para 419 marcas canônicas e possui 2 aliases revisados. Novas variantes devem ser cadastradas explicitamente; similaridade textual isolada não funde marcas automaticamente.
 
+## Saídas tratadas recebidas em 23/09/2026
+
+Os três arquivos `Produtos-Choice.xlsx`, `Produtos-Portwell.xlsx` e `Produtos-ECO.xlsx`, recebidos junto de `PRM_Pipeline.zip`, foram inspecionados sem executar código do ZIP. As saídas foram copiadas, com hash conferido, para `data/imports/treated/` (pasta local ignorada pelo Git). Os arquivos brutos já publicados, preços, linhas de auditoria e descrições originais foram preservados. A planilha Eco tratada não contém a descrição bruta; substituí-la integralmente faria perder esse dado. Seus resultados de cruzamento pré-calculados também não são importados, pois cobrem apenas a Choice, enquanto a aplicação compara todas as empresas próprias.
+
+| Saída tratada | Aba | Linhas | SHA-256 | Ofertas associadas |
+|---|---|---:|---|---:|
+| Choice | `Base_PRM` | 16.894 | `43c77a20f1aa556ac4f2641c020fec587921ef69359dc5ee2512d816f1392c82` | 16.886 |
+| Portwell | `Base_PRM` | 10.960 | `cd52a69ed6b1cb9462a13e747cb8a41fa2d3a9ec3024fdce38a09dda0a1b0b63` | 10.955 |
+| Eco | `Base_ECO` | 7.945 | `9b4f2b4edd0c83870c8bc8ae7e4712cac1b0b9d0551b1db05f7ca98b5e4d179d` | 7.945 |
+
+A migração `20260923_0007` adicionou `offer_enrichments`, uma camada por oferta com família/grupo, modelo, título normalizado, códigos de busca, atributos técnicos, confiança e proveniência (arquivo, SHA-256, linha). A associação exige ao menos 90% dos códigos da saída presentes na empresa selecionada. As oito linhas Choice sem nome, duas linhas Portwell inválidas e três duplicidades Portwell não criam ofertas novas. A relação é sempre por empresa + código externo, nunca por posição de linha.
+
+O importador bruto cria ou atualiza automaticamente um tratamento determinístico e conservador antes de recalcular o comparador. Ele extrai apenas sinais verificáveis do texto disponível, incluindo família, modelo, tensão e grau IP; não inventa especificações ausentes. Se a saída tratada for publicada, seus campos substituem o tratamento de regra para a mesma oferta, mantendo os campos brutos e preços intactos. Uma reimportação que altera somente preço conserva o enriquecimento; mudança de conteúdo relevante invalida o enriquecimento anterior e aplica novamente as regras locais até que uma nova saída tratada seja publicada. O comando de publicação é `python -m scripts.import_pipeline_enrichment --company <codigo> --commit`; a prévia omite `--commit`.
+
+O ZIP contém etapas externas de enriquecimento e cruzamento, inclusive dependências e acesso a fontes fora da aplicação. Seus métodos determinísticos pertinentes foram adaptados; raspagem externa, arquivos `pickle` e o cruzamento Choice-only do ZIP não são executados nem necessários no fluxo operacional. Para obter a mesma riqueza de atributos em catálogos futuros, produza uma nova saída tratada e publique-a pelo comando acima. O fallback automático de texto bruto é propositalmente menos completo.
+
 ## Correspondência automática integral
 
-O algoritmo local `lexical-v1.2.1` prepara nomes, descrições, marcas canônicas, referências e códigos do fabricante. Um índice invertido recupera somente candidatos que compartilham termos informativos; a pontuação combina modelo/código, termos do nome, similaridade textual, cobertura e marca. Medidas e características genéricas como tensão, dimensão, decibéis e grau IP são removidas da lista de identificadores de modelo.
+O algoritmo local `lexical-v1.3` prepara nomes, descrições, marcas canônicas, referências, códigos do fabricante e os sinais tratados. Um índice invertido recupera candidatos que compartilham termos informativos; a pontuação combina modelo/código, termos do nome, similaridade textual, cobertura, marca, família e atributos compatíveis. Conflitos em atributos críticos impedem sugestão forte. Medidas e padrões genéricos como tensão, dimensão, decibéis, grau IP, CAT5E e AWG não são identificadores de modelo.
 
 - Pontuação a partir de `0,68` e ao menos um modelo/código compartilhado: `sugerido`, ainda sujeito a revisão humana.
 - Pontuação entre `0,38` e `0,68`: `candidato`, separado da cobertura principal.
@@ -89,4 +105,4 @@ O algoritmo local `lexical-v1.2.1` prepara nomes, descrições, marcas canônica
 - Uma nova execução não apaga o histórico anterior.
 - Na análise automática, nosso preço preferencial é a base: `(preço concorrente - preço nosso) / preço nosso * 100`. Positivo indica nosso preço abaixo do concorrente; negativo, acima. Se as modalidades diferirem, o resultado é explicitamente nominal.
 
-Execução Eco `lexical-v1.2.1`: 7.944 produtos analisados contra 27.841 ofertas próprias; 9 sugestões fortes (0,11%), 304 candidatos adicionais e 7.631 sem candidato acima do limiar. Esses números refletem o algoritmo, não equivalências humanas confirmadas.
+Os números da execução atual ficam em `STATUS.md`. Resultados são algorítmicos, não equivalências humanas confirmadas.

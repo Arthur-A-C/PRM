@@ -8,7 +8,8 @@ Este repositório contém o código e a documentação da primeira entrega (`0.1
 
 - Login individual, sessões e páginas protegidas.
 - Importação auditável de planilhas XLSX da Eco Automação, Portwell e Choice Tech, com prévia, validação e proteção contra reimportação idêntica.
-- Dashboard e catálogo com busca, filtros, preços e origem de cada oferta. Nossas empresas aparecem primeiro nas listas.
+- Tratamento automático conservador de novos produtos (família, modelo e especificações detectáveis) e enriquecimento opcional com as saídas tratadas do `PRM_Pipeline`, sem perder as fontes originais.
+- Dashboard com nossos catálogos em primeiro plano, cobertura do tratamento por empresa, funil de correspondência da concorrente e destaques nominais de preço; catálogo com busca, filtros e origem de cada oferta.
 - Análise automática do catálogo concorrente inteiro contra o portfólio próprio, com sugestões, candidatos, cobertura e posição nominal de preços.
 - Marcas canônicas com aliases revisáveis; `ELFIN` e `NEW ELFIN SRL` são reconhecidas como a mesma marca, preservando o texto original da fonte.
 - API `/api/v1`, migrações Alembic e testes automatizados.
@@ -57,6 +58,17 @@ Repita com `--company portwell` e `--company choice-tech`. A publicação nova r
 
 Sem `--commit`, esses comandos fazem uma prévia e não gravam o lote ou uma nova análise. Detalhes sobre formato, regras e contagens das planilhas estão em [Dados](docs/DADOS.md).
 
+Para aproveitar arquivos já tratados pelo pipeline, mantenha os XLSX originais em `data/imports/` e coloque `Produtos-Choice.xlsx`, `Produtos-Portwell.xlsx` e `Produtos-ECO.xlsx` em `data/imports/treated/`. Após publicar os lotes originais, execute a prévia e a associação por código externo:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.import_pipeline_enrichment --company choice-tech
+.\.venv\Scripts\python.exe -m scripts.import_pipeline_enrichment --company choice-tech --commit --skip-matching
+.\.venv\Scripts\python.exe -m scripts.import_pipeline_enrichment --company portwell --commit --skip-matching
+.\.venv\Scripts\python.exe -m scripts.import_pipeline_enrichment --company eco-automacao --commit
+```
+
+O último comando recalcula a análise; sem `--commit`, a operação é apenas uma prévia. Para qualquer importação futura de dados brutos, o tratamento automático ocorre antes da comparação. Quando houver uma nova saída tratada do pipeline, publique-a com esse mesmo comando para incorporar seus atributos adicionais. O ZIP externo não é executado pela aplicação; veja os limites em [Dados](docs/DADOS.md).
+
 ## Verificações
 
 ```powershell
@@ -65,7 +77,7 @@ Sem `--commit`, esses comandos fazem uma prévia e não gravam o lote ou uma nov
 .\.venv\Scripts\python.exe -m scripts.reconcile_catalogs
 ```
 
-O último conjunto verificado em 23/09/2026 teve 17 testes aprovados, migração `20260922_0006` e 35.786 ofertas no banco local. Esses números dependem dos catálogos importados e não aparecem em um banco recém-criado.
+O último conjunto verificado em 23/09/2026 teve 21 testes aprovados, migração `20260923_0007` e 35.786 ofertas no banco local. Esses números dependem dos catálogos importados e não aparecem em um banco recém-criado.
 
 ## Documentação
 

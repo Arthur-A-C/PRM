@@ -2,11 +2,11 @@ import re
 import unicodedata
 import uuid
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 
 
-ALGORITHM_VERSION = "lexical-v1.2.1"
+ALGORITHM_VERSION = "lexical-v1.3"
 BRAND_ALIAS_KEYS = {
     "new elfin": "elfin",
     "new elfin srl": "elfin",
@@ -24,6 +24,7 @@ COMPOSITE_MEASUREMENT_TOKEN = re.compile(
     r"^(?:\d+(?:x\d+)+(?:mm|cm|m)?|m\d+x\d+(?:[.,]\d+)?|\d+v(?:cc|ca|dc|ac|cacc)?\d+a)$"
 )
 GENERIC_MODEL_TOKENS = {"ethernet", "modbus", "profinet", "profibus", "rs232", "rs485"}
+GENERIC_PRODUCT_STANDARD = re.compile(r"^(?:ip\d{2,3}[a-z]?){2,}$|^cat\d+[a-z]?$|^\d+awg$|^win\d+$|^ba\d+[a-z]$")
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,12 @@ class MatchOffer:
     reference: str | None
     description: str | None
     category: str | None
+    family: str | None = None
+    family_group: str | None = None
+    model_reference: str | None = None
+    search_codes: tuple[str, ...] = ()
+    attributes: dict[str, str] = field(default_factory=dict)
+    normalized_title: str | None = None
 
 
 @dataclass(frozen=True)
@@ -49,6 +56,9 @@ class PreparedOffer:
     name_tokens: frozenset[str]
     content_tokens: frozenset[str]
     model_tokens: frozenset[str]
+    explicit_model_tokens: frozenset[str]
+    normalized_family_group: str
+    attributes: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -94,6 +104,7 @@ def model_tokens(value: str | None) -> frozenset[str]:
         and not MEASUREMENT_TOKEN.fullmatch(compact)
         and not COMPOSITE_MEASUREMENT_TOKEN.fullmatch(compact)
         and compact not in GENERIC_MODEL_TOKENS
+        and not GENERIC_PRODUCT_STANDARD.fullmatch(compact)
     )
 
 
@@ -113,15 +124,20 @@ def prepare_offer(offer: MatchOffer) -> PreparedOffer:
         )
         if value
     )
+    explicit_models = model_tokens(" ".join((offer.model_reference or "", *offer.search_codes)))
+    broad_models = model_tokens(
+        f"{offer.name} {identifiers} {(offer.description or '')[:2000]}"
+    )
     return PreparedOffer(
         offer=offer,
         normalized_name=normalize_text(offer.name),
         normalized_brand=normalize_brand(offer.brand),
         name_tokens=name_tokens,
-        content_tokens=text_tokens(content),
-        model_tokens=model_tokens(
-            f"{offer.name} {identifiers} {(offer.description or '')[:2000]}"
-        ),
+        content_tokens=text_tokens(content + " " + (offer.normalized_title or "")),
+        model_tokens=broad_models | explicit_models,
+        explicit_model_tokens=explicit_models,
+        normalized_family_group=normalize_text(offer.family_group),
+        attributes={key: normalize_text(value) for key, value in offer.attributes.items() if value},
     )
 
 
@@ -136,6 +152,7 @@ def _coverage(query: frozenset[str], candidate: frozenset[str]) -> float:
 
 def score_pair(competitor: PreparedOffer, own: PreparedOffer) -> tuple[float, dict]:
     shared_models = competitor.model_tokens & own.model_tokens
+    shared_explicit_models = competitor.explicit_model_tokens & own.explicit_model_tokens
     model_score = (
         len(shared_models) / min(len(competitor.model_tokens), len(own.model_tokens))
         if competitor.model_tokens and own.model_tokens
@@ -149,6 +166,27 @@ def score_pair(competitor: PreparedOffer, own: PreparedOffer) -> tuple[float, di
     brand_equal = bool(
         competitor.normalized_brand
         and competitor.normalized_brand == own.normalized_brand
+    )
+    family_group_equal = bool(
+        competitor.normalized_family_group
+        and competitor.normalized_family_group == own.normalized_family_group
+        and competitor.normalized_family_group not in {"kit", "sistema", "produto teste"}
+    )
+    family_group_conflict = bool(
+        competitor.normalized_family_group and own.normalized_family_group
+        and competitor.normalized_family_group != own.normalized_family_group
+        and competitor.normalized_family_group not in {"kit", "sistema"}
+        and own.normalized_family_group not in {"kit", "sistema"}
+    )
+    common_attributes = competitor.attributes.keys() & own.attributes.keys()
+    agreeing_attributes = sorted(
+        key for key in common_attributes
+        if competitor.attributes[key] == own.attributes[key]
+    )
+    critical = {"protecao_ip", "numero_de_polos", "cor", "contatos", "modelo"}
+    conflicting_attributes = sorted(
+        key for key in common_attributes & critical
+        if competitor.attributes[key] != own.attributes[key]
     )
 
     if shared_models:
@@ -166,8 +204,18 @@ def score_pair(competitor: PreparedOffer, own: PreparedOffer) -> tuple[float, di
             + 0.15 * float(brand_equal)
             + 0.10 * content_coverage
         )
+    score += 0.07 * bool(shared_explicit_models)
+    score += 0.04 * family_group_equal
+    score += min(len(agreeing_attributes), 3) * 0.015
+    score -= 0.07 * family_group_conflict
+    score -= min(len(conflicting_attributes), 2) * 0.10
     reasons = {
         "shared_model_tokens": sorted(shared_models),
+        "shared_explicit_model_tokens": sorted(shared_explicit_models),
+        "family_group_equal": family_group_equal,
+        "family_group_conflict": family_group_conflict,
+        "agreeing_attributes": agreeing_attributes,
+        "conflicting_attributes": conflicting_attributes,
         "model_score": round(model_score, 4),
         "name_token_similarity": round(name_jaccard, 4),
         "name_text_similarity": round(name_similarity, 4),
@@ -176,7 +224,7 @@ def score_pair(competitor: PreparedOffer, own: PreparedOffer) -> tuple[float, di
         "competitor_brand_normalized": competitor.normalized_brand or None,
         "own_brand_normalized": own.normalized_brand or None,
     }
-    return round(score, 5), reasons
+    return round(max(0.0, min(score, 1.0)), 5), reasons
 
 
 def match_catalogs(
@@ -242,6 +290,7 @@ def match_catalogs(
                     suggested=(
                         score >= suggested_score
                         and bool(reasons["shared_model_tokens"])
+                        and not reasons["conflicting_attributes"]
                     ),
                     reasons=reasons,
                 )

@@ -166,6 +166,30 @@ class Offer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     exclusion_reason: Mapped[str | None] = mapped_column(String(500))
 
 
+class OfferEnrichment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "offer_enrichments"
+    __table_args__ = (
+        UniqueConstraint("offer_id", name="uq_offer_enrichments_offer"),
+        CheckConstraint("source IN ('regra', 'pipeline')", name="source_allowed"),
+    )
+
+    offer_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("offers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_filename: Mapped[str | None] = mapped_column(String(255))
+    source_sha256: Mapped[str | None] = mapped_column(String(64))
+    source_row: Mapped[int | None] = mapped_column(Integer)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    family: Mapped[str | None] = mapped_column(String(255))
+    family_group: Mapped[str | None] = mapped_column(String(255))
+    model_reference: Mapped[str | None] = mapped_column(String(255))
+    normalized_title: Mapped[str | None] = mapped_column(Text)
+    search_codes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    attributes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+
+
 class ImportRow(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "import_rows"
     __table_args__ = (

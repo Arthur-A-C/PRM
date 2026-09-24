@@ -8,6 +8,7 @@ from app.models.catalog import (
     ImportRow,
     Offer,
     OfferAttribute,
+    OfferEnrichment,
     OfferObservation,
     OfferPrice,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "LoginSession",
     "Offer",
     "OfferAttribute",
+    "OfferEnrichment",
     "OfferObservation",
     "OfferPrice",
     "Organization",

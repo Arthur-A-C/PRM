@@ -15,6 +15,7 @@ from app.models import (
     ImportRow,
     Offer,
     OfferAttribute,
+    OfferEnrichment,
     OfferObservation,
     OfferPrice,
 )
@@ -263,6 +264,9 @@ def dashboard_summary(db: Session, organization_id: uuid.UUID) -> dict:
             "name": row.name,
             "type": row.company_type,
             "count": row.count,
+            "treated_count": row.treated_count,
+            "pipeline_count": row.pipeline_count,
+            "treatment_percent": round(row.treated_count * 100 / row.count, 1) if row.count else 0,
         }
         for row in db.execute(
             select(
@@ -270,8 +274,11 @@ def dashboard_summary(db: Session, organization_id: uuid.UUID) -> dict:
                 Company.name,
                 Company.company_type,
                 func.count(Offer.id).label("count"),
+                func.count(OfferEnrichment.id).label("treated_count"),
+                func.count(OfferEnrichment.id).filter(OfferEnrichment.source == "pipeline").label("pipeline_count"),
             )
             .outerjoin(Offer, and_(Offer.company_id == Company.id, *base))
+            .outerjoin(OfferEnrichment, OfferEnrichment.offer_id == Offer.id)
             .where(Company.organization_id == organization_id, Company.active.is_(True))
             .group_by(Company.id)
             .order_by(*company_focus_order())
@@ -299,6 +306,8 @@ def dashboard_summary(db: Session, organization_id: uuid.UUID) -> dict:
     ]
     missing_brand = db.scalar(select(func.count()).select_from(Offer).where(*base, Offer.brand_id.is_(None))) or 0
     no_valid_price = (totals.offers or 0) - (totals.with_price or 0)
+    treated_offers = sum(company["treated_count"] for company in company_counts)
+    pipeline_offers = sum(company["pipeline_count"] for company in company_counts)
     return {
         "offers": totals.offers or 0,
         "companies": totals.companies or 0,
@@ -307,6 +316,9 @@ def dashboard_summary(db: Session, organization_id: uuid.UUID) -> dict:
         "price_coverage": round((totals.with_price or 0) * 100 / totals.offers, 1) if totals.offers else 0,
         "missing_brand": missing_brand,
         "no_valid_price": no_valid_price,
+        "treated_offers": treated_offers,
+        "pipeline_offers": pipeline_offers,
+        "treatment_percent": round(treated_offers * 100 / totals.offers, 1) if totals.offers else 0,
         "company_counts": company_counts,
         "availability": availability,
         "top_brands": top_brands,

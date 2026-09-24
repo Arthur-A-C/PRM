@@ -1,6 +1,6 @@
 import uuid
 
-from app.services.catalog_matching import MatchOffer, match_catalogs, normalize_brand, normalize_text
+from app.services.catalog_matching import MatchOffer, match_catalogs, model_tokens, normalize_brand, normalize_text
 
 
 def offer(
@@ -9,6 +9,7 @@ def offer(
     *,
     brand: str | None = None,
     manufacturer_code: str | None = None,
+    **extra,
 ) -> MatchOffer:
     return MatchOffer(
         id=uuid.uuid4(),
@@ -22,6 +23,7 @@ def offer(
         reference=None,
         description=None,
         category=None,
+        **extra,
     )
 
 
@@ -61,6 +63,11 @@ def test_matching_does_not_treat_measurement_as_model_identifier() -> None:
     assert matches == []
 
 
+def test_common_standards_are_not_model_identifiers() -> None:
+    assert model_tokens("CAT5E IP66/IP69K WIN10 16AWG BA15D") == frozenset()
+    assert model_tokens("SI-12345") == frozenset({"si12345"})
+
+
 def test_same_brand_and_similar_name_without_model_stays_candidate() -> None:
     competitor = offer("eco", "Bloco de contato NA 030FA", brand="ELFIN")
     own = offer("choice", "020E01 bloco de contato NF", brand="NEW ELFIN SRL")
@@ -69,4 +76,24 @@ def test_same_brand_and_similar_name_without_model_stays_candidate() -> None:
 
     assert matches
     assert matches[0].reasons["brand_equal"] is True
+    assert matches[0].suggested is False
+
+
+def test_conflicting_pipeline_spec_blocks_strong_suggestion() -> None:
+    competitor = offer(
+        "eco", "Sensor indutivo SI-12345 IP67", brand="Marca A",
+        model_reference="SI-12345", search_codes=("SI-12345",),
+        family_group="Sensores", attributes={"protecao_ip": "IP67"},
+    )
+    own = offer(
+        "portwell", "Sensor indutivo SI-12345 IP65", brand="Marca A",
+        model_reference="SI-12345", search_codes=("SI-12345",),
+        family_group="Sensores", attributes={"protecao_ip": "IP65"},
+    )
+
+    matches = match_catalogs([competitor], [own], minimum_score=0.2)
+
+    assert matches
+    assert matches[0].reasons["shared_explicit_model_tokens"] == ["si12345"]
+    assert matches[0].reasons["conflicting_attributes"] == ["protecao_ip"]
     assert matches[0].suggested is False

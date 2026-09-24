@@ -1,5 +1,20 @@
 # Changelog
 
+## Dashboard de análises tratadas — 2026-09-24
+
+- Dashboard prioriza Choice Tech e Portwell e mostra ofertas tratadas e enriquecidas pelo pipeline em cada empresa.
+- Análise concorrente ganha funil com sugestões fortes, candidatos e produtos sem candidato, além de distribuição das sugestões por empresa própria.
+- Até três sugestões fortes exibem nossos preços e os do concorrente, com alerta para comparação nominal entre modalidades distintas.
+- API de resumo e relatório de correspondências expõem os agregados necessários; smoke autenticado verifica reconciliação, ordem e novos componentes.
+
+## Tratamento de catálogos — 2026-09-23
+
+- Três planilhas enriquecidas do `PRM_Pipeline` inspecionadas e associadas às 35.786 ofertas sem substituir fontes brutas ou preços.
+- Migração `20260923_0007` cria a camada `offer_enrichments`, com família, modelo, atributos e proveniência do tratamento.
+- Novas importações brutas passam por tratamento determinístico antes da comparação; saídas tratadas futuras podem ser publicadas com prévia e validação por código.
+- Matcher `lexical-v1.3` utiliza características tratadas, penaliza incompatibilidades técnicas e evita padrões genéricos como falso modelo.
+- Backup do banco criado antes da migração; testes e documentação operacional atualizados.
+
 ## Documentação do marco 0.1.0 — 2026-09-23
 
 - README ampliado para apresentar a aplicação, preparar o ambiente Windows, importar catálogos, verificar o banco e localizar a documentação técnica.

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_engine
-from app.models import Brand, CatalogMatch, CatalogMatchRun, Company, Offer
+from app.models import Brand, CatalogMatch, CatalogMatchRun, Company, Offer, OfferEnrichment
 from app.services.catalog_matching import ALGORITHM_VERSION, MatchOffer, match_catalogs
 
 
@@ -31,9 +31,16 @@ def load_offers(
             Offer.reference,
             Offer.description_display,
             Offer.category_raw,
+            OfferEnrichment.family,
+            OfferEnrichment.family_group,
+            OfferEnrichment.model_reference,
+            OfferEnrichment.search_codes,
+            OfferEnrichment.attributes,
+            OfferEnrichment.normalized_title,
         )
         .join(Company, Company.id == Offer.company_id)
         .outerjoin(Brand, Brand.id == Offer.brand_id)
+        .outerjoin(OfferEnrichment, OfferEnrichment.offer_id == Offer.id)
         .where(
             Offer.active.is_(True),
             Offer.excluded_from_analytics.is_(False),
@@ -58,6 +65,12 @@ def load_offers(
             reference=row.reference,
             description=row.description_display,
             category=row.category_raw,
+            family=row.family,
+            family_group=row.family_group,
+            model_reference=row.model_reference,
+            search_codes=tuple(row.search_codes or ()),
+            attributes=row.attributes or {},
+            normalized_title=row.normalized_title,
         )
         for row in db.execute(statement)
     ]

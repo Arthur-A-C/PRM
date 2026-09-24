@@ -34,17 +34,16 @@
       <strong>Dados publicados.</strong>
       <span>Indicadores calculados sobre ofertas ativas; uma exclusão analítica reversível não entra nos totais.</span>
     </section>
-    <section class="metric-grid" aria-label="Indicadores">
+    <section class="metric-grid dashboard-metrics" aria-label="Indicadores">
       <article class="metric"><span>Ofertas no recorte</span><strong>{{ "{:,}".format(summary.offers).replace(',', '.') }}</strong><small>Ativas, sem exclusões analíticas</small></article>
       <article class="metric"><span>Empresas com catálogo</span><strong>{{ summary.companies }}</strong><small>Empresas próprias em primeiro plano</small></article>
       <article class="metric"><span>Marcas identificadas</span><strong>{{ summary.brands }}</strong><small>Valores canônicos distintos</small></article>
       <article class="metric"><span>Cobertura de preço</span><strong>{{ summary.price_coverage }}%</strong><small>Ao menos uma modalidade válida</small></article>
+      <article class="metric"><span>Catálogo tratado</span><strong>{{ summary.treatment_percent }}%</strong><small>{{ "{:,}".format(summary.pipeline_offers).replace(',', '.') }} ofertas com dados do pipeline</small></article>
     </section>
-    {% if matching.summary %}<section class="panel dashboard-match-summary"><div><p class="eyebrow">Cobertura competitiva automática</p><h2>{{ matching.selected_company.name }}</h2><p><strong>{{ matching.summary.coverage_percent }}%</strong> do catálogo concorrente possui correspondência forte ou confirmada no nosso portfólio. Outros {{ matching.summary.candidates }} candidatos aguardam revisão.</p></div><div class="coverage-track" role="img" aria-label="{{ matching.summary.coverage_percent }} por cento de cobertura"><span style="width: {{ matching.summary.coverage_percent }}%"></span></div><a href="/comparador?company={{ matching.selected_company.code }}">Abrir análise completa</a></section>{% endif %}
-    <section class="dashboard-grid">
-    <div class="panel">
+    <section class="panel" aria-labelledby="portfolio-heading">
       <div class="panel-heading">
-        <div><p class="eyebrow">Cobertura</p><h2>Catálogos por empresa</h2></div>
+        <div><p class="eyebrow">Nosso portfólio em primeiro plano</p><h2 id="portfolio-heading">Catálogos e tratamento por empresa</h2></div>
       </div>
       <div class="company-grid">
         <h3 class="company-group-title">Nossas empresas</h3>
@@ -52,7 +51,7 @@
         {% if company.type == 'nossa' %}
         <article class="company company-{{ company.code }}">
           <span class="dot" aria-hidden="true"></span>
-          <div><strong>{{ company.name }}</strong><p>{{ "{:,}".format(company.count).replace(',', '.') }} ofertas</p></div>
+          <div><strong>{{ company.name }}</strong><p>{{ "{:,}".format(company.count).replace(',', '.') }} ofertas · {{ "{:,}".format(company.treated_count).replace(',', '.') }} tratadas ({{ company.treatment_percent }}%) · {{ "{:,}".format(company.pipeline_count).replace(',', '.') }} pelo pipeline</p></div>
           <a href="/catalogos?company={{ company.code }}">Explorar</a>
         </article>
         {% endif %}
@@ -62,13 +61,46 @@
         {% if company.type != 'nossa' %}
         <article class="company company-{{ company.code }}">
           <span class="dot" aria-hidden="true"></span>
-          <div><strong>{{ company.name }}</strong><p>{{ "{:,}".format(company.count).replace(',', '.') }} ofertas</p></div>
+          <div><strong>{{ company.name }}</strong><p>{{ "{:,}".format(company.count).replace(',', '.') }} ofertas · {{ "{:,}".format(company.treated_count).replace(',', '.') }} tratadas ({{ company.treatment_percent }}%) · {{ "{:,}".format(company.pipeline_count).replace(',', '.') }} pelo pipeline</p></div>
           <a href="/catalogos?company={{ company.code }}">Explorar</a>
         </article>
         {% endif %}
         {% endfor %}
       </div>
-    </div>
+    </section>
+    {% if matching.summary %}
+    <section class="panel dashboard-analysis" aria-labelledby="dashboard-analysis-heading">
+      <div class="panel-heading"><p class="eyebrow">Análise automática · {{ matching.run.algorithm_version }}</p><h2 id="dashboard-analysis-heading">{{ matching.selected_company.name }} frente ao nosso portfólio</h2></div>
+      <p>{{ "{:,}".format(matching.summary.total).replace(',', '.') }} produtos concorrentes analisados. As correspondências ainda são sugestões, não equivalências confirmadas.</p>
+      <div class="analysis-kpis">
+        <div><strong>{{ matching.summary.coverage_percent }}%</strong><span>No nosso portfólio: {{ matching.summary.coverage_count }} sugestões fortes ou confirmadas</span></div>
+        <div><strong>{{ matching.summary.candidates }}</strong><span>Candidatos para revisão</span></div>
+        <div><strong>{{ "{:,}".format(matching.summary.no_candidate).replace(',', '.') }}</strong><span>Sem candidato acima do limiar</span></div>
+      </div>
+      <div class="analysis-track" role="img" aria-label="{{ matching.summary.coverage_count }} correspondências fortes ou confirmadas, {{ matching.summary.candidates }} candidatos e {{ matching.summary.no_candidate }} sem candidato entre {{ matching.summary.total }} produtos concorrentes">
+        <span class="analysis-strong" style="width: {{ matching.summary.coverage_percent }}%"></span><span class="analysis-candidate" style="width: {{ matching.summary.candidate_percent - matching.summary.coverage_percent }}%"></span>
+      </div>
+      <h3>Sugestões fortes por empresa própria</h3>
+      <ul class="bar-list">
+      {% for company in matching.own_portfolio %}
+        <li><span>{{ company.name }}</span><strong>{{ company.strong_count }}</strong></li>
+      {% endfor %}
+      </ul>
+      {% if matching.price_highlights %}
+      <h3>Preços em até três sugestões fortes</h3>
+      <ul class="dashboard-price-list">
+      {% for item in matching.price_highlights %}
+        <li><strong>{{ item.own.company }} · {{ item.own.name }}</strong><span>Nosso preço: {% if item.price.own.amount is not none %}R$ {{ "%.2f"|format(item.price.own.amount) }} ({{ item.price.own.modality }}){% else %}não informado{% endif %} · {{ matching.selected_company.name }}: {% if item.price.competitor.amount is not none %}R$ {{ "%.2f"|format(item.price.competitor.amount) }} ({{ item.price.competitor.modality }}){% else %}não informado{% endif %}.</span><small>{% if item.price.difference_percent is not none %}Nosso preço está {{ item.price.our_position }}; diferença nominal de {{ "%+.1f"|format(item.price.difference_percent) }}%{% if not item.price.same_modality %} entre modalidades diferentes{% endif %}.{% else %}Sem preços suficientes para comparação.{% endif %}</small></li>
+      {% endfor %}
+      </ul>
+      {% endif %}
+      <p class="analysis-note">Cobertura calculada apenas com sugestões fortes e confirmações; candidatos não entram na porcentagem. Consulte os pares e a análise nominal de preços antes de qualquer decisão comercial.</p>
+      <a href="/comparador?company={{ matching.selected_company.code }}">Abrir análise completa e preços</a>
+    </section>
+    {% elif matching.selected_company %}
+    <section class="panel"><p>O catálogo de {{ matching.selected_company.name }} ainda não possui análise publicada.</p></section>
+    {% endif %}
+    <section class="dashboard-grid">
     <div class="panel">
       <div class="panel-heading"><p class="eyebrow">Qualidade</p><h2>Pendências do recorte</h2></div>
       <ul class="quality-list">
@@ -153,7 +185,7 @@
       <section class="match-list" aria-label="Relações sugeridas">
         {% for item in matching['items'] %}
         <article class="panel match-card">
-          <header><span class="match-status status-{{ item.status }}">{{ item.status }}</span><strong>{{ item.confidence_percent }}% de confiança lexical</strong></header>
+          <header><span class="match-status status-{{ item.status }}">{{ item.status }}</span><strong>{{ item.confidence_percent }}% de pontuação de correspondência</strong></header>
           <div class="match-pair">
             <section class="match-product own-product"><p class="eyebrow">Nosso portfólio · {{ item.own.company }}</p><h2>{{ item.own.name }}</h2><small>{{ item.own.code }} · {{ item.own.brand or 'Marca não informada' }}{% if item.own.brand_raw and item.own.brand_raw != item.own.brand %} (fonte: {{ item.own.brand_raw }}){% endif %}</small></section>
             <span class="match-arrow" aria-hidden="true">↔</span>
@@ -165,7 +197,7 @@
             <div><span>Posição do nosso preço</span><strong class="price-position position-{{ item.price.our_position }}">{% if item.price.difference_percent is not none %}Nosso preço está {{ item.price.our_position }}{% else %}Não comparável{% endif %}</strong>{% if item.price.difference_percent is not none %}<small>Concorrente {{ "%+.1f"|format(item.price.difference_percent) }}% contra nossa referência</small>{% endif %}</div>
           </div>
           {% if item.price.difference_percent is not none and not item.price.same_modality %}<p class="price-warning">Indicador nominal entre modalidades diferentes ({{ item.price.own.modality }} × {{ item.price.competitor.modality }}); não representa margem nem equivalência de condições comerciais.</p>{% endif %}
-          <details><summary>Por que o algoritmo relacionou estes itens?</summary><p>Modelos coincidentes: {{ item.reasons.shared_model_tokens|join(', ') or 'nenhum' }}. Similaridade dos termos do nome: {{ (item.reasons.name_token_similarity * 100)|round(1) }}%. Marca igual: {{ 'sim' if item.reasons.brand_equal else 'não' }}.</p></details>
+          <details><summary>Por que o algoritmo relacionou estes itens?</summary><p>Modelos coincidentes: {{ item.reasons.shared_model_tokens|join(', ') or 'nenhum' }}{% if item.reasons.shared_explicit_model_tokens %} (referências tratadas: {{ item.reasons.shared_explicit_model_tokens|join(', ') }}){% endif %}. Similaridade dos termos do nome: {{ (item.reasons.name_token_similarity * 100)|round(1) }}%. Marca igual: {{ 'sim' if item.reasons.brand_equal else 'não' }}. Grupo técnico igual: {{ 'sim' if item.reasons.family_group_equal else 'não' }}. Atributos concordantes: {{ item.reasons.agreeing_attributes|join(', ') or 'nenhum' }}. Divergências técnicas críticas: {{ item.reasons.conflicting_attributes|join(', ') or 'nenhuma' }}.</p></details>
         </article>
         {% else %}<section class="panel empty-state-panel"><h2>Nenhum candidato encontrado</h2><p>A execução terminou sem relações acima do limiar conservador.</p></section>{% endfor %}
       </section>

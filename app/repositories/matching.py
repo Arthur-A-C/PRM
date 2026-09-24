@@ -84,7 +84,7 @@ def catalog_match_report(
         )
     )
     if not competitors:
-        return {"companies": [], "selected_company": None, "run": None, "summary": None, "items": []}
+        return {"companies": [], "selected_company": None, "run": None, "summary": None, "own_portfolio": [], "items": []}
     selected = next(
         (company for company in competitors if company.code == competitor_code), competitors[0]
     )
@@ -105,6 +105,7 @@ def catalog_match_report(
         "selected_company": {"code": selected.code, "name": selected.name},
         "run": None,
         "summary": None,
+        "own_portfolio": [],
         "items": [],
     }
     if run is None:
@@ -144,6 +145,40 @@ def catalog_match_report(
         if run.competitor_total
         else 0,
     }
+
+    own_offer_for_summary = aliased(Offer)
+    base["own_portfolio"] = [
+        {
+            "code": row.code,
+            "name": row.name,
+            "confirmed": row.confirmed,
+            "suggested": row.suggested,
+            "strong_count": row.confirmed + row.suggested,
+        }
+        for row in db.execute(
+            select(
+                Company.code,
+                Company.name,
+                func.count(CatalogMatch.id).filter(CatalogMatch.status == "confirmado").label("confirmed"),
+                func.count(CatalogMatch.id).filter(CatalogMatch.status == "sugerido").label("suggested"),
+            )
+            .outerjoin(own_offer_for_summary, own_offer_for_summary.company_id == Company.id)
+            .outerjoin(
+                CatalogMatch,
+                (CatalogMatch.own_offer_id == own_offer_for_summary.id)
+                & (CatalogMatch.run_id == run.id)
+                & (CatalogMatch.rank == 1)
+                & (CatalogMatch.status.in_(("confirmado", "sugerido"))),
+            )
+            .where(
+                Company.organization_id == organization_id,
+                Company.company_type == "nossa",
+                Company.active.is_(True),
+            )
+            .group_by(Company.id)
+            .order_by(Company.name)
+        )
+    ]
 
     competitor_offer = aliased(Offer)
     own_offer = aliased(Offer)

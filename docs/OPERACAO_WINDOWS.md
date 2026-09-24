@@ -35,4 +35,6 @@ Antes da migração 0005 foi criado `data/backups/prm_mvp_20260922_155755.dump`,
 
 Antes da migração 0006 foi criado `data/backups/prm_mvp_20260922_163117.dump`, com 24.574.218 bytes, SHA-256 `99bf75f5cb896ca0e2601768cb9417df22b37d08da85877ad117090a9a2baa49` e 147 entradas validadas por `pg_restore --list`.
 
+Antes da migração 0007 foi criado `data/backups/prm_mvp_20260923_150939.dump`, com 24.634.582 bytes, SHA-256 `7dd9ac098cbcdf97b8fe9cc88b484bbe7ae2eb2cda67bef68b7316ac394bea8a`; o inventário foi validado por `pg_restore --list`. Os arquivos XLSX tratados ficam em `data/imports/treated/` e, assim como os originais, não são versionados. Antes de publicar nova saída do pipeline, faça a prévia com `python -m scripts.import_pipeline_enrichment --company <codigo>` e confira a correspondência de códigos; `--commit` grava e recalcula as concorrentes.
+
 A restauração ainda deve ser ensaiada em um banco separado; nunca use o banco operacional como ensaio. Mantenha também uma cópia íntegra das planilhas originais fora da máquina.

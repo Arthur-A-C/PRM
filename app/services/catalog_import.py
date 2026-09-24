@@ -27,9 +27,11 @@ from app.models import (
     Company,
     ImportRow,
     Offer,
+    OfferEnrichment,
     OfferObservation,
     OfferPrice,
 )
+from app.services.catalog_treatment import product_content_sha256, treat_raw
 
 
 class CatalogValidationError(ValueError):
@@ -498,6 +500,14 @@ def publish_catalog(
         offer.external_code: offer
         for offer in db.scalars(select(Offer).where(Offer.company_id == company.id))
     }
+    enrichments = {
+        entry.offer_id: entry
+        for entry in db.scalars(
+            select(OfferEnrichment)
+            .join(Offer, Offer.id == OfferEnrichment.offer_id)
+            .where(Offer.company_id == company.id)
+        )
+    }
     brand_records = list(
         db.scalars(select(Brand).where(Brand.organization_id == company.organization_id))
     )
@@ -611,6 +621,35 @@ def publish_catalog(
             changed = True
         else:
             unchanged += 1
+
+        content_sha256 = product_content_sha256(
+            name=row.name, manufacturer_code=row.manufacturer_code,
+            reference=row.reference, description=row.description_raw,
+            application=row.application, brand=row.brand, category=row.category,
+        )
+        enrichment = enrichments.get(offer.id)
+        if enrichment is None or enrichment.content_sha256 != content_sha256:
+            treatment = treat_raw(
+                name=row.name, manufacturer_code=row.manufacturer_code,
+                reference=row.reference, description=row.description_raw,
+                application=row.application,
+            )
+            if enrichment is None:
+                enrichment = OfferEnrichment(id=uuid.uuid4(), offer_id=offer.id)
+                db.add(enrichment)
+                enrichments[offer.id] = enrichment
+            enrichment.source = "regra"
+            enrichment.source_filename = preview.path.name[:255]
+            enrichment.source_sha256 = preview.file_sha256
+            enrichment.source_row = row.row_number
+            enrichment.content_sha256 = content_sha256
+            enrichment.family = treatment.family
+            enrichment.family_group = treatment.family_group
+            enrichment.model_reference = treatment.model_reference
+            enrichment.normalized_title = treatment.normalized_title
+            enrichment.search_codes = treatment.search_codes
+            enrichment.attributes = treatment.attributes
+            enrichment.confidence = treatment.confidence
 
         db.add(
             ImportRow(
