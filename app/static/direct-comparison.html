@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comparação direta · PRM</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/js/direct-comparison-fallback.js?v=20260924-2" defer></script>
+</head>
+<body>
+  <main class="content direct-fallback">
+    <header class="page-header"><div><p class="eyebrow">Dashboard PRM</p><h1>Comparação direta</h1></div><a href="/catalogos">Voltar ao catálogo</a></header>
+    <section class="notice"><strong>Comparação exploratória.</strong><span>Preços e características declaradas lado a lado não confirmam equivalência comercial.</span></section>
+    <p id="direct-status" role="status" aria-live="polite">Carregando produtos selecionados…</p>
+    <div id="direct-content" hidden>
+      <div class="reference-selector panel"><div><label for="direct-reference">Produto de referência para preços</label><select id="direct-reference"><option value="">Sem referência</option></select><small>Diferenças somente entre preços da mesma modalidade.</small></div></div>
+      <section id="direct-products" class="comparison-grid" aria-label="Produtos em comparação"></section>
+      <section class="panel technical-matrix-panel" aria-labelledby="direct-matrix-heading"><div class="panel-heading"><p class="eyebrow">Características lado a lado</p><h2 id="direct-matrix-heading">Matriz técnica</h2></div><p class="matrix-help">Campos vazios significam “não informado”. Esta visualização de compatibilidade usa os dados declarados no catálogo; após reiniciar o servidor, a página completa também exibe o enriquecimento do pipeline.</p><div class="table-scroll"><table id="direct-matrix" class="technical-matrix direct-matrix"></table></div></section>
+    </div>
+  </main>
+</body>
+</html>

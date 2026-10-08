@@ -15,7 +15,7 @@ def main() -> None:
     print("Criação segura do primeiro gestor PRM")
     name = input("Nome: ").strip()
     email = normalize_email(input("E-mail: "))
-    password = getpass("Senha (mínimo de 12 caracteres): ")
+    password = getpass("Senha (mínimo de 6 caracteres): ")
     confirmation = getpass("Repita a senha: ")
     if not name or not email:
         raise SystemExit("Nome e e-mail são obrigatórios.")

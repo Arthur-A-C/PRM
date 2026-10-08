@@ -13,8 +13,9 @@ from app.repositories.catalog import (
     list_offers,
 )
 from app.repositories.comparisons import get_saved_comparison, save_comparison
-from app.repositories.matching import catalog_match_report
+from app.repositories.matching import catalog_gap_report, catalog_match_report
 from app.schemas.comparison import ComparisonCreate
+from app.services.comparable_snapshot import load_snapshot, snapshot_view
 from app.services.security import secrets_match
 
 
@@ -39,22 +40,28 @@ def products(
     company: list[str] = Query(default=[]),
     brand: list[str] = Query(default=[]),
     availability: list[str] = Query(default=[]),
+    family_group: str | None = Query(default=None, max_length=255),
     modality: str | None = Query(default=None, pattern="^(pix|cartao|venda)$"),
     price_min: Decimal | None = Query(default=None, ge=0),
     price_max: Decimal | None = Query(default=None, ge=0),
     include_excluded: bool = False,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=24),
+    page_size: int = Query(default=100, ge=1, le=200),
 ) -> dict:
+    if q and len(q.split()) > 8:
+        raise HTTPException(status_code=422, detail="Use no máximo oito termos na pesquisa.")
+    if page_size not in {24, 48, 100, 200}:
+        raise HTTPException(status_code=422, detail="page_size deve ser 24, 48, 100 ou 200.")
     if price_min is not None and price_max is not None and price_min > price_max:
         raise HTTPException(status_code=422, detail="price_min não pode ser maior que price_max.")
     if include_excluded and auth.user.role != "gestor":
         raise HTTPException(status_code=403, detail="Somente gestores podem incluir exclusões analíticas.")
     filters = CatalogFilters(
         search=q,
-        companies=tuple(company),
-        brands=tuple(brand),
-        availability=tuple(availability),
+        companies=tuple(value for value in company if value),
+        brands=tuple(value for value in brand if value),
+        availability=tuple(value for value in availability if value),
+        family_group=family_group,
         modality=modality,
         price_min=price_min,
         price_max=price_max,
@@ -110,6 +117,38 @@ def catalog_matches(
         competitor_code=company,
         limit=limit,
     )
+
+
+@router.get("/catalog-gaps")
+def catalog_gaps(
+    auth: CurrentAuth,
+    db: DbSession,
+    company: str | None = Query(default=None, max_length=50),
+    gap_type: str | None = Query(default=None, pattern="^(brand|family)$"),
+    gap_key: str | None = Query(default=None, max_length=255),
+    page: int = Query(default=1, ge=1),
+) -> dict:
+    matching = catalog_match_report(
+        db, auth.user.organization_id, competitor_code=company, limit=1
+    )
+    return catalog_gap_report(
+        db, auth.user.organization_id, matching,
+        gap_type=gap_type, gap_key=gap_key, page=page,
+    )
+
+
+@router.get("/comparable-portfolio")
+def comparable_portfolio(
+    auth: CurrentAuth,
+    db: DbSession,
+    macro: str = Query(default="", max_length=255),
+    signal: str = Query(default="", max_length=40),
+    page: int = Query(default=1, ge=1),
+) -> dict:
+    snapshot = load_snapshot(db, auth.user.organization_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Retrato comparável ainda não publicado.")
+    return snapshot_view(snapshot, macro, signal, page)
 
 
 @router.post("/comparisons", status_code=201)

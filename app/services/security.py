@@ -13,8 +13,8 @@ def normalize_email(email: str) -> str:
 
 
 def hash_password(password: str) -> str:
-    if len(password) < 12:
-        raise ValueError("A senha deve ter pelo menos 12 caracteres.")
+    if len(password) < 6:
+        raise ValueError("A senha deve ter pelo menos 6 caracteres.")
     return _password_hasher.hash(password)
 
 

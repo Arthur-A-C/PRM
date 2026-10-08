@@ -9,8 +9,12 @@ Este repositório contém o código e a documentação da primeira entrega (`0.1
 - Login individual, sessões e páginas protegidas.
 - Importação auditável de planilhas XLSX da Eco Automação, Portwell e Choice Tech, com prévia, validação e proteção contra reimportação idêntica.
 - Tratamento automático conservador de novos produtos (família, modelo e especificações detectáveis) e enriquecimento opcional com as saídas tratadas do `PRM_Pipeline`, sem perder as fontes originais.
-- Dashboard com nossos catálogos em primeiro plano, cobertura do tratamento por empresa, funil de correspondência da concorrente e destaques nominais de preço; catálogo com busca, filtros e origem de cada oferta.
+- Dashboard com nossos catálogos em primeiro plano, cobertura do tratamento por empresa, funil de correspondência da concorrente e destaques nominais de preço; catálogo com busca por vários termos, filtros combináveis, origem de cada oferta e 100 produtos por página por padrão.
 - Análise automática do catálogo concorrente inteiro contra o portfólio próprio, com sugestões, candidatos, cobertura e posição nominal de preços.
+- Comparador com visualização de possíveis lacunas: marcas sem oferta própria identificada e famílias de produtos concorrentes sem candidato, com exemplos e listagem paginada para revisão.
+- Retrato adicional de amplitude de famílias Choice + Portwell frente à Eco, gerado dos CSVs normalizados conciliados ao banco; a presença numa família não confirma equivalência de produtos.
+- No catálogo, faixa de preço funciona também com “Todas as modalidades”. É possível selecionar de 2 a 8 produtos, inclusive entre páginas, para comparação direta de preços e características, separada da análise automática do concorrente.
+- Para testes remotos pontuais da equipe, há uma prévia HTTPS temporária com senha adicional e login individual do PRM; veja [Operação no Windows](docs/OPERACAO_WINDOWS.md#prévia-pública-temporária-para-a-equipe).
 - Marcas canônicas com aliases revisáveis; `ELFIN` e `NEW ELFIN SRL` são reconhecidas como a mesma marca, preservando o texto original da fonte.
 - API `/api/v1`, migrações Alembic e testes automatizados.
 
@@ -88,6 +92,7 @@ O último conjunto verificado em 23/09/2026 teve 21 testes aprovados, migração
 | [Arquitetura](docs/ARQUITETURA.md) | Módulos e decisões de persistência |
 | [API](docs/API.md) | Rotas, autenticação e semântica das respostas |
 | [Dados](docs/DADOS.md) | Fontes, importação, marcas e correspondência |
+| [Comparação normalizada](docs/COMPARACAO_NORMALIZADA.md) | Auditoria dos novos CSVs/XLSX, metodologia, limites e regeneração do retrato |
 | [Operação no Windows](docs/OPERACAO_WINDOWS.md) | Execução local, backup e limites de implantação |
 | [Backlog](docs/BACKLOG.md) | Trabalho concluído e pendente por fase |
 | [Changelog](CHANGELOG.md) | Histórico funcional da versão |

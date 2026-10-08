@@ -1,5 +1,46 @@
 # Changelog
 
+## Prévia remota temporária — 2026-09-24
+
+- Acesso HTTPS externo de teste por Cloudflare Quick Tunnel, com prazo de duas horas, sem abertura de porta de entrada.
+- Instância separada com senha HTTP Basic adicional, login PRM e cookies `Secure`; scripts de início/parada e de criação/desativação de contas individuais de vendedor.
+- Teste remoto ponta a ponta validou as duas barreiras, sessão e catálogo; URL e senha não entram no Git.
+
+## Compatibilidade da comparação direta com servidor antigo — 2026-09-24
+
+- Corrigido o botão que levava a `/comparacao-direta` quando o processo web ativo ainda não tinha carregado essa rota (HTTP 404).
+- Página estática de compatibilidade usa a API autenticada para exibir produtos, preços e características imediatamente; após reinício do servidor, redireciona para a comparação completa com dados do pipeline.
+- Instância ativa conferida por HTTP; reinício automático foi bloqueado por permissões do Windows e ficou documentado para o operador.
+
+## Filtro de preço e comparação direta — 2026-09-24
+
+- Faixa de preço com “Todas as modalidades” agora busca qualquer preço válido do produto, com mínimo e máximo satisfeitos pela mesma modalidade.
+- Catálogo permite selecionar de 2 a 8 produtos entre páginas e abrir comparação direta lado a lado, mantendo empresas próprias em primeiro lugar.
+- Nova página mostra preços Venda/Pix/Cartão, referência opcional e matriz técnica com características do catálogo e enriquecimento do pipeline; não confirma equivalência comercial.
+- Teste unitário do filtro e smoke autenticado da seleção, preços e matriz aprovados.
+
+## Retrato comparável Choice + Portwell x Eco — 2026-09-24
+
+- CSVs normalizados e XLSX de análise inspecionados sem executar o script recebido; duplicatas, chaves sem oferta publicada e atributos órfãos documentados.
+- Novo retrato taxonômico conciliado ao PostgreSQL, com hashes e geração atômica, sem alterar ofertas, preços ou execuções de correspondência.
+- Dashboard e comparador mostram amplitude de famílias, atributos disponíveis, filtros e paginação; API autenticada `/api/v1/comparable-portfolio` e testes adicionados.
+- Linguagem de “lacuna” tratada como indício; 53,9% de Eco em famílias compartilhadas não é equivalência de produtos. Metodologia em `docs/COMPARACAO_NORMALIZADA.md`.
+
+## Pesquisa e filtros do catálogo — 2026-09-24
+
+- Catálogo HTML e API passam a mostrar 100 produtos por página por padrão; 24, 48 e 200 permanecem disponíveis, com paginação e filtros preservados.
+- Busca aceita vários termos em campos diferentes e procura código, nome, fabricante, marca canônica, descrição, aplicação, categoria e sinais tratados como família e modelo; curingas de SQL são tratados como texto literal.
+- Interface passa a expor família/segmento, modalidade de preço, preço mínimo/máximo e tamanho da página, além de empresa, marca e disponibilidade; filtros vazios não excluem indevidamente todos os produtos.
+- Modalidade selecionada sem faixa mostra apenas ofertas com preço válido nessa modalidade. A faixa também funciona com “Todas as modalidades”, exigindo que um preço da mesma modalidade satisfaça os dois limites.
+- Smoke autenticado verifica 100 produtos por página, ausência de duplicação entre páginas, busca e filtros combinados no banco real.
+
+## Sinais de lacunas no comparador — 2026-09-24
+
+- Comparador passa a mostrar possíveis lacunas por marca/fabricante e por família de produto, com contagens, barras, exemplos e abertura da lista paginada dos produtos sem candidato.
+- Nova API autenticada `/api/v1/catalog-gaps` disponibiliza os mesmos agrupamentos e filtros por marca ou família.
+- Os indicadores distinguem ausência de candidato, ausência de marca no cadastro próprio e ausência de uma classificação de família; nenhuma delas é tratada como equivalência ou lacuna comercial confirmada.
+- Testes unitários e smoke no PostgreSQL verificam agrupamento, reconciliação com o funil do pareador, seleção e paginação.
+
 ## Dashboard de análises tratadas — 2026-09-24
 
 - Dashboard prioriza Choice Tech e Portwell e mostra ofertas tratadas e enriquecidas pelo pipeline em cada empresa.

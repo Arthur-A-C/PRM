@@ -1,0 +1,624 @@
+<div class="digitalizacao-page">
+
+  <section class="digitalizacao-hero">
+    <div>
+      <p class="eyebrow">Fluxo de preparação</p>
+      <h2>Central de digitalização</h2>
+      <p>
+        Organize fotos, documentos técnicos e informações do produto
+        antes da publicação no catálogo.
+      </p>
+    </div>
+
+    <div class="digitalizacao-hero-badge">
+      <span>PRM</span>
+      <strong>Digitalização</strong>
+    </div>
+  </section>
+
+
+  <section class="digitalizacao-progress" aria-label="Etapas da digitalização">
+
+    <div class="digitalizacao-step is-active">
+      <span>1</span>
+      <div>
+        <strong>Produto</strong>
+        <small>Identificação</small>
+      </div>
+    </div>
+
+    <div class="digitalizacao-step">
+      <span>2</span>
+      <div>
+        <strong>Imagens</strong>
+        <small>Tratamento visual</small>
+      </div>
+    </div>
+
+    <div class="digitalizacao-step">
+      <span>3</span>
+      <div>
+        <strong>Datasheet</strong>
+        <small>Documentação técnica</small>
+      </div>
+    </div>
+
+    <div class="digitalizacao-step">
+      <span>4</span>
+      <div>
+        <strong>Pacote final</strong>
+        <small>Revisão e exportação</small>
+      </div>
+    </div>
+
+  </section>
+
+
+  <!-- ETAPA 1 -->
+  <section class="panel digitalizacao-panel">
+
+    <div class="digitalizacao-section-heading">
+      <div class="digitalizacao-section-number">1</div>
+
+      <div>
+        <p class="eyebrow">Etapa 1</p>
+        <h2>Identificação do produto</h2>
+        <p>
+          Informe a empresa, o código e o nome comercial do produto.
+        </p>
+      </div>
+    </div>
+
+    <div class="digitalizacao-form-grid">
+
+      <div class="digitalizacao-field">
+        <label for="digitalizacao-empresa">
+          Empresa
+        </label>
+
+        <select
+          id="digitalizacao-empresa"
+          name="empresa"
+        >
+          <option value="">Selecione uma empresa</option>
+          <option value="choice">Choice</option>
+          <option value="sag">SAG</option>
+          <option value="portwell">Portwell</option>
+        </select>
+      </div>
+
+
+      <div class="digitalizacao-field">
+        <label for="digitalizacao-codigo">
+          Código do produto
+        </label>
+
+        <input
+          id="digitalizacao-codigo"
+          name="codigo"
+          type="text"
+          placeholder="Ex.: BZLIK"
+          autocomplete="off"
+        >
+      </div>
+
+
+      <div class="digitalizacao-field digitalizacao-field-wide">
+        <label for="digitalizacao-produto">
+          Nome do produto
+        </label>
+
+        <input
+          id="digitalizacao-produto"
+          name="produto"
+          type="text"
+          placeholder="Digite o nome ou título comercial do produto"
+        >
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- ETAPA 2 -->
+  <section class="panel digitalizacao-panel">
+
+    <div class="digitalizacao-section-heading">
+
+      <div class="digitalizacao-section-number">2</div>
+
+      <div>
+        <p class="eyebrow">Etapa 2</p>
+        <h2>Tratamento de imagens</h2>
+        <p>
+          Organize as fotos que serão utilizadas no catálogo.
+          A imagem número 1 será sempre a foto principal.
+        </p>
+      </div>
+
+      <span class="digitalizacao-counter">
+        <strong id="image-count">0</strong>
+        imagens
+      </span>
+
+    </div>
+
+
+    <label
+      class="digitalizacao-dropzone"
+      for="digitalizacao-imagens"
+    >
+
+      <span class="digitalizacao-dropzone-icon">＋</span>
+
+      <strong>Adicionar fotos do produto</strong>
+
+      <span>
+        Clique aqui ou arraste as imagens para esta área
+      </span>
+
+      <small>
+        Formatos permitidos: JPG, JPEG e PNG
+      </small>
+
+      <input
+        id="digitalizacao-imagens"
+        type="file"
+        accept="image/jpeg,image/png"
+        multiple
+        hidden
+      >
+
+    </label>
+
+
+    <div
+      class="digitalizacao-images"
+      id="digitalizacao-images"
+    >
+
+      <div class="digitalizacao-empty">
+        Nenhuma foto adicionada.
+      </div>
+
+    </div>
+
+
+    <div class="digitalizacao-settings-box">
+
+      <div class="digitalizacao-settings-title">
+        <strong>Configurações de saída</strong>
+        <small>
+          Defina como as imagens serão preparadas.
+        </small>
+      </div>
+
+      <div class="digitalizacao-image-settings">
+
+        <div class="digitalizacao-field">
+
+          <label for="image-format">
+            Formato final
+          </label>
+
+          <select id="image-format">
+            <option value="jpg">JPEG</option>
+          </select>
+
+        </div>
+
+
+        <div class="digitalizacao-field">
+
+          <label for="image-size">
+            Resolução
+          </label>
+
+          <select id="image-size">
+            <option value="1200">1200 × 1200 px</option>
+            <option value="1600">1600 × 1600 px</option>
+            <option value="original">Resolução original</option>
+          </select>
+
+        </div>
+
+
+        <div class="digitalizacao-field">
+
+          <label for="image-quality">
+            Qualidade JPEG
+          </label>
+
+          <select id="image-quality">
+            <option value="90">90%</option>
+            <option value="95">95%</option>
+            <option value="100">100%</option>
+          </select>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- ETAPA 3 -->
+  <section class="panel digitalizacao-panel">
+
+    <div class="digitalizacao-section-heading">
+
+      <div class="digitalizacao-section-number">3</div>
+
+      <div>
+        <p class="eyebrow">Etapa 3</p>
+        <h2>Datasheet e documentos</h2>
+        <p>
+          Adicione os materiais técnicos disponibilizados pelo fabricante.
+        </p>
+      </div>
+
+    </div>
+
+
+    <div class="digitalizacao-document-grid">
+
+
+      <article class="digitalizacao-upload-card">
+
+        <span class="digitalizacao-document-type">
+          PDF
+        </span>
+
+
+        <div class="digitalizacao-upload-content">
+
+          <strong>Datasheet do fornecedor</strong>
+
+          <p>
+            Documento original utilizado como fonte técnica
+            para geração do novo datasheet.
+          </p>
+
+
+          <label class="button-secondary">
+
+            Selecionar arquivo
+
+            <input
+              id="supplier-datasheet"
+              type="file"
+              accept=".pdf"
+              hidden
+            >
+
+          </label>
+
+
+          <small id="supplier-datasheet-name">
+            Nenhum arquivo selecionado
+          </small>
+
+        </div>
+
+      </article>
+
+
+      <article class="digitalizacao-upload-card">
+
+        <span class="digitalizacao-document-type">
+          3D
+        </span>
+
+
+        <div class="digitalizacao-upload-content">
+
+          <strong>Desenho 3D</strong>
+
+          <p>
+            Arquivo técnico tridimensional disponibilizado
+            pelo fabricante.
+          </p>
+
+
+          <label class="button-secondary">
+
+            Selecionar arquivo
+
+            <input
+              id="drawing-3d"
+              type="file"
+              hidden
+            >
+
+          </label>
+
+
+          <small id="drawing-3d-name">
+            Nenhum arquivo selecionado
+          </small>
+
+        </div>
+
+      </article>
+
+    </div>
+
+
+    <div class="digitalizacao-specifications">
+
+      <div class="digitalizacao-spec-header">
+
+        <div>
+          <strong>Especificações adicionais</strong>
+
+          <p>
+            Informações que não estejam presentes no datasheet
+            podem ser adicionadas manualmente.
+          </p>
+        </div>
+
+      </div>
+
+
+      <textarea
+        id="digitalizacao-specs"
+        rows="8"
+        placeholder="As especificações extraídas do datasheet aparecerão aqui. Você pode revisar e editar antes de continuar..."
+      ></textarea>
+
+
+      <small id="digitalizacao-extraction-status">
+        Ao selecionar um PDF, o sistema extrairá todo o texto técnico
+        e preencherá este campo automaticamente. O Qwen será usado na análise.
+      </small>
+
+    </div>
+
+  </section>
+
+
+  <!-- QWEN -->
+  <section class="panel digitalizacao-ai-panel">
+
+    <div class="digitalizacao-section-heading">
+
+      <div class="digitalizacao-ai-icon">
+        AI
+      </div>
+
+      <div>
+        <p class="eyebrow">Inteligência artificial</p>
+        <h2>Análise técnica com Qwen</h2>
+
+        <p>
+          O sistema utilizará as informações disponíveis
+          para estruturar os dados técnicos do produto.
+        </p>
+      </div>
+
+      <span class="status-badge">
+        Revisão humana obrigatória
+      </span>
+
+    </div>
+
+
+    <div class="digitalizacao-source-list">
+
+      <div>
+        <span
+          class="source-state"
+          data-source="datasheet"
+        >
+          ○
+        </span>
+
+        <div>
+          <strong>Datasheet</strong>
+          <small>Fonte usada para preencher automaticamente as especificações</small>
+        </div>
+      </div>
+
+
+      <div>
+        <span
+          class="source-state"
+          data-source="specs"
+        >
+          ○
+        </span>
+
+        <div>
+          <strong>Informações adicionais</strong>
+          <small>Especificações inseridas manualmente</small>
+        </div>
+      </div>
+
+
+      <div>
+        <span
+          class="source-state"
+          data-source="images"
+        >
+          ○
+        </span>
+
+        <div>
+          <strong>Imagens</strong>
+          <small>Usadas no datasheet final; não são enviadas ao Qwen</small>
+        </div>
+      </div>
+
+    </div>
+
+
+    <div class="digitalizacao-ai-action">
+
+      <button
+        id="digitalizacao-analisar"
+        type="button"
+      >
+        Analisar produto com Qwen
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <!-- REVISÃO -->
+  <section
+    class="panel digitalizacao-review"
+    id="digitalizacao-review"
+    hidden
+  >
+
+    <div class="digitalizacao-section-heading">
+
+      <div class="digitalizacao-section-number success">
+        ✓
+      </div>
+
+      <div>
+        <p class="eyebrow">Revisão</p>
+        <h2>Informações encontradas</h2>
+        <p>
+          Confira os dados antes da geração do material final.
+        </p>
+      </div>
+
+    </div>
+
+
+    <div id="digitalizacao-review-content"></div>
+
+    <div class="digitalizacao-ai-action">
+      <button
+        id="digitalizacao-gerar-datasheet"
+        type="button"
+        disabled
+      >
+        Gerar Datasheet
+      </button>
+    </div>
+
+    <small id="digitalizacao-datasheet-status">
+      Disponível após a análise e revisão dos dados do produto.
+    </small>
+
+    <div
+      id="digitalizacao-datasheet-result"
+      class="digitalizacao-ai-action"
+      hidden
+    >
+      <a
+        id="digitalizacao-datasheet-download"
+        class="button-secondary"
+        href="#"
+        download
+      >
+        Baixar Datasheet PDF
+      </a>
+    </div>
+
+  </section>
+
+
+  <!-- ETAPA 4 -->
+  <section class="panel digitalizacao-package">
+
+    <div class="digitalizacao-section-heading">
+
+      <div class="digitalizacao-section-number">4</div>
+
+      <div>
+        <p class="eyebrow">Etapa 4</p>
+        <h2>Pacote final</h2>
+
+        <p>
+          Confira a estrutura que será utilizada
+          na pasta final do produto.
+        </p>
+      </div>
+
+    </div>
+
+
+    <div class="digitalizacao-package-layout">
+
+
+      <div class="digitalizacao-tree">
+
+        <strong id="package-code">
+          CODIGO/
+        </strong>
+
+
+        <ul>
+
+          <li>
+            <span>📄</span>
+
+            <span id="package-datasheet">
+              CODIGO_Datasheet.pdf
+            </span>
+
+            <small>Datasheet final</small>
+          </li>
+
+
+          <li>
+
+            <span>◈</span>
+
+            <span id="package-3d">
+              CODIGO_Desenho_3D
+            </span>
+
+            <small>Desenho técnico 3D</small>
+
+          </li>
+
+
+          <li>
+            <span>▧</span>
+            <span>1.jpg</span>
+            <small>Foto principal</small>
+          </li>
+
+        </ul>
+
+      </div>
+
+
+      <div class="digitalizacao-package-actions">
+
+        <span class="digitalizacao-ready-label">
+          Saída
+        </span>
+
+        <h3>Preparar arquivos</h3>
+
+        <p>
+          Fotos, documentos e informações serão tratados
+          e renomeados conforme o padrão do PRM.
+        </p>
+
+
+        <button
+          id="digitalizacao-gerar"
+          type="button"
+        >
+          Gerar pacote
+        </button>
+
+      </div>
+
+    </div>
+
+  </section>
+
+</div>

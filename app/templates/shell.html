@@ -1,4 +1,11 @@
 {% extends "base.html" %}
+
+{% block extra_head %}
+  {% if title == "Digitalização" %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/digitalizacao.css') }}?v=20260924-1">
+  {% endif %}
+{% endblock %}
+
 {% block body %}
 <div class="app-shell">
   <aside class="sidebar">
@@ -68,6 +75,32 @@
         {% endfor %}
       </div>
     </section>
+    {% if dimensional_staging %}
+    <section class="panel" aria-labelledby="dimensional-overview-heading">
+      <div class="panel-heading">
+        <div><p class="eyebrow">Dimensional · auditoria em staging</p><h2 id="dimensional-overview-heading">Situação atual do novo catálogo</h2></div>
+      </div>
+      <p class="analysis-note">Estes números vêm da auditoria do CSV, não do catálogo publicado. Ofertas Dimensional no banco oficial: {{ "{:,}".format(dimensional_published_count).replace(',', '.') }}. {% if not dimensional_published_count %}Não há equivalências Dimensional homologadas.{% else %}A presença de ofertas não confirma equivalência; consulte a revisão técnica antes da comparação.{% endif %}</p>
+      {% if dimensional_database and dimensional_database.available %}
+      <p class="analysis-note">Banco de staging: {{ "{:,}".format(dimensional_database.offers).replace(',', '.') }} ofertas, {{ "{:,}".format(dimensional_database.rows).replace(',', '.') }} linhas rastreáveis e {{ "{:,}".format(dimensional_database.observations).replace(',', '.') }} observações. {% if dimensional_database.source_sha256 == dimensional_staging.audit.sha256 and dimensional_database.offers == dimensional_staging.audit.metrics.records %}Lote reconciliado com a auditoria.{% else %}Lote ainda não reconciliado com a auditoria.{% endif %}</p>
+      {% else %}
+      <p class="price-warning">Banco de staging indisponível; o painel mostra apenas a auditoria local.</p>
+      {% endif %}
+      <div class="analysis-kpis">
+        <div><strong>{{ "{:,}".format(dimensional_staging.audit.metrics.records).replace(',', '.') }}</strong><span>SKUs auditados, sem fusão por product_id ou EAN</span></div>
+        <div><strong>{{ "{:,}".format(dimensional_staging.audit.metrics.positive_announced_price).replace(',', '.') }}</strong><span>preços anunciados positivos; moeda e condições não confirmadas</span></div>
+        <div><strong>{{ "{:,}".format(dimensional_staging.simulation.metrics.assertions).replace(',', '.') }}</strong><span>afirmações técnicas propostas, ainda não homologadas</span></div>
+      </div>
+      <ul class="quality-list">
+        <li><strong>{{ dimensional_staging.audit.metrics.ean_invalid }}</strong><span>EANs estruturalmente inválidos</span></li>
+        <li><strong>{{ dimensional_staging.audit.metrics.ncm_invalid }}</strong><span>NCMs inválidos, incluindo URLs</span></li>
+        <li><strong>{{ dimensional_staging.audit.metrics.price_zero_or_invalid }}</strong><span>preços zero ou inválidos</span></li>
+        <li><strong>{{ dimensional_staging.simulation.conflicts['coil.voltage'] }}</strong><span>propostas com conflito de tensão de bobina</span></li>
+      </ul>
+      <p class="analysis-note">Estoque numérico confiável desconhecido para todos os SKUs. Famílias e conflitos são propostas de regra; não representam cobertura do nosso portfólio. Fonte SHA-256: {{ dimensional_staging.audit.sha256 }}.</p>
+      <a href="/importacoes">Ver auditoria detalhada e critérios de publicação</a>
+    </section>
+    {% endif %}
     {% if matching.summary %}
     <section class="panel dashboard-analysis" aria-labelledby="dashboard-analysis-heading">
       <div class="panel-heading"><p class="eyebrow">Análise automática · {{ matching.run.algorithm_version }}</p><h2 id="dashboard-analysis-heading">{{ matching.selected_company.name }} frente ao nosso portfólio</h2></div>
@@ -100,6 +133,19 @@
     {% elif matching.selected_company %}
     <section class="panel"><p>O catálogo de {{ matching.selected_company.name }} ainda não possui análise publicada.</p></section>
     {% endif %}
+    {% if comparable %}
+    <section class="panel comparable-summary" aria-labelledby="comparable-summary-heading">
+      <div class="panel-heading"><p class="eyebrow">Nova comparação · taxonomia normalizada</p><h2 id="comparable-summary-heading">Amplitude do nosso portfólio frente à Eco</h2></div>
+      <div class="analysis-kpis">
+        <div><strong>{{ comparable.metrics.family_overlap_percent }}%</strong><span>das ofertas Eco em famílias com ao menos uma oferta nossa</span></div>
+        <div><strong>{{ "{:,}".format(comparable.metrics.competitor_only).replace(',', '.') }}</strong><span>ofertas Eco em famílias sem registro próprio</span></div>
+        <div><strong>{{ comparable.snapshot.macro_count }}</strong><span>macrocategorias no recorte comparável</span></div>
+      </div>
+      {% if comparable.snapshot.stale %}<p class="price-warning">Os catálogos publicados mudaram desde a geração desta comparação. Atualize o retrato antes de usá-lo.</p>{% endif %}
+      <p class="analysis-note">Presença na mesma família não significa produto equivalente. O pareamento técnico e de preço continua separado.</p>
+      <a href="/comparador#comparacao-normalizada">Explorar famílias e atributos</a>
+    </section>
+    {% endif %}
     <section class="dashboard-grid">
     <div class="panel">
       <div class="panel-heading"><p class="eyebrow">Qualidade</p><h2>Pendências do recorte</h2></div>
@@ -126,8 +172,9 @@
     </div>
     </section>
     {% elif title == "Catálogos" %}
+    {% if filter_error %}<section class="notice catalog-filter-error" role="alert">{{ filter_error }}</section>{% endif %}
     <form class="filters panel" method="get" action="/catalogos">
-      <div><label for="q">Buscar por código, nome, marca ou descrição</label><input id="q" name="q" value="{{ selected_filters.search or '' }}"></div>
+      <div class="filter-search"><label for="q">Pesquisar produtos</label><input id="q" name="q" type="search" maxlength="200" placeholder="Código, modelo, marca, família ou descrição" value="{{ search_input }}"><small>Até oito palavras, que podem aparecer em campos diferentes.</small></div>
       <fieldset><legend>Empresa</legend><span class="filter-group-label">Nossas empresas</span>
       {% for company in filter_options.companies %}
         {% if company.type == 'nossa' %}
@@ -143,13 +190,20 @@
       </fieldset>
       <div><label for="brand">Marca</label><select id="brand" name="brand"><option value="">Todas</option>{% for brand in filter_options.brands %}<option {% if brand in selected_filters.brands %}selected{% endif %}>{{ brand }}</option>{% endfor %}</select></div>
       <div><label for="availability">Disponibilidade</label><select id="availability" name="availability"><option value="">Todas</option>{% for state in filter_options.availability %}<option value="{{ state }}" {% if state in selected_filters.availability %}selected{% endif %}>{{ state|replace('_', ' ')|capitalize }}</option>{% endfor %}</select></div>
-      <button type="submit">Aplicar filtros</button><a href="/catalogos">Limpar</a>
+      <div><label for="family_group">Família / segmento</label><select id="family_group" name="family_group"><option value="">Todos</option>{% for group in filter_options.family_groups %}<option value="{{ group }}" {% if group == selected_filters.family_group %}selected{% endif %}>{{ group }}</option>{% endfor %}</select></div>
+      <div><label for="modality">Modalidade de preço</label><select id="modality" name="modality"><option value="">Todas as modalidades</option>{% for modality in filter_options.modalities %}<option value="{{ modality }}" {% if modality == selected_filters.modality %}selected{% endif %}>{{ modality|capitalize }}</option>{% endfor %}</select><small>Com uma faixa e “Todas”, basta um preço válido dentro da faixa na mesma modalidade.</small></div>
+      <div><label for="price_min">Preço mínimo (R$)</label><input id="price_min" name="price_min" type="text" inputmode="decimal" value="{{ price_inputs.min }}" placeholder="0,00"></div>
+      <div><label for="price_max">Preço máximo (R$)</label><input id="price_max" name="price_max" type="text" inputmode="decimal" value="{{ price_inputs.max }}" placeholder="500,00"></div>
+      <div><label for="page_size">Produtos por página</label><select id="page_size" name="page_size"><option value="100" {% if catalog.page_size == 100 %}selected{% endif %}>100</option><option value="200" {% if catalog.page_size == 200 %}selected{% endif %}>200</option><option value="48" {% if catalog.page_size == 48 %}selected{% endif %}>48</option><option value="24" {% if catalog.page_size == 24 %}selected{% endif %}>24</option></select></div>
+      <div class="filter-actions"><button type="submit">Pesquisar e filtrar</button><a href="/catalogos">Limpar filtros</a></div>
     </form>
-    <div class="catalog-heading"><p><strong>{{ "{:,}".format(catalog.total).replace(',', '.') }}</strong> ofertas encontradas</p><span>Página {{ catalog.page }} de {{ catalog.pages }}</span></div>
+    <div class="catalog-heading"><p><strong>{{ "{:,}".format(catalog.total).replace(',', '.') }}</strong> ofertas encontradas · {{ catalog['items']|length }} nesta página</p><span>Página {{ catalog.page }} de {{ catalog.pages }} · {{ catalog.page_size }} por página</span></div>
+    <p class="catalog-compare-help">Marque de 2 a 8 produtos para comparar preços e características lado a lado. A seleção permanece ao navegar entre páginas do catálogo.</p>
     <section class="catalog-grid" aria-label="Ofertas">
       {% for offer in catalog["items"] %}
       <article class="product-card company-{{ offer.company_code }}">
         <div class="product-company"><span class="dot" aria-hidden="true"></span>{{ offer.company_name }} {% if offer.company_type == 'nossa' %}<span class="company-focus-badge">Nossa empresa</span>{% endif %}</div>
+        <label class="compare-check"><input type="checkbox" data-compare-offer value="{{ offer.id }}" aria-label="Selecionar {{ offer.name }} para comparação direta"> Comparar este produto</label>
         <h2>{{ offer.name }}</h2>
         <dl><div><dt>Código</dt><dd>{{ offer.external_code }}</dd></div><div><dt>Marca</dt><dd>{{ offer.brand or 'Não informada' }}</dd></div><div><dt>Disponibilidade</dt><dd>{{ offer.availability|replace('_', ' ')|capitalize }}</dd></div></dl>
         <div class="prices">
@@ -166,9 +220,73 @@
       {% if catalog.page > 1 %}<a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ catalog.page - 1 }}">← Anterior</a>{% endif %}
       {% if catalog.page < catalog.pages %}<a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ catalog.page + 1 }}">Próxima →</a>{% endif %}
     </nav>
+    <div class="compare-bar" data-compare-bar aria-label="Seleção para comparação direta">
+      <span><strong data-compare-count>0</strong> de 8 produtos selecionados</span>
+      <span class="compare-message" data-compare-message role="status" aria-live="polite"></span>
+      <button class="button-link-dark" type="button" data-compare-clear>Limpar seleção</button>
+      <a class="button-secondary is-disabled" data-compare-link aria-disabled="true" href="/static/direct-comparison.html">Comparar produtos</a>
+    </div>
+    <script src="{{ url_for('static', path='/js/catalog-selection.js') }}?v=20260924-2" defer></script>
+    {% elif title == "Comparação direta" %}
+    <section class="notice"><strong>Comparação direta de produtos selecionados.</strong><span>Os dados são apresentados lado a lado para análise; a seleção não confirma equivalência comercial.</span></section>
+    <div class="comparison-heading"><span>{{ direct['items']|length }} produtos selecionados · nossas empresas primeiro</span><a href="/catalogos">Voltar ao catálogo</a></div>
+    <form class="reference-selector panel" action="/comparacao-direta" method="get">
+      {% for item in direct['items'] %}<input type="hidden" name="offer" value="{{ item.id }}">{% endfor %}
+      <div><label for="direct-reference">Produto de referência para diferenças de preço</label><select id="direct-reference" name="reference"><option value="">Sem referência</option>{% for item in direct['items'] %}<option value="{{ item.id }}" {% if direct.reference and direct.reference.id == item.id %}selected{% endif %}>{{ item.company.name }} · {{ item.external_code }} · {{ item.name }}</option>{% endfor %}</select><small>As diferenças são calculadas apenas entre preços da mesma modalidade; não representam margem.</small></div>
+      <button type="submit">Aplicar referência</button>
+    </form>
+    <section class="comparison-grid" aria-label="Produtos em comparação">
+      {% for item in direct['items'] %}
+      <article class="comparison-card company-{{ item.company.code }}">
+        <div class="product-company">{{ item.company.name }} {% if item.company.type == 'nossa' %}<span class="company-focus-badge">Nossa empresa</span>{% endif %}{% if item.is_reference %}<span class="reference-badge">Referência</span>{% endif %}</div>
+        <h2>{{ item.name }}</h2>
+        <dl><div><dt>Código</dt><dd>{{ item.external_code }}</dd></div><div><dt>Marca</dt><dd>{{ item.brand or 'Não informada' }}</dd></div><div><dt>Categoria</dt><dd>{{ item.category or 'Não informada' }}</dd></div><div><dt>Disponibilidade</dt><dd>{{ item.availability|replace('_', ' ')|capitalize }}</dd></div></dl>
+        <div class="price-comparison-list">
+          {% for modality in ('venda', 'pix', 'cartao') %}
+          {% set amount = item.latest_prices[modality] %}
+          {% set analysis = item.price_analysis[modality] %}
+          <div class="price-comparison"><span><span>{{ modality|capitalize }}</span><strong>{% if amount is not none %}R$ {{ "%.2f"|format(amount) }}{% else %}Não informado{% endif %}</strong></span>{% if analysis.bar_percent is not none %}<span class="price-bar" aria-hidden="true"><i style="width: {{ analysis.bar_percent }}%"></i></span>{% endif %}{% if analysis.difference_percent is not none and direct.reference %}<small class="price-difference state-{{ analysis.status }}">{{ "%+.1f"|format(analysis.difference_percent) }}% frente à referência</small>{% endif %}</div>
+          {% endfor %}
+        </div>
+        {% if item.application %}<details><summary>Aplicação declarada</summary><p>{{ item.application }}</p></details>{% endif %}
+        {% if item.description %}<details><summary>Descrição</summary><p>{{ item.description }}</p></details>{% endif %}
+        <a href="/api/v1/products/{{ item.id }}" target="_blank" rel="noopener">Detalhes e origem</a>
+      </article>
+      {% endfor %}
+    </section>
+    <section class="panel technical-matrix-panel" aria-labelledby="direct-matrix-heading">
+      <div class="panel-heading"><p class="eyebrow">Características lado a lado</p><h2 id="direct-matrix-heading">Matriz técnica</h2></div>
+      <p class="matrix-help">Campos vazios significam “não informado”. Dados tratados pelo pipeline são sugestões para revisão, não especificações verificadas. Diferenças de unidade impedem comparação numérica direta.</p>
+      <div class="table-scroll"><table class="technical-matrix direct-matrix"><thead><tr><th scope="col">Característica</th>{% for item in direct['items'] %}<th scope="col">{{ item.company.name }}<small>{{ item.external_code }}</small></th>{% endfor %}<th scope="col">Leitura</th></tr></thead><tbody>
+        {% for row in direct.technical_matrix %}<tr><th scope="row">{{ row.name }}<small>{{ 'Dado tratado' if row.origin == 'enriquecimento' else 'Atributo estruturado' if row.origin == 'atributo_normalizado' else 'Catálogo' }}</small></th>{% for cell in row['values'] %}<td>{% if cell.value is not none %}{{ cell.value }}{% else %}<span class="not-informed">Não informado</span>{% endif %}</td>{% endfor %}<td><span class="matrix-state state-{{ row.status }}">{{ row.status|replace('_', ' ') }}</span></td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
     {% elif title == "Comparador" %}
       <section class="notice"><strong>Análise automática do catálogo inteiro.</strong><span>As relações são sugestões lexicais auditáveis. Somente revisão humana pode confirmar equivalência comercial.</span></section>
       <form class="company-switch panel" method="get" action="/comparador"><label for="match-company">Empresa concorrente</label><select id="match-company" name="company">{% for company in matching.companies %}<option value="{{ company.code }}" {% if matching.selected_company and company.code == matching.selected_company.code %}selected{% endif %}>{{ company.name }}</option>{% endfor %}</select><button type="submit">Exibir análise</button></form>
+      {% if comparable %}
+      <section class="panel comparable-report" id="comparacao-normalizada" aria-labelledby="comparable-heading">
+        <div class="panel-heading"><p class="eyebrow">Choice + Portwell primeiro · Eco em comparação</p><h2 id="comparable-heading">Cobertura por família comparável</h2></div>
+        <p>Retrato derivado dos CSVs normalizados, conciliado com as ofertas publicadas. São {{ "{:,}".format(comparable.snapshot.totals.CHOICE).replace(',', '.') }} ofertas Choice, {{ "{:,}".format(comparable.snapshot.totals.PORTWELL).replace(',', '.') }} Portwell e {{ "{:,}".format(comparable.snapshot.totals.ECO).replace(',', '.') }} Eco. Não substitui o pareamento individual abaixo.</p>
+        <div class="analysis-kpis">
+          <div><strong>{{ comparable.metrics.family_overlap_percent }}%</strong><span>Eco em famílias também presentes nas nossas empresas ({{ "{:,}".format(comparable.metrics.competitor_in_own_families).replace(',', '.') }} ofertas)</span></div>
+          <div><strong>{{ "{:,}".format(comparable.metrics.competitor_only).replace(',', '.') }}</strong><span>Eco em famílias sem oferta própria classificada</span></div>
+          <div><strong>{{ comparable.metrics.own_only_families }}</strong><span>famílias apenas no nosso recorte</span></div>
+        </div>
+        {% if comparable.snapshot.stale %}<p class="price-warning">Os catálogos publicados mudaram desde a geração deste retrato; regenere-o antes de tomar decisões.</p>{% endif %}
+        <p class="gap-caveat">A mesma família indica apenas proximidade de categoria, nunca equivalência técnica ou cobertura comercial confirmada. Atributos inferidos do texto exigem revisão. A planilha fornecida tinha {{ comparable.snapshot.quality.duplicate_keys.get('PORTWELL', 0) }} chaves duplicadas e {{ comparable.snapshot.quality.not_published.get('CHOICE', 0) + comparable.snapshot.quality.not_published.get('PORTWELL', 0) + comparable.snapshot.quality.not_published.get('ECO', 0) }} chaves sem oferta publicada; não entram nos totais exibidos.</p>
+        <form class="comparable-filters" action="/comparador#comparacao-normalizada" method="get">
+          <input type="hidden" name="company" value="{{ matching.selected_company.code if matching.selected_company else '' }}">
+          <label for="comparable-macro">Macrocategoria</label><select id="comparable-macro" name="macro"><option value="">Todas</option>{% for macro in comparable.macros %}<option value="{{ macro }}" {% if macro == comparable.macro %}selected{% endif %}>{{ macro }}</option>{% endfor %}</select>
+          <label for="comparable-signal">Sinal</label><select id="comparable-signal" name="signal"><option value="">Todos</option><option value="sem_familia_propria" {% if comparable.signal == 'sem_familia_propria' %}selected{% endif %}>Eco sem família própria</option><option value="familia_compartilhada" {% if comparable.signal == 'familia_compartilhada' %}selected{% endif %}>Família compartilhada</option><option value="so_nossas" {% if comparable.signal == 'so_nossas' %}selected{% endif %}>Só nossas empresas</option></select><button type="submit">Filtrar</button>
+        </form>
+        <p>{{ comparable.total }} família(s) no filtro · página {{ comparable.page }} de {{ comparable.pages }}.</p>
+        <div class="table-scroll"><table class="technical-matrix comparable-table"><thead><tr><th>Macrocategoria / família</th><th>Choice</th><th>Portwell</th><th>Eco</th><th>Atributos normalizados</th><th>Sinal</th></tr></thead><tbody>
+          {% for item in comparable['items'] %}<tr><th scope="row"><small>{{ item.macro }}</small>{{ item.family }}</th><td>{{ item.counts.CHOICE }}</td><td>{{ item.counts.PORTWELL }}</td><td>{{ item.counts.ECO }}</td><td><small>Choice {{ item.with_attributes.CHOICE }} · Portwell {{ item.with_attributes.PORTWELL }} · Eco {{ item.with_attributes.ECO }}</small></td><td>{% if item.signal == 'sem_familia_propria' %}Investigar lacuna{% elif item.signal == 'familia_compartilhada' %}Família compartilhada{% else %}Só nosso recorte{% endif %}</td></tr>{% endfor %}
+        </tbody></table></div>
+        <nav class="gap-pagination" aria-label="Páginas das famílias comparáveis">{% if comparable.page > 1 %}<a href="/comparador?{{ comparable_query }}&comparable_page={{ comparable.page - 1 }}#comparacao-normalizada">← Anterior</a>{% endif %}<span>Página {{ comparable.page }} de {{ comparable.pages }}</span>{% if comparable.page < comparable.pages %}<a href="/comparador?{{ comparable_query }}&comparable_page={{ comparable.page + 1 }}#comparacao-normalizada">Próxima →</a>{% endif %}</nav>
+      </section>
+      {% endif %}
       {% if matching.run %}
       <section class="metric-grid match-metrics" aria-label="Cobertura de correspondências">
         <article class="metric"><span>Produtos concorrentes</span><strong>{{ "{:,}".format(matching.summary.total).replace(',', '.') }}</strong><small>Catálogo analítico completo</small></article>
@@ -182,6 +300,58 @@
         <div class="coverage-track" role="img" aria-label="{{ matching.summary.coverage_percent }} por cento com correspondência forte ou confirmada"><span style="width: {{ matching.summary.coverage_percent }}%"></span></div>
         <p><strong>{{ matching.summary.confirmed }}</strong> confirmados, <strong>{{ matching.summary.suggested }}</strong> sugestões fortes e <strong>{{ matching.summary.candidates }}</strong> candidatos aguardando revisão. Versão {{ matching.run.algorithm_version }}.</p>
       </section>
+      <section class="panel gap-overview" aria-labelledby="gap-heading">
+        <div class="panel-heading"><p class="eyebrow">Oportunidades para investigação</p><h2 id="gap-heading">Possíveis lacunas no nosso catálogo</h2></div>
+        <p>São produtos de {{ matching.selected_company.name }} sem candidato acima do limiar na execução atual. Isso não comprova que não temos equivalente: confira os exemplos e a classificação antes de decidir.</p>
+        {% if gaps.summary.stale %}<p class="price-warning">Há importação mais recente que esta análise ou divergência de contagem. Recalcule a correspondência antes de interpretar as possíveis lacunas.</p>{% endif %}
+        <div class="gap-metrics">
+          <div><strong>{{ "{:,}".format(gaps.summary.unmatched_total).replace(',', '.') }}</strong><span>produtos sem candidato</span></div>
+          <div><strong>{{ "{:,}".format(gaps.summary.absent_brand_total).replace(',', '.') }}</strong><span>de marcas sem oferta própria</span></div>
+          <div><strong>{{ "{:,}".format(gaps.summary.family_absent_total).replace(',', '.') }}</strong><span>de famílias não identificadas no portfólio próprio</span></div>
+        </div>
+        <p class="gap-caveat">Os dois últimos grupos podem se sobrepor. “Aplicação” é aproximada pela família de produto tratada; o catálogo concorrente não possui campo de aplicação estruturado para a maioria dos itens. Marcas cadastradas como fornecedor, em vez de fabricante, podem gerar falsos sinais de ausência. {{ gaps.summary.unknown_brand }} produto(s) sem marca identificada não entram na contagem de marcas ausentes.</p>
+      </section>
+      <section class="gap-grid" aria-label="Explorar possíveis lacunas">
+        <div class="panel">
+          <div class="panel-heading"><p class="eyebrow">Marcas / fabricantes</p><h2>Marcas sem oferta própria identificada</h2></div>
+          <p>Possíveis empresas que ainda não trabalhamos: marcas canônicas presentes no concorrente e sem oferta ativa registrada nas nossas empresas. {{ gaps.brand_group_total }} marcas encontradas; exibindo as maiores.</p>
+          {% if gaps.brand_options %}<form class="gap-select" action="/comparador" method="get"><input type="hidden" name="company" value="{{ matching.selected_company.code }}"><input type="hidden" name="gap_type" value="brand"><label for="gap-brand">Escolher outra marca</label><select id="gap-brand" name="gap_key">{% for option in gaps.brand_options %}<option value="{{ option.key }}" {% if gaps.selected and gaps.selected.type == 'brand' and gaps.selected.key == option.key %}selected{% endif %}>{{ option.name }} · {{ option.count }}</option>{% endfor %}</select><button type="submit">Ver produtos</button></form>{% endif %}
+          {% for group in gaps.brands %}
+          <article class="gap-group">
+            <div class="gap-group-heading"><strong>{{ group.name }}</strong><span>{{ group.unmatched_count }} sem candidato</span></div>
+            <div class="gap-bar" aria-hidden="true"><span style="width: {{ (group.unmatched_count * 100 / gaps.summary.unmatched_total)|round(1) if gaps.summary.unmatched_total else 0 }}%"></span></div>
+            <details><summary>Exemplos</summary><ul>{% for item in group.examples %}<li><a href="/api/v1/products/{{ item.id }}" target="_blank" rel="noopener">{{ item.code }} · {{ item.name }}</a></li>{% endfor %}</ul></details>
+            <a href="/comparador?company={{ matching.selected_company.code|urlencode }}&gap_type=brand&gap_key={{ group.key|urlencode }}#lacuna-selecionada">Ver todos os produtos dessa marca</a>
+          </article>
+          {% else %}<p>Nenhuma marca ausente identificada entre os produtos sem candidato.</p>{% endfor %}
+        </div>
+        <div class="panel">
+          <div class="panel-heading"><p class="eyebrow">Família como aproximação de aplicação</p><h2>Segmentos de produtos a investigar</h2></div>
+          <p>Famílias tratadas com produtos sem candidato. “0 no nosso catálogo” indica ausência dessa classificação, não ausência comprovada de produtos equivalentes.</p>
+          {% if gaps.family_options %}<form class="gap-select" action="/comparador" method="get"><input type="hidden" name="company" value="{{ matching.selected_company.code }}"><input type="hidden" name="gap_type" value="family"><label for="gap-family">Escolher outra família</label><select id="gap-family" name="gap_key">{% for option in gaps.family_options %}<option value="{{ option.key }}" {% if gaps.selected and gaps.selected.type == 'family' and gaps.selected.key == option.key %}selected{% endif %}>{{ option.name }} · {{ option.count }}</option>{% endfor %}</select><button type="submit">Ver produtos</button></form>{% endif %}
+          {% for group in gaps.families %}
+          <article class="gap-group">
+            <div class="gap-group-heading"><strong>{{ group.name }}</strong><span>{{ group.unmatched_count }} sem candidato</span></div>
+            <small>{{ group.own_count }} oferta(s) da mesma família no nosso catálogo</small>
+            <div class="gap-bar" aria-hidden="true"><span style="width: {{ (group.unmatched_count * 100 / gaps.summary.unmatched_total)|round(1) if gaps.summary.unmatched_total else 0 }}%"></span></div>
+            <details><summary>Exemplos</summary><ul>{% for item in group.examples %}<li><a href="/api/v1/products/{{ item.id }}" target="_blank" rel="noopener">{{ item.code }} · {{ item.name }}</a></li>{% endfor %}</ul></details>
+            <a href="/comparador?company={{ matching.selected_company.code|urlencode }}&gap_type=family&gap_key={{ group.key|urlencode }}#lacuna-selecionada">Ver todos os produtos dessa família</a>
+          </article>
+          {% else %}<p>Não há famílias classificadas entre os produtos sem candidato.</p>{% endfor %}
+        </div>
+      </section>
+      {% if gaps.selected %}
+      <section class="panel gap-selected" id="lacuna-selecionada" aria-labelledby="selected-gap-heading">
+        <div class="panel-heading"><p class="eyebrow">Produtos para revisão</p><h2 id="selected-gap-heading">{{ gaps.selected.name }} · {{ gaps.selected.total }} sem candidato</h2></div>
+        <p>Listagem filtrada da execução atual; nenhum item foi confirmado como lacuna comercial.</p>
+        <ul class="bar-list">{% for item in gaps.selected['items'] %}<li><span>{{ item.code }} · {{ item.name }}</span><a href="/api/v1/products/{{ item.id }}" target="_blank" rel="noopener">Detalhes</a></li>{% endfor %}</ul>
+        <nav class="gap-pagination" aria-label="Páginas da lacuna">
+          {% if gaps.selected.page > 1 %}<a href="/comparador?{{ gap_query }}&gap_page={{ gaps.selected.page - 1 }}#lacuna-selecionada">← Anterior</a>{% endif %}
+          <span>Página {{ gaps.selected.page }} de {{ gaps.selected.pages }}</span>
+          {% if gaps.selected.page < gaps.selected.pages %}<a href="/comparador?{{ gap_query }}&gap_page={{ gaps.selected.page + 1 }}#lacuna-selecionada">Próxima →</a>{% endif %}
+        </nav>
+      </section>
+      {% endif %}
       <section class="match-list" aria-label="Relações sugeridas">
         {% for item in matching['items'] %}
         <article class="panel match-card">
@@ -202,6 +372,59 @@
         {% else %}<section class="panel empty-state-panel"><h2>Nenhum candidato encontrado</h2><p>A execução terminou sem relações acima do limiar conservador.</p></section>{% endfor %}
       </section>
       {% else %}<section class="panel empty-state-panel"><h2>Análise ainda não executada</h2><p>Execute o processo de correspondência para esta empresa. Nenhuma equivalência será confirmada automaticamente.</p></section>{% endif %}
+    {% elif title == "Importações e qualidade" %}
+      <section class="notice"><strong>Auditoria em staging.</strong><span>Estes achados vêm dos seis XLSX locais e não alteram o catálogo publicado nem confirmam equivalências técnicas.</span></section>
+      {% if pipeline_audit %}
+      <section class="panel" aria-labelledby="pipeline-audit-heading">
+        <div class="panel-heading"><p class="eyebrow">Qualidade dos arquivos</p><h2 id="pipeline-audit-heading">Reconciliação bruto × tratado</h2></div>
+        <div class="analysis-kpis">
+          <div><strong>{{ "{:,}".format(pipeline_audit.product_rows_per_layer).replace(',', '.') }}</strong><span>linhas de produtos por camada, sem duplicar o tratado</span></div>
+          <div><strong>{{ pipeline_audit.sources.portwell_raw.duplicate_codes|length }}</strong><span>códigos Portwell com ocorrências comerciais repetidas</span></div>
+          <div><strong>{{ pipeline_audit.sources.portwell_raw.missing_code_rows }}</strong><span>rodapé não produto no bruto Portwell</span></div>
+        </div>
+        <div class="table-scroll"><table class="technical-matrix"><thead><tr><th>Empresa e camada</th><th>Linhas com código</th><th>Códigos distintos</th><th>Colunas</th><th>Duplicidades</th></tr></thead><tbody>
+          {% for key, label in (('choice_raw', 'Choice · bruto'), ('choice_treated', 'Choice · tratado'), ('portwell_raw', 'Portwell · bruto'), ('portwell_treated', 'Portwell · tratado'), ('eco_raw', 'Eco · bruto'), ('eco_treated', 'Eco · tratado')) %}
+          {% set source = pipeline_audit.sources[key] %}
+          <tr><th scope="row">{{ label }}</th><td>{{ "{:,}".format(source.coded_rows).replace(',', '.') }}</td><td>{{ "{:,}".format(source.distinct_codes).replace(',', '.') }}</td><td>{{ source.columns }}</td><td>{{ source.duplicate_codes|length }}</td></tr>
+          {% endfor %}
+        </tbody></table></div>
+        <ul class="quality-list">
+          <li><strong>{{ pipeline_audit.sources.eco_raw.zero_prices.pix }}</strong><span>preços Pix zero na Eco — não são ofertas gratuitas</span></li>
+          <li><strong>{{ pipeline_audit.sources.eco_raw.zero_prices.cartao }}</strong><span>preços cartão zero na Eco — fora de ranking válido</span></li>
+          <li><strong>{{ pipeline_audit.sources.eco_raw.availability_counts['https://schema.org/BackOrder'] }}</strong><span>registros Eco em backorder, sem prazo inferido</span></li>
+        </ul>
+        <p class="analysis-note">Os códigos de cada empresa reconciliam entre bruto e tratado, inclusive sua multiplicidade. Três códigos Portwell têm duas ocorrências com diferenças no preço de compra e no índice MK; nenhuma foi escolhida como preço vigente. A auditoria não homologou atributos individuais.</p>
+      </section>
+      {% else %}
+      <section class="panel"><p>{% if user.role == 'gestor' %}Relatório de staging indisponível. Execute a auditoria documentada antes de usar esta página.{% else %}Os resultados detalhados da auditoria são restritos a gestores.{% endif %}</p></section>
+      {% endif %}
+      {% if dimensional_staging %}
+      <section class="panel" aria-labelledby="dimensional-audit-heading">
+        <div class="panel-heading"><p class="eyebrow">Concorrente · simulação sem publicação</p><h2 id="dimensional-audit-heading">Dimensional — auditoria do CSV</h2></div>
+        <p>O lote foi lido integralmente; Dimensional ainda não integra o catálogo publicado, os filtros comerciais ou o comparador. Nenhuma equivalência foi aprovada.</p>
+        {% if dimensional_database and dimensional_database.available %}
+        <p class="analysis-note">No PostgreSQL de staging: {{ "{:,}".format(dimensional_database.offers).replace(',', '.') }} ofertas, {{ "{:,}".format(dimensional_database.rows).replace(',', '.') }} linhas de origem, {{ "{:,}".format(dimensional_database.observations).replace(',', '.') }} observações e {{ "{:,}".format(dimensional_database.prices).replace(',', '.') }} registros de preço anunciado/referência. Moeda, data e unidade comercial não foram confirmadas.</p>
+        {% endif %}
+        <div class="analysis-kpis">
+          <div><strong>{{ "{:,}".format(dimensional_staging.audit.metrics.records).replace(',', '.') }}</strong><span>SKUs únicos auditados</span></div>
+          <div><strong>{{ dimensional_staging.audit.repeated_product_ids|length }}</strong><span>grupos de variantes com product_id repetido</span></div>
+          <div><strong>{{ dimensional_staging.simulation.published_offers }}</strong><span>ofertas publicadas pela simulação inicial</span></div>
+        </div>
+        <ul class="quality-list">
+          <li><strong>{{ dimensional_staging.audit.metrics.ean_invalid }}</strong><span>EANs estruturalmente inválidos</span></li>
+          <li><strong>{{ dimensional_staging.audit.ean_shared_groups }}</strong><span>grupos de EAN compartilhado, sem fusão de ofertas</span></li>
+          <li><strong>{{ dimensional_staging.audit.metrics.ncm_invalid }}</strong><span>NCMs fora do padrão, incluindo {{ dimensional_staging.audit.metrics.ncm_url }} URLs</span></li>
+          <li><strong>{{ dimensional_staging.audit.metrics.formula_in_specifications }}</strong><span>fórmulas textuais bloqueadas como atributo</span></li>
+          <li><strong>{{ dimensional_staging.audit.metrics.price_zero_or_invalid }}</strong><span>preços atuais zero/sem valor válido para ranking</span></li>
+          <li><strong>{{ dimensional_staging.simulation.conflicts['coil.voltage'] }}</strong><span>propostas com bobina conflitante, bloqueadas para equivalência</span></li>
+        </ul>
+        <h3>Domínios declarados na origem</h3>
+        <ul class="bar-list">{% for domain, count in dimensional_staging.audit.domains.items() %}<li><span>{{ domain }}</span><strong>{{ "{:,}".format(count).replace(',', '.') }}</strong></li>{% endfor %}</ul>
+        <p class="analysis-note">Estoque numérico confiável permanece desconhecido para todos os SKUs. As famílias e os conflitos são propostas de regras, não classificação homologada. Hash do lote: {{ dimensional_staging.audit.sha256 }}.</p>
+      </section>
+      {% endif %}
+    {% elif title == "Digitalização" %}
+      {% include "digitalizacao.html" %}
     {% else %}
     <section class="panel empty-state-panel">
       <div class="empty-icon" aria-hidden="true">◇</div>
@@ -212,4 +435,10 @@
     {% endif %}
   </main>
 </div>
+{% endblock %}
+
+{% block scripts %}
+  {% if title == "Digitalização" %}
+  <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20260924-1" defer></script>
+  {% endif %}
 {% endblock %}

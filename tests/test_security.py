@@ -16,8 +16,9 @@ def test_password_round_trip() -> None:
 
 
 def test_short_password_is_rejected() -> None:
-    with pytest.raises(ValueError, match="12 caracteres"):
+    with pytest.raises(ValueError, match="6 caracteres"):
         hash_password("curta")
+    assert verify_password(hash_password("123456"), "123456")
 
 
 def test_secret_comparison_and_email_normalization() -> None:

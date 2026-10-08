@@ -6,6 +6,14 @@ Os scripts usam explicitamente `C:\PRM\.venv\Scripts\python.exe`, definem `C:\PR
 
 O bind padrão é `127.0.0.1`. Não altere para a rede interna nem crie regra de firewall sem aprovação do operador de rede. `--reload` é exclusivo para desenvolvimento.
 
+Se uma alteração de rota Python aparecer como HTTP 404 enquanto arquivos de estilo/JavaScript novos já aparecem, o servidor provavelmente está usando código carregado antes da alteração. No terminal em que o PRM está rodando, encerre-o com `Ctrl+C` e inicie novamente em `C:\PRM`:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Em desenvolvimento, acrescente `--reload` para recarregar mudanças futuras. Não encerre processos pela porta sem confirmar que pertencem à instância do PRM. A página estática de compatibilidade da comparação direta funciona mesmo antes desse reinício; após ele, redireciona para a rota completa com atributos tratados.
+
 ## Serviço permanente
 
 A configuração como serviço Windows ainda não foi executada. Na Fase 6 deve ser escolhido e validado um mecanismo aprovado (por exemplo, gerenciador de serviço corporativo), configurando:
@@ -18,6 +26,36 @@ A configuração como serviço Windows ainda não foi executada. Na Fase 6 deve 
 - processos separados para web e worker.
 
 Não dependa do VS Code nem de uma sessão RDP aberta.
+
+## Prévia pública temporária para a equipe
+
+Para testes externos pontuais, `scripts.public_preview` executa uma instância separada em `127.0.0.1:8002` com cookie de sessão `Secure`, uma senha HTTP Basic adicional e um Cloudflare Quick Tunnel HTTPS. Não abre porta de entrada no roteador ou firewall. O URL aleatório dura enquanto o processo e a conexão estiverem ativos; não é um endereço de produção nem estável. O tráfego passa pela infraestrutura da Cloudflare. Confirme autorização interna antes de compartilhar dados comerciais com terceiros.
+
+O executável oficial `cloudflared.exe` deve estar em `data/tools/` (ignorado pelo Git). Na pasta `C:\PRM`, execute:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.public_preview --duration-minutes 120
+```
+
+O comando mostra uma URL HTTPS, usuário `prm-preview` e senha aleatória da prévia **uma única vez**. Compartilhe URL e senha por canal restrito. Depois dessa primeira barreira, cada pessoa precisa entrar com uma conta individual do PRM; não compartilhe a senha do gestor. A política atual aceita no mínimo 6 caracteres, embora senhas mais longas sejam recomendadas, especialmente para gestores. Para cadastrar um colega como `vendedor`, com nome/e-mail/senha próprios, execute localmente:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.create_team_tester
+```
+
+O processo encerra automaticamente o túnel e a instância remota após 15–240 minutos (120 por padrão). Para encerrar antes do prazo, em outro terminal:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.stop_public_preview
+```
+
+Ao terminar os testes, desative a conta individual e revogue suas sessões:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.deactivate_team_tester colega@empresa.com
+```
+
+`data/exports/public_preview_status.json` guarda apenas URL, prazo e identificadores dos processos enquanto a prévia está ativa; não guarda a senha. Essa pasta e o binário não são versionados. A prévia não substitui implantação permanente com domínio próprio, gestão de acesso corporativa, monitoramento e políticas de segurança.
 
 ## Backup
 

@@ -19,6 +19,7 @@ from app.models import (
     OfferObservation,
     OfferPrice,
 )
+from app.services.catalog_treatment import plain
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class CatalogFilters:
     companies: tuple[str, ...] = field(default_factory=tuple)
     brands: tuple[str, ...] = field(default_factory=tuple)
     availability: tuple[str, ...] = field(default_factory=tuple)
+    family_group: str | None = None
     modality: str | None = None
     price_min: Decimal | None = None
     price_max: Decimal | None = None
@@ -57,6 +59,16 @@ def latest_price(modality: str):
     )
 
 
+def price_range_condition(amount, minimum: Decimal | None, maximum: Decimal | None):
+    if minimum is not None and maximum is not None:
+        return amount.between(minimum, maximum)
+    if minimum is not None:
+        return amount >= minimum
+    if maximum is not None:
+        return amount <= maximum
+    return amount.is_not(None)
+
+
 def filter_conditions(organization_id: uuid.UUID, filters: CatalogFilters) -> list:
     conditions = [Offer.organization_id == organization_id, Offer.active.is_(True)]
     if not filters.include_excluded:
@@ -83,24 +95,56 @@ def filter_conditions(organization_id: uuid.UUID, filters: CatalogFilters) -> li
         )
     if filters.availability:
         conditions.append(Offer.availability_state.in_(filters.availability))
-    if filters.search:
-        pattern = f"%{filters.search.strip()}%"
+    if filters.family_group:
         conditions.append(
-            or_(
-                Offer.external_code.ilike(pattern),
-                Offer.name_raw.ilike(pattern),
-                Offer.brand_raw.ilike(pattern),
-                Offer.manufacturer_code.ilike(pattern),
-                Offer.reference.ilike(pattern),
-                Offer.description_display.ilike(pattern),
+            select(OfferEnrichment.id)
+            .where(
+                OfferEnrichment.offer_id == Offer.id,
+                OfferEnrichment.family_group == filters.family_group,
             )
+            .correlate(Offer)
+            .exists()
         )
-    if filters.modality and (filters.price_min is not None or filters.price_max is not None):
+    if filters.search:
+        for term in filters.search.strip().split()[:8]:
+            escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
+            normalized = plain(term) if not any(character in term for character in "%_\\") else ""
+            conditions.append(
+                or_(
+                    Offer.external_code.ilike(pattern, escape="\\"),
+                    Offer.name_raw.ilike(pattern, escape="\\"),
+                    Offer.brand_raw.ilike(pattern, escape="\\"),
+                    Offer.manufacturer_code.ilike(pattern, escape="\\"),
+                    Offer.reference.ilike(pattern, escape="\\"),
+                    Offer.description_display.ilike(pattern, escape="\\"),
+                    Offer.application_raw.ilike(pattern, escape="\\"),
+                    Offer.category_raw.ilike(pattern, escape="\\"),
+                    select(Brand.id).where(
+                        Brand.id == Offer.brand_id,
+                        Brand.canonical_name.ilike(pattern, escape="\\"),
+                    ).correlate(Offer).exists(),
+                    select(OfferEnrichment.id).where(
+                        OfferEnrichment.offer_id == Offer.id,
+                        or_(
+                            OfferEnrichment.family.ilike(pattern, escape="\\"),
+                            OfferEnrichment.family_group.ilike(pattern, escape="\\"),
+                            OfferEnrichment.model_reference.ilike(pattern, escape="\\"),
+                            OfferEnrichment.normalized_title.ilike(
+                                f"%{normalized}%", escape="\\"
+                            ) if normalized else False,
+                        ),
+                    ).correlate(Offer).exists(),
+                )
+            )
+    if filters.modality:
         amount = latest_price(filters.modality)
-        if filters.price_min is not None:
-            conditions.append(amount >= filters.price_min)
-        if filters.price_max is not None:
-            conditions.append(amount <= filters.price_max)
+        conditions.append(price_range_condition(amount, filters.price_min, filters.price_max))
+    elif filters.price_min is not None or filters.price_max is not None:
+        conditions.append(or_(*[
+            price_range_condition(latest_price(modality), filters.price_min, filters.price_max)
+            for modality in ("venda", "pix", "cartao")
+        ]))
     return conditions
 
 
@@ -110,12 +154,14 @@ def list_offers(
     filters: CatalogFilters,
     *,
     page: int = 1,
-    page_size: int = 24,
+    page_size: int = 100,
 ) -> dict:
     page = max(page, 1)
-    page_size = page_size if page_size in {24, 48} else 24
+    page_size = page_size if page_size in {24, 48, 100, 200} else 100
     conditions = filter_conditions(organization_id, filters)
     total = db.scalar(select(func.count()).select_from(Offer).where(*conditions)) or 0
+    pages = max(1, math.ceil(total / page_size))
+    page = min(page, pages)
     pix = latest_price("pix").label("price_pix")
     card = latest_price("cartao").label("price_card")
     sale = latest_price("venda").label("price_sale")
@@ -163,7 +209,7 @@ def list_offers(
         "page": page,
         "page_size": page_size,
         "total": total,
-        "pages": max(1, math.ceil(total / page_size)),
+        "pages": pages,
     }
 
 
@@ -341,9 +387,24 @@ def filter_options(db: Session, organization_id: uuid.UUID) -> dict:
             .order_by(Brand.canonical_name)
         )
     )
+    family_groups = list(
+        db.scalars(
+            select(OfferEnrichment.family_group)
+            .join(Offer, Offer.id == OfferEnrichment.offer_id)
+            .where(
+                Offer.organization_id == organization_id,
+                Offer.active.is_(True),
+                Offer.excluded_from_analytics.is_(False),
+                OfferEnrichment.family_group.is_not(None),
+            )
+            .distinct()
+            .order_by(OfferEnrichment.family_group)
+        )
+    )
     return {
         "companies": companies,
         "brands": brands,
+        "family_groups": family_groups,
         "availability": ["em_estoque", "fora_estoque", "sob_encomenda", "nao_informado"],
         "modalities": ["pix", "cartao", "venda"],
     }
@@ -356,8 +417,8 @@ def comparison_preview(
     reference_offer_id: uuid.UUID | None = None,
 ) -> dict:
     unique_ids = list(dict.fromkeys(offer_ids))
-    if not 2 <= len(unique_ids) <= 4:
-        raise ValueError("Selecione entre 2 e 4 ofertas distintas.")
+    if not 2 <= len(unique_ids) <= 8:
+        raise ValueError("Selecione entre 2 e 8 ofertas distintas.")
     if reference_offer_id is not None and reference_offer_id not in unique_ids:
         raise ValueError("A oferta de referência precisa fazer parte da comparação.")
     items = []
@@ -553,4 +614,42 @@ def _technical_matrix(
                 "values": cells,
             }
         )
+    enrichments = {
+        item.offer_id: item
+        for item in db.scalars(
+            select(OfferEnrichment).where(OfferEnrichment.offer_id.in_([offer["id"] for offer in items]))
+        )
+    }
+    for key, name in (
+        ("family", "Família tratada"),
+        ("family_group", "Grupo tratado"),
+        ("model_reference", "Modelo tratado"),
+    ):
+        values = [getattr(enrichments.get(item["id"]), key, None) for item in items]
+        if any(value is not None for value in values):
+            matrix.append({
+                "key": key, "name": name, "unit": None, "origin": "enriquecimento",
+                "status": _matrix_status(values),
+                "values": [
+                    {"offer_id": item["id"], "value": value, "review_status": None,
+                     "method": enrichments[item["id"]].source if item["id"] in enrichments else None}
+                    for item, value in zip(items, values)
+                ],
+            })
+    defined_keys = {entry["definition"].key for entry in by_definition.values()}
+    enrichment_keys = sorted({key for enrichment in enrichments.values()
+                              for key in (enrichment.attributes or {})} - defined_keys)
+    for key in enrichment_keys:
+        values = [(enrichments.get(item["id"]).attributes or {}).get(key)
+                  if item["id"] in enrichments else None for item in items]
+        matrix.append({
+            "key": key, "name": key.replace("_", " ").capitalize(), "unit": None,
+            "origin": "enriquecimento", "status": _matrix_status(values),
+            "values": [
+                {"offer_id": item["id"], "value": str(value) if value is not None else None,
+                 "review_status": None,
+                 "method": enrichments[item["id"]].source if item["id"] in enrichments else None}
+                for item, value in zip(items, values)
+            ],
+        })
     return matrix

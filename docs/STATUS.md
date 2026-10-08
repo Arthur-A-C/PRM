@@ -1,10 +1,83 @@
 # Status do projeto
 
-Atualizado em: 2026-09-24 (America/Sao_Paulo)
+## Atualização de 01/10/2026 — política de senha e gestor
 
-O marco inicial `0.1.0` está resumido em [`docs/ENTREGA_0_1.md`](ENTREGA_0_1.md). O repositório de código é `https://github.com/Arthur-A-C/PRM`; esta pasta `C:\PRM` acompanha `origin/main`. Arquivos de configuração local, planilhas e backups são ignorados pelo Git.
+- Por solicitação do operador, o mínimo de senha do PRM passou de 12 para **6 caracteres** em `app/services/security.py`; os fluxos interativos de cadastro e o teste de segurança foram atualizados. O hash Argon2 e as demais regras de autenticação não mudaram. Essa redução vale para todas as contas novas e diminui a resistência a tentativas de adivinhação; é recomendado usar senhas longas mesmo com o mínimo reduzido.
+- O usuário `kaue.borges@choicetech.com.br` foi criado no `prm_mvp` como `gestor` ativo (maior perfil de acesso da aplicação). A senha não foi gravada em código, documentação ou saída do terminal; o banco guarda apenas o hash. Essa função não concede privilégios de administrador do Windows ou do PostgreSQL.
+- Verificação SQL confirmou o usuário ativo com perfil `gestor`. Suíte completa: **60 testes aprovados, 3 avisos**.
+
+## Atualização de 28/09/2026 — PostgreSQL de staging e carga Dimensional
+
+- O novo banco `prm_pipeline_staging` foi confirmado vazio e isolado. O backup SHA-256 `4470551b59efaebf108e8199e6c1c1785dd8bb8b2aece4b87580ab353ea848dc` do `prm_mvp` foi restaurado nele, sem limpar nem sobrescrever dados preexistentes. Esquema: 20 tabelas, revisão `20260923_0007`; linha de base: 35.786 ofertas.
+- A carga CSV Dimensional entrou **somente no staging**, em uma transação: 77.965 ofertas distintas por SKU, 77.965 linhas brutas auditáveis, 77.965 observações e 155.930 registros de preço anunciado/referência; total do staging: 113.751 ofertas. O lote `380250f8-e8a7-4daf-9453-8bf80c3846a2` guarda hash, origem e 582 linhas com alertas. São 77.934 preços anunciados positivos e 31 sem valor positivo. Reexecutar o lote retornou `idempotent=true`, sem duplicar registros.
+- A ingestão preserva `product_id`, EAN, NCM, textos e linhas físicas no JSON de origem; usa empresa+SKU como identidade da oferta. Estoque numérico permanece nulo/não confiável. A moeda `XXX` indica desconhecida; `anunciado` e `referencia_anunciada` não equivalem a Pix, cartão ou preço comercial comparável. A data da observação permanece nula.
+- A visão geral e Importações e qualidade consultam as contagens do staging em modo somente leitura, exibindo-as separadas da produção e da simulação inicial. O painel reconcilia o hash e a contagem com a auditoria local. Não há equivalências homologadas nem matching Dimensional publicado.
+- O `prm_mvp` foi reconciliado após a carga: segue com 3 empresas, 3 lotes e 35.786 ofertas; Portwell, Choice e Eco não foram alteradas. **A Dimensional ainda não aparece nos filtros comerciais oficiais.**
+- Suíte completa: **60 aprovados, 3 avisos**. Smoke autenticado com PostgreSQL real passou; o teste de idempotência e a reconciliação SQL do staging também passaram. Scripts operacionais e limitações em [DIMENSIONAL.md](DIMENSIONAL.md).
+- Próxima fase: persistir afirmações técnicas com estado de revisão e conflito, revisar amostra estratificada, validar moeda/data/unidade/estoque, testar rollback de uma revisão e só então promover para `prm_mvp` e habilitar comparação/cobertura. O importador atual é atômico e idempotente para este lote, mas **ainda não é retomável por checkpoint**.
+
+## Registro anterior de 28/09/2026 — auditoria no dashboard antes da criação do staging
+
+- A visão geral agora mostra, em painel próprio, a auditoria Dimensional de 77.965 SKUs, 77.934 preços anunciados positivos, 3.790 afirmações técnicas propostas e os alertas de EAN, NCM, preço e tensão de bobina. O painel identifica esses resultados como **staging** e mostra separadamente a quantidade de ofertas Dimensional presente de fato no banco oficial.
+- O `prm_mvp` foi consultado e reconciliado: Choice 16.886 ofertas, Portwell 10.955, Eco 7.945; 3 lotes, 35.786 ofertas, 35.800 linhas de importação, 35.786 observações e 43.731 preços. Dimensional continua com **zero ofertas publicadas**. Nenhum preço ou match Dimensional foi tratado como equivalente ou comparável no banco.
+- Backup preventivo validado: `data/backups/prm_mvp_20260928_141836.dump` (29.426.753 bytes; SHA-256 `4470551b59efaebf108e8199e6c1c1785dd8bb8b2aece4b87580ab353ea848dc`; inventário `pg_restore --list` com 172 linhas). Não foi executada restauração de teste.
+- Teste novo protege a separação staging/publicado no dashboard. Suíte completa: **59 aprovados, 3 avisos**. Smoke autenticado com PostgreSQL real passou para dashboard, catálogo, API, comparador e logout. O primeiro pytest no sandbox falhou por permissão em arquivos temporários; repetido fora do sandbox, passou.
+- **Publicação de ofertas/atributos/matches no `prm_mvp` não realizada.** O banco `prm_pipeline_staging` ainda não foi disponibilizado à aplicação; a carga CSV persistente, revisão de amostra e rollback não foram implementados/testados. Moeda, data/unidade comercial, semântica dos estoques sentinela e conflitos técnicos continuam pendentes. Publicar os 77.965 SKUs como comparáveis agora contrariaria os critérios de aceite e poderia gerar conclusões comerciais incorretas.
+- A alteração do dashboard está nos arquivos locais. Nenhum servidor HTTP foi encontrado escutando nas portas 8000–8002 na verificação; ao iniciar/reiniciar a aplicação, a visão geral carregará o novo painel. Nenhum push Git ou deploy remoto foi realizado.
+
+## Atualização de 28/09/2026 — Dimensional em auditoria e simulação
+
+- O CSV Dimensional recebido (140.518.094 bytes; SHA-256 8ad7e0e63e265aa6ebfd34b06a530dc000177c11602c2a6920e80add3e211528) foi copiado sem alteração para data/imports/produtos_dimensional.csv, fora do Git. O original em Downloads permanece intocado.
+- Adaptador CSV v1 em app/services/dimensional_csv.py: leitura streaming com UTF-8 BOM, aspas e descrições multilinha, layout validado, SKU como identidade por empresa/fonte e preços anunciados separados de preço de referência. Auditoria: 77.965 registros/SKUs, 77.957 product_id, 261.622 linhas físicas e 20 campos; três grupos de variantes preservados.
+- Simulação em app/services/dimensional_stage.py e regras conservadoras em app/services/dimensional_semantics.py: 3.790 afirmações propostas, zero evidências sem trecho literal, 77.965 saldos confiáveis desconhecidos e zero ofertas/equivalências publicadas. Fórmulas, EAN/NCM inválidos e conflitos de variante/bobina/switch/cabo são sinalizados, não corrigidos por adivinhação.
+- Relatórios ignorados pelo Git em data/analysis/staging/dimensional_audit.json e dimensional_simulation.json. A aba Importações e qualidade mostra os números apenas a gestores, com aviso de staging; Dimensional ainda não aparece nos filtros/catálogo publicados.
+- Antes/depois do banco publicado: 3 empresas, 3 lotes, 35.786 ofertas, 35.800 linhas de importação, 43.731 preços e migração 20260923_0007; nenhuma gravação foi feita. O banco prm_pipeline_staging ainda não existe e prm_app não pode criá-lo; importação persistente, comparação cruzada, publicação e rollback aguardam staging PostgreSQL e revisão técnica.
+- Operação, métricas, casos e decisões pendentes em docs/DIMENSIONAL.md. Testes específicos Dimensional: 15 aprovados; suíte completa: **58 aprovados, 3 avisos de dependências/planilha**, sem falhas.
+
+## Atualização de 25/09/2026 — normalização auditável em staging
+
+- A pasta oficial passou a ser C:\Users\PW\Documents\PRM. A especificação PRM_PIPELINE_NORMALIZACAO_PROMPT_CODEX.md foi lida integralmente; as seis planilhas do lote têm SHA-256 iguais aos informados.
+- Auditoria reproduzível em app/services/catalog_audit.py e scripts/audit_catalog_pipeline.py: 35.799 linhas de produto por camada; Choice 16.894, Portwell 10.960, Eco 7.945. O bruto Portwell tem um rodapé adicional na linha 10.963 e três códigos com duas ocorrências divergentes em preço de compra e índice MK. Na Eco, 612 preços zero em cada modalidade e 54 registros BackOrder. Bruto/tratado reconciliam por código e multiplicidade; nenhuma planilha ou registro publicado foi alterado.
+- Resultado gerado somente em data/analysis/staging/audit_20260925.json, ignorado pelo Git. A aba Importações e qualidade mostra a reconciliação a gestores, com aviso explícito de staging.
+- app/services/catalog_semantics.py contém propostas determinísticas iniciais com evidência e escopo para CPU, PCs, memória, discos, portas, kits, acessórios e contatores; conflitos de fonte/UPS e corrente não são aprovados automaticamente. Ainda não está ligado à revisão publicada.
+- 43 testes passaram, incluindo auditoria de integração, regressões sintéticas e registros reais Portwell, Choice e Eco. A primeira execução integral no sandbox falhou por falta de escrita nas planilhas temporárias dos testes; repetida com permissão, passou. Template shell.html compilado.
+- Próximas fases: modelo relacional/migração não destrutiva, staging PostgreSQL, jobs retomáveis, revisão e publicação/rollback, comparação explicável e homologação técnica de 150 registros. Detalhes e operação em docs/catalog_pipeline.md. **Nenhum dado do banco foi migrado ou publicado nesta etapa.**
+- Pré-condição para a fase PostgreSQL: a conta atual prm_app não tem CREATEDB e o banco prm_pipeline_staging ainda não existe. Não foi tentada migração no banco prm_mvp; um administrador deve provisionar um banco staging separado antes do teste de ingestão persistente.
+
+Atualizado em: 2026-09-28 (America/Sao_Paulo)
+
+O marco inicial `0.1.0` está resumido em [`docs/ENTREGA_0_1.md`](ENTREGA_0_1.md). O repositório de código é `https://github.com/Arthur-A-C/PRM`; a pasta oficial agora é `C:\Users\PW\Documents\PRM` e acompanha `origin/main`. Arquivos de configuração local, planilhas e backups são ignorados pelo Git.
 
 Em 24/09/2026, o tratamento dos três catálogos, o comparador `lexical-v1.3`, as melhorias do dashboard e esta documentação foram publicados em `origin/main`. As planilhas e o backup permaneceram apenas no ambiente local.
+
+A visualização de possíveis lacunas, a pesquisa/filtros do catálogo, o retrato comparável e a comparação direta descritos abaixo estão apenas no diretório de trabalho local; ainda não foram enviados ao GitHub.
+
+## Atualização de 24/09/2026 — prévia remota temporária
+
+- Prévia HTTPS pública de teste ativada via Cloudflare Quick Tunnel para uma instância separada em `127.0.0.1:8002`. URL e expiração atuais ficam somente em `data/exports/public_preview_status.json` (ignorado pelo Git); senha aleatória da prévia é exibida uma vez no terminal e não é gravada. O túnel encerra automaticamente após 120 minutos ou com `scripts.stop_public_preview`.
+- A prévia exige HTTP Basic antes do login do PRM; cookies da instância remota têm atributo `Secure` e duração de duas horas. A instância local na 8000/8001 e o banco não foram reconfigurados. Nenhuma porta de entrada foi aberta.
+- Teste externo confirmou `401` sem senha, `200` com senha na rota de saúde, redirecionamento ao login do PRM sem sessão e acesso autenticado ao catálogo após login. A conta temporária do smoke foi removida. Existem apenas contas de gestor permanentes no banco; cada colega deve ganhar uma conta individual `vendedor` com `scripts.create_team_tester` e ser desativado ao final com `scripts.deactivate_team_tester`.
+- O executável oficial `cloudflared` foi baixado para `data/tools/`, fora do Git, e a assinatura Authenticode da Cloudflare foi validada. **29 testes aprovados** e smoke remoto completo aprovado. Operação e limites em [`OPERACAO_WINDOWS.md`](OPERACAO_WINDOWS.md).
+
+## Correção de 24/09/2026 — link da comparação no processo ativo
+
+- O processo web que escuta em `127.0.0.1:8000` estava carregado antes da criação da rota `/comparacao-direta`: a URL retornava HTTP 404, embora o arquivo JavaScript novo já fosse servido. Tentativa de reiniciar apenas esse processo foi negada pelo Windows; ele não foi encerrado.
+- O botão do catálogo aponta agora para `/static/direct-comparison.html`, disponível imediatamente no processo ativo. A página lê os produtos pela API autenticada e mostra preços, referência opcional e características declaradas. Quando a rota Python nova estiver disponível após reinício controlado pelo operador, essa página redireciona automaticamente para a versão completa, que inclui os atributos tratados pelo pipeline.
+- Smoke com sessão temporária validou a instância real: página estática HTTP 200, script HTTP 200, produto autenticado HTTP 200 e rota Python ainda HTTP 404. O teste removeu o usuário e a sessão temporários. Os dados e o banco foram preservados. Instrução de reinício em [`OPERACAO_WINDOWS.md`](OPERACAO_WINDOWS.md).
+
+## Atualização de 24/09/2026 — preço e comparação direta
+
+- Corrigido o filtro de preço na aba Catálogos: com “Todas as modalidades”, a faixa seleciona produtos que tenham ao menos um preço válido `venda`, `pix` ou `cartao` dentro de **ambos os limites na mesma modalidade**. Sem faixa, “Todas” continua mostrando também produtos sem preço. API e HTML usam a mesma regra; faixa invertida continua rejeitada.
+- Cada card do catálogo agora tem seleção para comparação direta. A seleção de 2 a 8 produtos persiste entre páginas no navegador; a página `/comparacao-direta` mostra empresas próprias primeiro, preços das três modalidades, referência opcional e matriz de características do catálogo mais enriquecimento do pipeline. Comparação direta é exploratória e não confirma equivalência.
+- O prévio/API e a persistência de comparações aceitam até 8 produtos. Teste unitário novo e smoke autenticado no PostgreSQL validam filtro geral de preço, seleção, matriz com valores tratados e referência. **27 testes aprovados**, `compileall` e smoke aprovados. Nenhuma migração ou atualização de ofertas/preços foi necessária.
+
+## Atualização de 24/09/2026 — comparação normalizada
+
+- Quatro arquivos recebidos (`base_comparavel.csv`, `atributos_normalizados_long.csv`, XLSX de comparação e `normalizar_catalogos.py`) foram inspecionados; **o script externo não foi executado**. Originais, ofertas, observações, preços e execuções de matching foram preservados.
+- O gerador local somente leitura `scripts.build_comparable_snapshot` reconcilia as chaves externas ao banco, valida esquema/duplicatas, registra hashes e publica atomicamente `data/analysis/comparable_snapshot.json` (~77 KiB). O recorte tem Choice 15.482, Portwell 10.836 e Eco 7.944 ofertas, 23 macrocategorias e 265 pares macrocategoria/família.
+- Novo painel na visão geral e tabela paginada/filtrável no comparador mostram amplitude de famílias: 4.280 ofertas Eco (53,9%) em famílias também presentes no portfólio próprio; 3.664 em famílias sem classificação própria. Isso **não é equivalência individual**, nem substitui os 11 pares fortes do `lexical-v1.3`.
+- Auditoria: três chaves duplicadas Portwell, três chaves sem oferta publicada, oito linhas de atributo sem oferta e seis pares produto/atributo repetidos foram excluídos do retrato; 1.531 linhas constam em `Excluidos` no XLSX, sem exclusão do banco. Detalhes e propostas de melhoria em [`COMPARACAO_NORMALIZADA.md`](COMPARACAO_NORMALIZADA.md).
+- API autenticada `/api/v1/comparable-portfolio` disponível. Na conclusão dessa etapa, havia **26 testes aprovados**, `compileall` e smoke autenticado com PostgreSQL real aprovados; o total atual está em “Testes e verificações”. O primeiro pytest no sandbox falhou apenas ao criar diretório temporário; repetição autorizada fora do sandbox passou. Smoke confirmou também o novo painel e a API. Não houve migração nem alteração de dados persistidos, além do usuário temporário do smoke, removido ao final.
 
 ## Fase atual
 
@@ -55,7 +128,9 @@ As saídas tratadas `Produtos-Choice.xlsx`, `Produtos-Portwell.xlsx` e `Produtos
 - Dashboard real: 35.785 ofertas no recorte analítico, 3 empresas, 419 marcas canônicas e 92,0% com ao menos uma modalidade de preço válida. Todas as 35.785 ofertas do recorte têm enriquecimento publicado pelo pipeline; a oferta Eco excluída também tem enriquecimento, mas não entra no dashboard.
 - Choice Tech e Portwell aparecem antes da análise concorrente, com total tratado por empresa: Choice 16.886, Portwell 10.955 e Eco 7.944 no recorte. O percentual e a origem do tratamento aparecem nas versões HTML e API.
 - Qualidade no recorte: 168 ofertas sem marca e 2.859 sem preço válido; o registro Eco excluído não entra nesses indicadores.
-- Catálogo paginado em 24/48 itens, com busca, filtros combináveis, faixa por modalidade e origem auditável.
+- Catálogo paginado em **100 itens por padrão** (24, 48 e 200 opcionais), com busca por vários termos em código, nome, marca canônica/bruta, descrição, aplicação, categoria e sinais tratados. Filtros combináveis de empresa, marca, disponibilidade, família/segmento, modalidade e faixa de preço estão expostos na interface e na API; a ordem das empresas próprias é mantida.
+- Filtros vazios não restringem o catálogo. A modalidade isolada exige preço válido nela; uma faixa de preço com “Todas” aceita qualquer modalidade válida, mantendo os dois limites no mesmo preço. A paginação preserva os filtros e não repete produtos entre páginas.
+- O catálogo permite selecionar de 2 a 8 produtos entre páginas para comparação direta de preços e características tratadas; o comparador automático integral continua independente.
 - O comparador principal deixou de exigir seleção manual e analisa o catálogo concorrente completo contra todas as ofertas das empresas próprias.
 - O algoritmo local `lexical-v1.3` usa índice invertido, códigos/modelos, nome, marca canônica, descrição, família e atributos tratados; versão, limiares, pontuação e motivos ficam auditáveis. Conflitos técnicos críticos impedem sugestão forte.
 - A migração `0006` criou aliases de marca revisáveis. `ELFIN` e `NEW ELFIN SRL` agora apontam para a marca canônica `ELFIN`, enquanto os valores brutos das 14 e 447 ofertas continuam preservados.
@@ -64,6 +139,8 @@ As saídas tratadas `Produtos-Choice.xlsx`, `Produtos-Portwell.xlsx` e `Produtos
 - Histórico preservado: 6 execuções e 4.063 pares candidatos no total; cada recálculo insere uma execução auditável e até 3 pares por produto concorrente.
 - Dashboard e página de análise exibem gráfico de cobertura. O dashboard agora separa 11 sugestões fortes, 456 candidatos e 7.477 produtos Eco sem candidato; distribui as sugestões fortes entre Choice (11) e Portwell (0). Nossas empresas e produtos aparecem primeiro nos pares e listas.
 - O dashboard mostra até três sugestões fortes com preços de ambos os lados; comparação entre modalidades distintas é explicitamente nominal. A lista integral e os motivos continuam no comparador.
+- O comparador agora mostra possíveis lacunas da última execução, com marcas sem oferta própria identificada e famílias tratadas com produtos sem candidato; há barras, três exemplos por grupo, seleção de qualquer grupo e listagem paginada de 24 produtos. A API autenticada `/api/v1/catalog-gaps` expõe os mesmos sinais.
+- No recorte Eco atual: 7.477 produtos sem candidato; 7.318 desses pertencem a 27 marcas sem oferta própria identificada, e 4.138 pertencem a famílias sem a mesma classificação no portfólio próprio. Há 157 produtos sem marca identificada. As dimensões se sobrepõem, e nenhuma contagem é uma lacuna comercial confirmada.
 - A análise usa nosso preço preferencial como base para indicar `acima`, `abaixo` ou `igual`. Modalidades diferentes recebem alerta explícito de comparação nominal, não margem.
 - Novas publicações pelo importador disparam o recálculo de todas as concorrentes, salvo `--skip-matching` explícito.
 - Comparações podem ser salvas com estado inicial `nao_avaliado`; vendedor acessa as próprias e gestor pode consultar todas da organização.
@@ -73,13 +150,13 @@ As saídas tratadas `Produtos-Choice.xlsx`, `Produtos-Portwell.xlsx` e `Produtos
 ## Testes e verificações
 
 - `python -m compileall -q app scripts tests`: aprovado.
-- `python -m pytest -q`: **21 aprovados**; duas advertências de depreciação da combinação FastAPI/Starlette instalada, sem falha funcional.
+- `.venv\Scripts\python.exe -m pytest -q`: **29 aprovados**; duas advertências de depreciação da combinação FastAPI/Starlette instalada, sem falha funcional. A execução precisou sair do sandbox para acessar o diretório temporário do pytest.
 - Migrações aplicadas transacionalmente; Alembic e inspeção do esquema confirmam a revisão 0007.
 - `alembic check` confirma que os modelos SQLAlchemy e o esquema real não têm operações pendentes.
 - Smoke autenticado no PostgreSQL real cobre dashboard, catálogo, identidade, gráfico, cobertura integral, ordem das empresas próprias, preços, alias `ELFIN`/`NEW ELFIN SRL` e logout.
 - O smoke remove somente seu usuário e sessão temporários. O gestor permanente permanece; a contagem de sessões ativas varia com os logins e o smoke não altera execuções de correspondência.
 - `scripts/reconcile_catalogs.py` reproduz as contagens persistidas sem alterar dados e lista empresas próprias primeiro.
-- `scripts.smoke_web` passou no PostgreSQL real: dashboard, catálogo, API, análise global, totais de tratamento reconciliados, sugestões por empresa própria, preços e logout. `pip check` passou.
+- `scripts.smoke_web` passou no PostgreSQL real: dashboard, catálogo com páginas de 100, busca por múltiplos termos, família, modalidade, faixa com “Todas”, comparação direta com características tratadas e referência, API, análise global, lacunas e logout. `pip check` passou na verificação anterior.
 - Consultas medidas anteriormente na máquina atual: dashboard 207 ms; primeira página 79 ms; busca “SIEMENS” 741 ms; filtro empresas próprias+estoque 39 ms; venda entre 100–500 BRL 358 ms. São amostras, não p95 nem promessa de produção.
 
 ## Limites conhecidos
@@ -88,6 +165,8 @@ As saídas tratadas `Produtos-Choice.xlsx`, `Produtos-Portwell.xlsx` e `Produtos
 - O cadastro e a revisão de novos aliases de marca ainda não têm interface. Novos casos devem entrar de forma controlada na tabela `brand_aliases`; variantes não são fundidas automaticamente apenas por semelhança textual.
 - Portwell/Choice usam `venda`, enquanto Eco usa principalmente `pix`/`cartao`. O indicador entre modalidades distintas é nominal e aparece sinalizado; condições comerciais não são inferidas.
 - O tratamento automático dos XLSX brutos extrai apenas sinais locais verificáveis. Para a mesma riqueza de atributos das três saídas atuais, é preciso gerar e publicar nova planilha tratada; o ZIP externo não é executado no servidor e seus cruzamentos pré-calculados não são importados.
+- O novo retrato comparável usa CSVs analisados e concilia as ofertas, mas não incorpora os valores do CSV longo ao algoritmo de pares. O alerta de desatualização compara contagens de ofertas; mudanças de conteúdo sem mudança de contagem exigem regeração manual.
+- O catálogo Eco não possui aplicação estruturada para a maioria das ofertas; a tela usa família de produto como aproximação. Marcas das nossas empresas às vezes refletem fornecedores em vez de fabricantes. Isso e falsos negativos do matcher podem inflar as possíveis lacunas; a tela não presume que uma marca não é trabalhada nem que um produto equivalente inexiste.
 - CSV, upload web, job persistido/progresso e tela de histórico/qualidade seguem pendentes na Fase 2 complementar.
 - Painel lateral de detalhes e Chart.js seguem pendentes na Fase 3.
 - A moeda BRL foi escolhida operacionalmente; não é campo declarado nas planilhas. `Data Cadastro` não é tratada como data de observação.
@@ -95,8 +174,8 @@ As saídas tratadas `Produtos-Choice.xlsx`, `Produtos-Portwell.xlsx` e `Produtos
 
 ## Próxima tarefa concreta
 
-1. Revisar manualmente as 11 sugestões fortes e uma amostra dos 456 outros produtos com candidato, para calibrar falsos positivos e atributos técnicos críticos.
-2. Criar fila de revisão humana para confirmar/rejeitar candidatos, com justificativa e revisor.
-3. Criar tela para sugerir, revisar e administrar aliases de marca, e usar atributos revisados para elevar a qualidade do pareamento.
-4. Mover o recálculo demorado para job persistido com progresso, mantendo o acionamento automático após importação.
-5. Completar painel lateral e a parte complementar de importação/qualidade.
+1. Revisar manualmente as 11 sugestões fortes, amostra dos 456 candidatos e principais sinais de lacuna (especialmente marcas cadastradas como fornecedor), para calibrar falsos positivos e negativos.
+2. Criar fila de revisão humana para confirmar/rejeitar candidatos e lacunas, com justificativa e revisor.
+3. Acrescentar aplicação estruturada quando a fonte a oferecer; manter família apenas como aproximação na Eco.
+4. Criar tela para sugerir, revisar e administrar aliases de marca, e usar atributos revisados para elevar a qualidade do pareamento.
+5. Mover o recálculo demorado para job persistido com progresso e completar a parte complementar de importação/qualidade.

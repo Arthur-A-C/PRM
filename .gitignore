@@ -11,6 +11,8 @@ data/exports/*
 !data/exports/.gitkeep
 data/backups/*
 !data/backups/.gitkeep
+data/tools/*
 data/imports/*
 !data/imports/.gitkeep
+data/analysis/staging/*
 *.log

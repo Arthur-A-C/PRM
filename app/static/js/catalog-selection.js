@@ -1,6 +1,6 @@
 (() => {
   const storageKey = "prm.comparison.offer_ids.v1";
-  const maximum = 4;
+  const maximum = 8;
   const checkboxes = [...document.querySelectorAll("[data-compare-offer]")];
   const bar = document.querySelector("[data-compare-bar]");
   if (!bar && checkboxes.length === 0) return;
@@ -24,7 +24,11 @@
   let selected = readSelection();
 
   function writeSelection() {
-    localStorage.setItem(storageKey, JSON.stringify(selected));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(selected));
+    } catch {
+      message.textContent = "Não foi possível guardar a seleção entre páginas neste navegador.";
+    }
   }
 
   function update() {
@@ -33,11 +37,12 @@
       checkbox.checked = selectedSet.has(checkbox.value);
     });
     if (!bar) return;
+    bar.classList.toggle("has-selection", selected.length > 0);
     count.textContent = String(selected.length);
     const canCompare = selected.length >= 2;
     const parameters = new URLSearchParams();
     selected.forEach((offerId) => parameters.append("offer", offerId));
-    link.href = canCompare ? `/comparador?${parameters.toString()}` : "/comparador";
+    link.href = canCompare ? `/static/direct-comparison.html?${parameters.toString()}` : "/static/direct-comparison.html";
     link.classList.toggle("is-disabled", !canCompare);
     link.setAttribute("aria-disabled", canCompare ? "false" : "true");
   }
@@ -48,7 +53,7 @@
       if (checkbox.checked) {
         if (selected.length >= maximum) {
           checkbox.checked = false;
-          message.textContent = "O comparador aceita no máximo 4 ofertas.";
+          message.textContent = "A comparação direta aceita no máximo 8 produtos.";
           return;
         }
         if (!selected.includes(checkbox.value)) selected.push(checkbox.value);

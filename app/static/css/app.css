@@ -84,14 +84,18 @@ button:hover { background: var(--navy); }
 .quality-list li, .bar-list li { display: flex; justify-content: space-between; gap: 1rem; padding: .6rem 0; border-bottom: 1px solid var(--line); }
 .quality-list li strong { color: var(--danger); }
 .quality-list li span, .bar-list li span { color: var(--muted); }
-.filters { display: grid; grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(10rem, 1fr)) auto auto; gap: 1rem; align-items: end; margin-bottom: 1rem; }
+.filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; align-items: end; margin-bottom: 1rem; }
+.filter-search, .filters fieldset { grid-column: span 2; }
+.filters small { display: block; margin-top: .3rem; color: var(--muted); font-size: .72rem; }
+.filter-actions { grid-column: 1 / -1; display: flex; gap: 1rem; align-items: center; }
+.catalog-filter-error { border-left-color: var(--danger); background: #fff0ee; }
 .filters label, .filters legend { color: var(--navy); font-size: .78rem; font-weight: 700; }
 .filters input:not([type="checkbox"]), .filters select { width: 100%; margin-top: .35rem; padding: .65rem; border: 1px solid #9fb3c8; border-radius: .45rem; background: white; }
 .filters fieldset { min-width: 0; margin: 0; padding: .45rem .7rem; border: 1px solid var(--line); border-radius: .45rem; }
 .check { display: block; margin: .2rem 0; font-weight: 500 !important; }
 .filter-group-label { display: block; margin: .15rem 0 .3rem; color: var(--navy); font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
 .filter-group-other { margin-top: .55rem; padding-top: .45rem; border-top: 1px solid var(--line); color: var(--muted); }
-.catalog-heading { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.catalog-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .3rem 1rem; color: var(--muted); }
 .catalog-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
 .product-card { display: flex; flex-direction: column; min-width: 0; padding: 1rem; background: white; border: 1px solid var(--line); border-top: 4px solid var(--muted); border-radius: .7rem; }
 .product-card.company-portwell { border-top-color: var(--blue); }
@@ -110,6 +114,9 @@ button:hover { background: var(--navy); }
 .product-card > a { margin-top: .5rem; font-size: .82rem; font-weight: 700; }
 .pagination { display: flex; justify-content: center; gap: 1rem; padding: 1.5rem; }
 .compare-bar { position: sticky; bottom: 1rem; z-index: 5; display: flex; gap: 1rem; align-items: center; margin: 1rem auto 0; padding: .8rem 1rem; color: white; background: var(--navy); border-radius: .7rem; box-shadow: 0 10px 30px rgba(16,42,67,.24); }
+.compare-bar.has-selection { position: fixed; left: 18rem; right: 1rem; bottom: .8rem; margin: 0; }
+.compare-bar .button-secondary { margin: 0; background: white; color: var(--navy); }
+.catalog-compare-help { color: var(--muted); font-size: .82rem; }
 .compare-message { flex: 1; color: #fce588; font-size: .78rem; }
 .button-link-dark { padding: .4rem; color: white; background: transparent; }
 .is-disabled { opacity: .5; cursor: not-allowed; }
@@ -134,6 +141,9 @@ button:hover { background: var(--navy); }
 .comparison-card dd { margin: .15rem 0 0; overflow-wrap: anywhere; font-size: .82rem; }
 .comparison-card details { margin-top: .75rem; color: var(--muted); font-size: .78rem; }
 .comparison-card details p { white-space: pre-line; }
+.comparison-card > a { display: inline-block; margin-top: .8rem; font-size: .8rem; font-weight: 700; }
+.direct-matrix { min-width: max-content; }
+.direct-matrix th, .direct-matrix td { min-width: 11rem; max-width: 17rem; overflow-wrap: anywhere; }
 .reference-badge { padding: .18rem .4rem; border-radius: 99px; color: #714b00; background: #fff2bf; font-size: .62rem; text-transform: uppercase; }
 .price-comparison-list { gap: .65rem; }
 .price-comparison { display: grid; gap: .22rem; }
@@ -186,6 +196,28 @@ button:hover { background: var(--navy); }
 .dashboard-price-list strong, .dashboard-price-list span, .dashboard-price-list small { display: block; }
 .dashboard-price-list span, .dashboard-price-list small { margin-top: .25rem; color: var(--muted); }
 .dashboard-analysis > a { font-weight: 700; }
+.gap-overview > p, .gap-grid > .panel > p, .gap-selected > p { color: var(--muted); font-size: .86rem; }
+.gap-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: 1rem 0; }
+.gap-metrics div { padding: .8rem; border: 1px solid var(--line); border-radius: .55rem; }
+.gap-metrics strong, .gap-metrics span { display: block; }
+.gap-metrics strong { color: var(--navy); font-size: 1.4rem; }
+.gap-metrics span { margin-top: .2rem; color: var(--muted); font-size: .8rem; }
+.gap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.gap-select { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem; margin: 1rem 0; }
+.gap-select label { grid-column: 1 / -1; font-size: .8rem; font-weight: 700; }
+.gap-select select { min-width: 0; padding: .55rem; border: 1px solid var(--line); border-radius: .4rem; background: white; }
+.gap-select button { padding: .55rem .7rem; }
+.gap-group { padding: .85rem 0; border-bottom: 1px solid var(--line); }
+.gap-group-heading { display: flex; justify-content: space-between; gap: .6rem; }
+.gap-group-heading strong { color: var(--navy); }
+.gap-group-heading span, .gap-group small { color: var(--muted); font-size: .8rem; }
+.gap-bar { height: .5rem; margin: .55rem 0; background: #e4eaf0; border-radius: 99px; overflow: hidden; }
+.gap-bar span { display: block; height: 100%; background: var(--blue); }
+.gap-group details { margin: .45rem 0; font-size: .82rem; }
+.gap-group details ul { padding-left: 1.2rem; overflow-wrap: anywhere; }
+.gap-group > a { font-size: .82rem; font-weight: 700; }
+.gap-pagination { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1rem; }
+.gap-selected .bar-list li { align-items: start; overflow-wrap: anywhere; }
 .match-list { display: grid; gap: 1rem; }
 .match-card header { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: .78rem; }
 .match-status { padding: .2rem .45rem; border-radius: 99px; background: #e9eef3; text-transform: uppercase; font-size: .64rem; font-weight: 800; }
@@ -205,6 +237,12 @@ button:hover { background: var(--navy); }
 .price-position.position-acima { color: #b54708; }
 .price-warning { padding: .55rem .7rem; color: #714b00; background: #fff8df; border-radius: .4rem; font-size: .72rem; }
 .match-card details { margin-top: .8rem; color: var(--muted); font-size: .75rem; }
+.comparable-report > p, .comparable-summary > p { color: var(--muted); font-size: .84rem; }
+.comparable-filters { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; margin: 1rem 0; }
+.comparable-filters label { font-size: .78rem; font-weight: 700; color: var(--navy); }
+.comparable-filters select { min-width: 12rem; max-width: 100%; padding: .55rem; border: 1px solid var(--line); border-radius: .4rem; background: white; }
+.comparable-table th:first-child { min-width: 13rem; }
+.comparable-table td { white-space: nowrap; }
 
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: 13rem minmax(0, 1fr); }
@@ -212,7 +250,9 @@ button:hover { background: var(--navy); }
   .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .comparison-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filter-search, .filters fieldset { grid-column: 1 / -1; }
   .status-badge { display: none; }
+  .compare-bar.has-selection { left: 14rem; }
 }
 @media (max-width: 600px) {
   .app-shell { display: block; }
@@ -229,8 +269,11 @@ button:hover { background: var(--navy); }
   .match-pair, .automatic-price-analysis { grid-template-columns: 1fr; }
   .dashboard-match-summary { grid-template-columns: 1fr; }
   .analysis-kpis { grid-template-columns: 1fr; }
+  .gap-metrics, .gap-grid { grid-template-columns: 1fr; }
+  .gap-select { grid-template-columns: 1fr; }
   .match-arrow { transform: rotate(90deg); justify-self: center; }
   .compare-bar { flex-wrap: wrap; bottom: .4rem; }
+  .compare-bar.has-selection { left: .5rem; right: .5rem; }
   .notice { display: block; }
   .company { grid-template-columns: auto 1fr; }
   .company a { grid-column: 2; }

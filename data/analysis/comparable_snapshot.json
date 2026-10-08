@@ -1,0 +1,3755 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "base_sha256": "3882b8b4e4211217184034d41d0d9282ac1fd6352381908fb727b663fa37c6a1",
+    "attributes_sha256": "2493894885ea8348736c706a5258977a402a1f946694597f207075ce5e592007"
+  },
+  "quality": {
+    "source_rows": {
+      "CHOICE": 15483,
+      "PORTWELL": 10841,
+      "ECO": 7944
+    },
+    "duplicate_keys": {
+      "PORTWELL": 3
+    },
+    "not_published": {
+      "CHOICE": 1,
+      "PORTWELL": 2
+    },
+    "orphan_attribute_rows": 8,
+    "duplicate_attribute_rows": 6,
+    "attribute_rows": {
+      "CHOICE": 61944,
+      "PORTWELL": 105089,
+      "ECO": 35547
+    },
+    "products_with_attributes": 31806,
+    "products_with_inferred_attributes": 3052
+  },
+  "totals": {
+    "CHOICE": 15482,
+    "PORTWELL": 10836,
+    "ECO": 7944
+  },
+  "published_counts": {
+    "CHOICE": 16886,
+    "PORTWELL": 10955,
+    "ECO": 7944
+  },
+  "macro_count": 23,
+  "family_count": 265,
+  "families": [
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Disjuntor Caixa Moldada",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 2270
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 2270
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Fusível",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 393
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 393
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Minidisjuntor",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 367
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 367
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Acessório para Disjuntor",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 161
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 157
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Bobina para Disjuntor",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 140
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 140
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Relé de Sobrecarga",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 51
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 51
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Interruptor Diferencial",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 44
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 44
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Etiqueta para Botão",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 36
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 36
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Bobina para Contator",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 36
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 36
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Ventilador",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 13
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 11
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Tampa",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 11
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 11
+      }
+    },
+    {
+      "macro": "Relés",
+      "family": "Relé de Interface",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 11
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 11
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Sensor Magnético",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 11
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 10
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Cartão de Memória",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 9
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 8
+      }
+    },
+    {
+      "macro": "Instrumentação e Processo",
+      "family": "Valvula Reguladora",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 9
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Acessório para Cortina de Luz",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 9
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      }
+    },
+    {
+      "macro": "Instrumentação e Processo",
+      "family": "Valvula",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 8
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 4
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Base para Fusível",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 8
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 8
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "KIT",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 8
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 8
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Placa",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 8
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 8
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Potenciometro Classico",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      }
+    },
+    {
+      "macro": "Fontes e UPS",
+      "family": "Nobreak",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Canaleta Aberta",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Extensao",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      }
+    },
+    {
+      "macro": "Instrumentação e Processo",
+      "family": "Valvula Esfera Flutuante",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Barra",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 6
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 4
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Potenciometro Monovolta",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Instrumentação e Processo",
+      "family": "Chave",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Quadro",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Haste Prolongadora",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Moldura Plastica",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Contator",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 504
+      },
+      "with_attributes": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 504
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Botão de Comando",
+      "counts": {
+        "CHOICE": 504,
+        "PORTWELL": 0,
+        "ECO": 337
+      },
+      "with_attributes": {
+        "CHOICE": 498,
+        "PORTWELL": 0,
+        "ECO": 337
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Disjuntor Motor",
+      "counts": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 302
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 302
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Cabeçote",
+      "counts": {
+        "CHOICE": 372,
+        "PORTWELL": 2,
+        "ECO": 288
+      },
+      "with_attributes": {
+        "CHOICE": 365,
+        "PORTWELL": 2,
+        "ECO": 288
+      }
+    },
+    {
+      "macro": "Acionamentos",
+      "family": "Inversor de Frequência",
+      "counts": {
+        "CHOICE": 76,
+        "PORTWELL": 93,
+        "ECO": 185
+      },
+      "with_attributes": {
+        "CHOICE": 75,
+        "PORTWELL": 93,
+        "ECO": 185
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Chave Seccionadora",
+      "counts": {
+        "CHOICE": 49,
+        "PORTWELL": 0,
+        "ECO": 156
+      },
+      "with_attributes": {
+        "CHOICE": 45,
+        "PORTWELL": 0,
+        "ECO": 156
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Bloco de Contato",
+      "counts": {
+        "CHOICE": 183,
+        "PORTWELL": 0,
+        "ECO": 155
+      },
+      "with_attributes": {
+        "CHOICE": 179,
+        "PORTWELL": 0,
+        "ECO": 146
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Seletora",
+      "counts": {
+        "CHOICE": 203,
+        "PORTWELL": 1,
+        "ECO": 135
+      },
+      "with_attributes": {
+        "CHOICE": 202,
+        "PORTWELL": 1,
+        "ECO": 135
+      }
+    },
+    {
+      "macro": "Acionamentos",
+      "family": "Soft Starter",
+      "counts": {
+        "CHOICE": 41,
+        "PORTWELL": 0,
+        "ECO": 121
+      },
+      "with_attributes": {
+        "CHOICE": 39,
+        "PORTWELL": 0,
+        "ECO": 121
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Cortina de Luz",
+      "counts": {
+        "CHOICE": 319,
+        "PORTWELL": 0,
+        "ECO": 115
+      },
+      "with_attributes": {
+        "CHOICE": 316,
+        "PORTWELL": 0,
+        "ECO": 115
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Módulo",
+      "counts": {
+        "CHOICE": 94,
+        "PORTWELL": 113,
+        "ECO": 103
+      },
+      "with_attributes": {
+        "CHOICE": 78,
+        "PORTWELL": 98,
+        "ECO": 102
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Outros (não classificado)",
+      "counts": {
+        "CHOICE": 393,
+        "PORTWELL": 124,
+        "ECO": 99
+      },
+      "with_attributes": {
+        "CHOICE": 184,
+        "PORTWELL": 50,
+        "ECO": 78
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Sinaleiro",
+      "counts": {
+        "CHOICE": 73,
+        "PORTWELL": 0,
+        "ECO": 93
+      },
+      "with_attributes": {
+        "CHOICE": 73,
+        "PORTWELL": 0,
+        "ECO": 93
+      }
+    },
+    {
+      "macro": "Cabos e Conectores",
+      "family": "Cabo",
+      "counts": {
+        "CHOICE": 321,
+        "PORTWELL": 259,
+        "ECO": 92
+      },
+      "with_attributes": {
+        "CHOICE": 213,
+        "PORTWELL": 137,
+        "ECO": 90
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Disjuntor",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 92
+      },
+      "with_attributes": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 92
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Prensa-Cabo",
+      "counts": {
+        "CHOICE": 80,
+        "PORTWELL": 0,
+        "ECO": 87
+      },
+      "with_attributes": {
+        "CHOICE": 68,
+        "PORTWELL": 0,
+        "ECO": 87
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Módulo de Expansão",
+      "counts": {
+        "CHOICE": 54,
+        "PORTWELL": 184,
+        "ECO": 86
+      },
+      "with_attributes": {
+        "CHOICE": 51,
+        "PORTWELL": 181,
+        "ECO": 86
+      }
+    },
+    {
+      "macro": "Cabos e Conectores",
+      "family": "Conector",
+      "counts": {
+        "CHOICE": 192,
+        "PORTWELL": 20,
+        "ECO": 79
+      },
+      "with_attributes": {
+        "CHOICE": 151,
+        "PORTWELL": 18,
+        "ECO": 77
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Interruptor",
+      "counts": {
+        "CHOICE": 14,
+        "PORTWELL": 0,
+        "ECO": 54
+      },
+      "with_attributes": {
+        "CHOICE": 13,
+        "PORTWELL": 0,
+        "ECO": 54
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Caixa",
+      "counts": {
+        "CHOICE": 16,
+        "PORTWELL": 1,
+        "ECO": 53
+      },
+      "with_attributes": {
+        "CHOICE": 8,
+        "PORTWELL": 1,
+        "ECO": 53
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Manopla",
+      "counts": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 52
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 47
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Outros (Proteção Elétrica)",
+      "counts": {
+        "CHOICE": 19,
+        "PORTWELL": 1,
+        "ECO": 52
+      },
+      "with_attributes": {
+        "CHOICE": 15,
+        "PORTWELL": 1,
+        "ECO": 36
+      }
+    },
+    {
+      "macro": "Cabos e Conectores",
+      "family": "Borne",
+      "counts": {
+        "CHOICE": 28,
+        "PORTWELL": 1,
+        "ECO": 49
+      },
+      "with_attributes": {
+        "CHOICE": 16,
+        "PORTWELL": 1,
+        "ECO": 48
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Sensor Indutivo",
+      "counts": {
+        "CHOICE": 24,
+        "PORTWELL": 0,
+        "ECO": 47
+      },
+      "with_attributes": {
+        "CHOICE": 20,
+        "PORTWELL": 0,
+        "ECO": 41
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Elemento Luminoso",
+      "counts": {
+        "CHOICE": 94,
+        "PORTWELL": 0,
+        "ECO": 44
+      },
+      "with_attributes": {
+        "CHOICE": 94,
+        "PORTWELL": 0,
+        "ECO": 44
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Lente",
+      "counts": {
+        "CHOICE": 142,
+        "PORTWELL": 0,
+        "ECO": 42
+      },
+      "with_attributes": {
+        "CHOICE": 139,
+        "PORTWELL": 0,
+        "ECO": 42
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Módulo de Expansão de Segurança",
+      "counts": {
+        "CHOICE": 24,
+        "PORTWELL": 0,
+        "ECO": 37
+      },
+      "with_attributes": {
+        "CHOICE": 24,
+        "PORTWELL": 0,
+        "ECO": 37
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "CLP",
+      "counts": {
+        "CHOICE": 91,
+        "PORTWELL": 35,
+        "ECO": 35
+      },
+      "with_attributes": {
+        "CHOICE": 89,
+        "PORTWELL": 35,
+        "ECO": 34
+      }
+    },
+    {
+      "macro": "Fontes e UPS",
+      "family": "Fonte de Alimentação",
+      "counts": {
+        "CHOICE": 73,
+        "PORTWELL": 90,
+        "ECO": 35
+      },
+      "with_attributes": {
+        "CHOICE": 71,
+        "PORTWELL": 81,
+        "ECO": 35
+      }
+    },
+    {
+      "macro": "Sinalização Industrial",
+      "family": "Sirene",
+      "counts": {
+        "CHOICE": 83,
+        "PORTWELL": 0,
+        "ECO": 35
+      },
+      "with_attributes": {
+        "CHOICE": 83,
+        "PORTWELL": 0,
+        "ECO": 35
+      }
+    },
+    {
+      "macro": "Cabos e Conectores",
+      "family": "Terminal",
+      "counts": {
+        "CHOICE": 26,
+        "PORTWELL": 7,
+        "ECO": 32
+      },
+      "with_attributes": {
+        "CHOICE": 12,
+        "PORTWELL": 3,
+        "ECO": 32
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Base",
+      "counts": {
+        "CHOICE": 117,
+        "PORTWELL": 3,
+        "ECO": 30
+      },
+      "with_attributes": {
+        "CHOICE": 91,
+        "PORTWELL": 2,
+        "ECO": 23
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Contra Porca",
+      "counts": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 30
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 30
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Outros (Acessórios e Peças)",
+      "counts": {
+        "CHOICE": 114,
+        "PORTWELL": 33,
+        "ECO": 27
+      },
+      "with_attributes": {
+        "CHOICE": 67,
+        "PORTWELL": 26,
+        "ECO": 26
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Botão de Emergência",
+      "counts": {
+        "CHOICE": 96,
+        "PORTWELL": 0,
+        "ECO": 26
+      },
+      "with_attributes": {
+        "CHOICE": 90,
+        "PORTWELL": 0,
+        "ECO": 26
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Outros (Gestão de Cabos)",
+      "counts": {
+        "CHOICE": 31,
+        "PORTWELL": 2,
+        "ECO": 26
+      },
+      "with_attributes": {
+        "CHOICE": 17,
+        "PORTWELL": 1,
+        "ECO": 25
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Supressor",
+      "counts": {
+        "CHOICE": 2,
+        "PORTWELL": 0,
+        "ECO": 25
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 25
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Outros (Comando e Sinalização (botões))",
+      "counts": {
+        "CHOICE": 42,
+        "PORTWELL": 10,
+        "ECO": 23
+      },
+      "with_attributes": {
+        "CHOICE": 33,
+        "PORTWELL": 2,
+        "ECO": 22
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Placa",
+      "counts": {
+        "CHOICE": 424,
+        "PORTWELL": 13,
+        "ECO": 22
+      },
+      "with_attributes": {
+        "CHOICE": 348,
+        "PORTWELL": 3,
+        "ECO": 15
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Conjunto",
+      "counts": {
+        "CHOICE": 52,
+        "PORTWELL": 2,
+        "ECO": 19
+      },
+      "with_attributes": {
+        "CHOICE": 18,
+        "PORTWELL": 1,
+        "ECO": 18
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Sensor Fotoelétrico",
+      "counts": {
+        "CHOICE": 33,
+        "PORTWELL": 0,
+        "ECO": 19
+      },
+      "with_attributes": {
+        "CHOICE": 26,
+        "PORTWELL": 0,
+        "ECO": 18
+      }
+    },
+    {
+      "macro": "Redes e Comunicação Industrial",
+      "family": "Switch Industrial",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 438,
+        "ECO": 17
+      },
+      "with_attributes": {
+        "CHOICE": 4,
+        "PORTWELL": 438,
+        "ECO": 17
+      }
+    },
+    {
+      "macro": "Relés",
+      "family": "Relé",
+      "counts": {
+        "CHOICE": 117,
+        "PORTWELL": 5,
+        "ECO": 17
+      },
+      "with_attributes": {
+        "CHOICE": 98,
+        "PORTWELL": 2,
+        "ECO": 17
+      }
+    },
+    {
+      "macro": "Redes e Comunicação Industrial",
+      "family": "Outros (Redes e Comunicação Industrial)",
+      "counts": {
+        "CHOICE": 15,
+        "PORTWELL": 14,
+        "ECO": 15
+      },
+      "with_attributes": {
+        "CHOICE": 9,
+        "PORTWELL": 13,
+        "ECO": 14
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Chave Fim de Curso",
+      "counts": {
+        "CHOICE": 378,
+        "PORTWELL": 0,
+        "ECO": 15
+      },
+      "with_attributes": {
+        "CHOICE": 377,
+        "PORTWELL": 0,
+        "ECO": 14
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Tampa",
+      "counts": {
+        "CHOICE": 42,
+        "PORTWELL": 5,
+        "ECO": 14
+      },
+      "with_attributes": {
+        "CHOICE": 36,
+        "PORTWELL": 3,
+        "ECO": 13
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "IHM",
+      "counts": {
+        "CHOICE": 90,
+        "PORTWELL": 0,
+        "ECO": 14
+      },
+      "with_attributes": {
+        "CHOICE": 83,
+        "PORTWELL": 0,
+        "ECO": 12
+      }
+    },
+    {
+      "macro": "Comando Remoto",
+      "family": "Joystick",
+      "counts": {
+        "CHOICE": 41,
+        "PORTWELL": 0,
+        "ECO": 14
+      },
+      "with_attributes": {
+        "CHOICE": 30,
+        "PORTWELL": 0,
+        "ECO": 14
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Abraçadeira",
+      "counts": {
+        "CHOICE": 384,
+        "PORTWELL": 0,
+        "ECO": 14
+      },
+      "with_attributes": {
+        "CHOICE": 316,
+        "PORTWELL": 0,
+        "ECO": 12
+      }
+    },
+    {
+      "macro": "Instrumentação e Processo",
+      "family": "Outros (Instrumentação e Processo)",
+      "counts": {
+        "CHOICE": 27,
+        "PORTWELL": 0,
+        "ECO": 13
+      },
+      "with_attributes": {
+        "CHOICE": 15,
+        "PORTWELL": 0,
+        "ECO": 11
+      }
+    },
+    {
+      "macro": "Instrumentação e Processo",
+      "family": "Transmissor",
+      "counts": {
+        "CHOICE": 2,
+        "PORTWELL": 0,
+        "ECO": 12
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 12
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Outros (Painéis e Braços)",
+      "counts": {
+        "CHOICE": 25,
+        "PORTWELL": 3,
+        "ECO": 12
+      },
+      "with_attributes": {
+        "CHOICE": 11,
+        "PORTWELL": 2,
+        "ECO": 10
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Jumper",
+      "counts": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 12
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Relés",
+      "family": "Relé Temporizador",
+      "counts": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 12
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 12
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Chave",
+      "counts": {
+        "CHOICE": 25,
+        "PORTWELL": 0,
+        "ECO": 11
+      },
+      "with_attributes": {
+        "CHOICE": 19,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Atuador",
+      "counts": {
+        "CHOICE": 31,
+        "PORTWELL": 0,
+        "ECO": 11
+      },
+      "with_attributes": {
+        "CHOICE": 25,
+        "PORTWELL": 0,
+        "ECO": 8
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Bloco",
+      "counts": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 10
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 10
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Chave de Segurança",
+      "counts": {
+        "CHOICE": 740,
+        "PORTWELL": 0,
+        "ECO": 10
+      },
+      "with_attributes": {
+        "CHOICE": 734,
+        "PORTWELL": 0,
+        "ECO": 10
+      }
+    },
+    {
+      "macro": "Encoders",
+      "family": "Encoder Incremental",
+      "counts": {
+        "CHOICE": 214,
+        "PORTWELL": 0,
+        "ECO": 9
+      },
+      "with_attributes": {
+        "CHOICE": 213,
+        "PORTWELL": 0,
+        "ECO": 9
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "CLP de Segurança",
+      "counts": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 9
+      },
+      "with_attributes": {
+        "CHOICE": 10,
+        "PORTWELL": 0,
+        "ECO": 9
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Suporte",
+      "counts": {
+        "CHOICE": 133,
+        "PORTWELL": 21,
+        "ECO": 8
+      },
+      "with_attributes": {
+        "CHOICE": 51,
+        "PORTWELL": 7,
+        "ECO": 6
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Outros (Automação e CLP)",
+      "counts": {
+        "CHOICE": 49,
+        "PORTWELL": 10,
+        "ECO": 8
+      },
+      "with_attributes": {
+        "CHOICE": 37,
+        "PORTWELL": 8,
+        "ECO": 7
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Elemento",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 8
+      },
+      "with_attributes": {
+        "CHOICE": 2,
+        "PORTWELL": 0,
+        "ECO": 8
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Botoeira",
+      "counts": {
+        "CHOICE": 296,
+        "PORTWELL": 0,
+        "ECO": 7
+      },
+      "with_attributes": {
+        "CHOICE": 295,
+        "PORTWELL": 0,
+        "ECO": 7
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Transformador de Corrente",
+      "counts": {
+        "CHOICE": 1938,
+        "PORTWELL": 0,
+        "ECO": 7
+      },
+      "with_attributes": {
+        "CHOICE": 1923,
+        "PORTWELL": 0,
+        "ECO": 7
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Sensor",
+      "counts": {
+        "CHOICE": 176,
+        "PORTWELL": 1,
+        "ECO": 7
+      },
+      "with_attributes": {
+        "CHOICE": 125,
+        "PORTWELL": 1,
+        "ECO": 7
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Medidor de Energia",
+      "counts": {
+        "CHOICE": 96,
+        "PORTWELL": 0,
+        "ECO": 6
+      },
+      "with_attributes": {
+        "CHOICE": 84,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Relés",
+      "family": "Relé de Monitoramento",
+      "counts": {
+        "CHOICE": 100,
+        "PORTWELL": 0,
+        "ECO": 6
+      },
+      "with_attributes": {
+        "CHOICE": 97,
+        "PORTWELL": 0,
+        "ECO": 6
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Sensor de Segurança",
+      "counts": {
+        "CHOICE": 205,
+        "PORTWELL": 0,
+        "ECO": 6
+      },
+      "with_attributes": {
+        "CHOICE": 204,
+        "PORTWELL": 0,
+        "ECO": 6
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "KIT",
+      "counts": {
+        "CHOICE": 31,
+        "PORTWELL": 4,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 15,
+        "PORTWELL": 3,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Acionamentos",
+      "family": "Outros (Acionamentos)",
+      "counts": {
+        "CHOICE": 18,
+        "PORTWELL": 3,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 11,
+        "PORTWELL": 3,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Computador Industrial",
+      "counts": {
+        "CHOICE": 20,
+        "PORTWELL": 2,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 18,
+        "PORTWELL": 1,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "ANEL",
+      "counts": {
+        "CHOICE": 11,
+        "PORTWELL": 0,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 10,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Unidade",
+      "counts": {
+        "CHOICE": 13,
+        "PORTWELL": 1,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 7,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Manta",
+      "counts": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Isolador",
+      "counts": {
+        "CHOICE": 1,
+        "PORTWELL": 1,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 1,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Relé de Segurança",
+      "counts": {
+        "CHOICE": 230,
+        "PORTWELL": 0,
+        "ECO": 5
+      },
+      "with_attributes": {
+        "CHOICE": 222,
+        "PORTWELL": 0,
+        "ECO": 5
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Etiqueta",
+      "counts": {
+        "CHOICE": 62,
+        "PORTWELL": 2,
+        "ECO": 4
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 4
+      }
+    },
+    {
+      "macro": "Acionamentos",
+      "family": "Servo Motor",
+      "counts": {
+        "CHOICE": 59,
+        "PORTWELL": 242,
+        "ECO": 4
+      },
+      "with_attributes": {
+        "CHOICE": 59,
+        "PORTWELL": 242,
+        "ECO": 4
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "CAPA",
+      "counts": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 4
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Outros (Sensores)",
+      "counts": {
+        "CHOICE": 30,
+        "PORTWELL": 1,
+        "ECO": 4
+      },
+      "with_attributes": {
+        "CHOICE": 22,
+        "PORTWELL": 1,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Sinalização Industrial",
+      "family": "Coluna Luminosa",
+      "counts": {
+        "CHOICE": 292,
+        "PORTWELL": 0,
+        "ECO": 4
+      },
+      "with_attributes": {
+        "CHOICE": 285,
+        "PORTWELL": 0,
+        "ECO": 4
+      }
+    },
+    {
+      "macro": "Sinalização Industrial",
+      "family": "Sinalizador",
+      "counts": {
+        "CHOICE": 470,
+        "PORTWELL": 0,
+        "ECO": 4
+      },
+      "with_attributes": {
+        "CHOICE": 468,
+        "PORTWELL": 0,
+        "ECO": 4
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Bucha",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 2,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Controlador",
+      "counts": {
+        "CHOICE": 39,
+        "PORTWELL": 2,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 32,
+        "PORTWELL": 2,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Resistor",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 3,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 4,
+        "PORTWELL": 3,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Instrumentação e Processo",
+      "family": "Detector",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Outros (Medição de Energia)",
+      "counts": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Painel",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 1,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 2,
+        "PORTWELL": 1,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "DPS",
+      "counts": {
+        "CHOICE": 7,
+        "PORTWELL": 0,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 7,
+        "PORTWELL": 0,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Outros (Segurança de Máquinas)",
+      "counts": {
+        "CHOICE": 27,
+        "PORTWELL": 4,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 14,
+        "PORTWELL": 4,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Sinalização Industrial",
+      "family": "Lâmpada",
+      "counts": {
+        "CHOICE": 26,
+        "PORTWELL": 0,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 23,
+        "PORTWELL": 0,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Sinalização Industrial",
+      "family": "Outros (Sinalização Industrial)",
+      "counts": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 3
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 3
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Acoplador",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 2
+      },
+      "with_attributes": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Gateway",
+      "counts": {
+        "CHOICE": 15,
+        "PORTWELL": 0,
+        "ECO": 2
+      },
+      "with_attributes": {
+        "CHOICE": 15,
+        "PORTWELL": 0,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Soquete para Lâmpada",
+      "counts": {
+        "CHOICE": 10,
+        "PORTWELL": 0,
+        "ECO": 2
+      },
+      "with_attributes": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Tampão",
+      "counts": {
+        "CHOICE": 14,
+        "PORTWELL": 0,
+        "ECO": 2
+      },
+      "with_attributes": {
+        "CHOICE": 13,
+        "PORTWELL": 0,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Pedal",
+      "counts": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 2
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Trilho",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 2
+      },
+      "with_attributes": {
+        "CHOICE": 2,
+        "PORTWELL": 0,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Receptor",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 2
+      },
+      "with_attributes": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Sensor de Temperatura",
+      "counts": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 2
+      },
+      "with_attributes": {
+        "CHOICE": 7,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sinalização Industrial",
+      "family": "Luminária",
+      "counts": {
+        "CHOICE": 79,
+        "PORTWELL": 0,
+        "ECO": 2
+      },
+      "with_attributes": {
+        "CHOICE": 79,
+        "PORTWELL": 0,
+        "ECO": 2
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Adaptador",
+      "counts": {
+        "CHOICE": 24,
+        "PORTWELL": 4,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 8,
+        "PORTWELL": 1,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Barra",
+      "counts": {
+        "CHOICE": 29,
+        "PORTWELL": 2,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 21,
+        "PORTWELL": 2,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "TUBO",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Interface",
+      "counts": {
+        "CHOICE": 7,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Outros (Componentes de Computador)",
+      "counts": {
+        "CHOICE": 8,
+        "PORTWELL": 7,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 1,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Computadores Industriais e IHM",
+      "family": "Outros (Computadores Industriais e IHM)",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Encoders",
+      "family": "Encoder",
+      "counts": {
+        "CHOICE": 27,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 27,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Ferramentas",
+      "family": "Ferramenta",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 1,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Fontes e UPS",
+      "family": "Outros (Fontes e UPS)",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 1,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Conexão",
+      "counts": {
+        "CHOICE": 24,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Controlador de Fator de Potência",
+      "counts": {
+        "CHOICE": 9,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Monitor",
+      "counts": {
+        "CHOICE": 10,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 9,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Software",
+      "counts": {
+        "CHOICE": 37,
+        "PORTWELL": 28,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 21,
+        "PORTWELL": 20,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Transformador",
+      "counts": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Amplificador",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 2,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Contato",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 2,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Dispositivo",
+      "counts": {
+        "CHOICE": 7,
+        "PORTWELL": 1,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 5,
+        "PORTWELL": 1,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Moldura",
+      "counts": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Redes e Comunicação Industrial",
+      "family": "Antena",
+      "counts": {
+        "CHOICE": 7,
+        "PORTWELL": 3,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 1,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Chave de Emergência por Cabo",
+      "counts": {
+        "CHOICE": 572,
+        "PORTWELL": 0,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 571,
+        "PORTWELL": 0,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Scanner de Segurança",
+      "counts": {
+        "CHOICE": 3,
+        "PORTWELL": 1,
+        "ECO": 1
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 1,
+        "ECO": 1
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Adaptador I/O",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 9,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 9,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Chave",
+      "counts": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Conjunto Suporte",
+      "counts": {
+        "CHOICE": 15,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 15,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Fixador",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 2,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 1,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Haste Suporte",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "KIT Chave",
+      "counts": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Lance",
+      "counts": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "PF ALL INOX",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 6,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 6,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Peça",
+      "counts": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acessórios e Peças",
+      "family": "Placa Frontal",
+      "counts": {
+        "CHOICE": 28,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 27,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acionamentos",
+      "family": "Conjunto Tração",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 9,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 9,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acionamentos",
+      "family": "Drive para Motor de Passo",
+      "counts": {
+        "CHOICE": 24,
+        "PORTWELL": 26,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 21,
+        "PORTWELL": 26,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acionamentos",
+      "family": "Motor de Passo",
+      "counts": {
+        "CHOICE": 60,
+        "PORTWELL": 43,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 60,
+        "PORTWELL": 43,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acionamentos",
+      "family": "Redutor Planetário",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 91,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 91,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Acionamentos",
+      "family": "Servo Drive",
+      "counts": {
+        "CHOICE": 31,
+        "PORTWELL": 69,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 31,
+        "PORTWELL": 69,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Cartao",
+      "counts": {
+        "CHOICE": 10,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Cartao Comunicacao",
+      "counts": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Conversor de Sinal",
+      "counts": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Automação e CLP",
+      "family": "Expansão Remota",
+      "counts": {
+        "CHOICE": 20,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 20,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando Remoto",
+      "family": "Outros (Comando Remoto)",
+      "counts": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando Remoto",
+      "family": "Pedaleira",
+      "counts": {
+        "CHOICE": 23,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 23,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Botoeira Montada",
+      "counts": {
+        "CHOICE": 44,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 37,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Botão Touch",
+      "counts": {
+        "CHOICE": 19,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 19,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Chave Rotativa",
+      "counts": {
+        "CHOICE": 54,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 52,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Elemento Terminal",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Ferramenta Decapadora",
+      "counts": {
+        "CHOICE": 64,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 41,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "LED",
+      "counts": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Sistema",
+      "counts": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Suporte",
+      "counts": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Comando e Sinalização (botões)",
+      "family": "Teclado Industrial",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 11,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 11,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Armazenamento",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 43,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 37,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Backplane",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 14,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Gabinete",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 31,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 22,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Memória RAM",
+      "counts": {
+        "CHOICE": 2,
+        "PORTWELL": 51,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 48,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Placa de Expansão",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 48,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 24,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Placa-Mãe Industrial",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 157,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 134,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Processador",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 101,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 94,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Componentes de Computador",
+      "family": "Resistor Smd",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 9,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 2,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Computadores Industriais e IHM",
+      "family": "Box PC",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 870,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 868,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Computadores Industriais e IHM",
+      "family": "Coletor de Dados",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 8,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 8,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Computadores Industriais e IHM",
+      "family": "Computador Rackmount",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 147,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 145,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Computadores Industriais e IHM",
+      "family": "IHM",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 97,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 97,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Computadores Industriais e IHM",
+      "family": "Monitor Industrial",
+      "counts": {
+        "CHOICE": 3,
+        "PORTWELL": 240,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 238,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Computadores Industriais e IHM",
+      "family": "Notebook Industrial",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 50,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 48,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Computadores Industriais e IHM",
+      "family": "Painel PC",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 6439,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 6437,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Computadores Industriais e IHM",
+      "family": "Tablet Industrial",
+      "counts": {
+        "CHOICE": 1,
+        "PORTWELL": 202,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 180,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Encoders",
+      "family": "Encoder Absoluto",
+      "counts": {
+        "CHOICE": 56,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 55,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Encoders",
+      "family": "Encoder Linear",
+      "counts": {
+        "CHOICE": 23,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 23,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Ferramentas",
+      "family": "Outros (Ferramentas)",
+      "counts": {
+        "CHOICE": 8,
+        "PORTWELL": 1,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Ferramentas",
+      "family": "Puncao",
+      "counts": {
+        "CHOICE": 40,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Fontes e UPS",
+      "family": "Bateria",
+      "counts": {
+        "CHOICE": 6,
+        "PORTWELL": 1,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 1,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Fontes e UPS",
+      "family": "Carregador",
+      "counts": {
+        "CHOICE": 3,
+        "PORTWELL": 2,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Conduíte",
+      "counts": {
+        "CHOICE": 46,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Estrutura de Entrada de Cabos",
+      "counts": {
+        "CHOICE": 218,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 218,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Fita de Aterramento",
+      "counts": {
+        "CHOICE": 49,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Flange",
+      "counts": {
+        "CHOICE": 135,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 12,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Grampo",
+      "counts": {
+        "CHOICE": 15,
+        "PORTWELL": 1,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 15,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Ilhós",
+      "counts": {
+        "CHOICE": 328,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 297,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Porca",
+      "counts": {
+        "CHOICE": 27,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 26,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Gestão de Cabos",
+      "family": "Presilha",
+      "counts": {
+        "CHOICE": 7,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 4,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Instrumentação e Processo",
+      "family": "Câmera Termográfica",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Instrumentação e Processo",
+      "family": "Instrumento",
+      "counts": {
+        "CHOICE": 7,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 7,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Analisador de Energia",
+      "counts": {
+        "CHOICE": 35,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 35,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Bobina de Rogowski",
+      "counts": {
+        "CHOICE": 45,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 45,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Capacitor",
+      "counts": {
+        "CHOICE": 21,
+        "PORTWELL": 6,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 21,
+        "PORTWELL": 4,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Filtro Harmônico Ativo",
+      "counts": {
+        "CHOICE": 14,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 14,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "SVG",
+      "counts": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 3,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Transdutor",
+      "counts": {
+        "CHOICE": 58,
+        "PORTWELL": 2,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 57,
+        "PORTWELL": 2,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Medição de Energia",
+      "family": "Transformador Somador",
+      "counts": {
+        "CHOICE": 14,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 14,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "AI",
+      "counts": {
+        "CHOICE": 1,
+        "PORTWELL": 4,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "MJ",
+      "counts": {
+        "CHOICE": 1,
+        "PORTWELL": 12,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 2,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Pacote",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Produto",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 4,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Outros",
+      "family": "Sistema",
+      "counts": {
+        "CHOICE": 8,
+        "PORTWELL": 1,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 5,
+        "PORTWELL": 1,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Acoplamento",
+      "counts": {
+        "CHOICE": 104,
+        "PORTWELL": 1,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 99,
+        "PORTWELL": 1,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Braço Articulado",
+      "counts": {
+        "CHOICE": 61,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 57,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Carcaça",
+      "counts": {
+        "CHOICE": 14,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 14,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Manipulo",
+      "counts": {
+        "CHOICE": 13,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Maçaneta",
+      "counts": {
+        "CHOICE": 13,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 13,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Painel Elétrico",
+      "counts": {
+        "CHOICE": 506,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 496,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Perfil",
+      "counts": {
+        "CHOICE": 76,
+        "PORTWELL": 4,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 72,
+        "PORTWELL": 2,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Painéis e Braços",
+      "family": "Torre de Acoplamento",
+      "counts": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "Dispositivo de Desligamento Rápido",
+      "counts": {
+        "CHOICE": 39,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 39,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Proteção Elétrica",
+      "family": "String Box",
+      "counts": {
+        "CHOICE": 16,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 16,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Redes e Comunicação Industrial",
+      "family": "Appliance de Rede",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 51,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 51,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Redes e Comunicação Industrial",
+      "family": "Conversor Serial",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 85,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 83,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Redes e Comunicação Industrial",
+      "family": "Dispositivo I/O LINK",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 7,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 7,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Redes e Comunicação Industrial",
+      "family": "Módulo de Comunicação",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 19,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 12,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Redes e Comunicação Industrial",
+      "family": "Repetidor",
+      "counts": {
+        "CHOICE": 2,
+        "PORTWELL": 7,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 2,
+        "PORTWELL": 7,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Redes e Comunicação Industrial",
+      "family": "Roteador/Gateway",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 34,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 32,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Robótica Colaborativa",
+      "family": "ROBO Colaborativo",
+      "counts": {
+        "CHOICE": 0,
+        "PORTWELL": 8,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 8,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Batente de Segurança",
+      "counts": {
+        "CHOICE": 141,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 138,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Chave de Desalinhamento",
+      "counts": {
+        "CHOICE": 129,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 129,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Comando Bimanual",
+      "counts": {
+        "CHOICE": 14,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 13,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Contator de Segurança",
+      "counts": {
+        "CHOICE": 20,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 20,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Espelho Montado",
+      "counts": {
+        "CHOICE": 18,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 15,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Laser Emissor",
+      "counts": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Laser Receptor",
+      "counts": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Módulo de Expansão para Relé de Segurança",
+      "counts": {
+        "CHOICE": 33,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 33,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Sistema de Intertravamento Trapped Key",
+      "counts": {
+        "CHOICE": 237,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 171,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Tapete de Segurança",
+      "counts": {
+        "CHOICE": 66,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 66,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Segurança de Máquinas",
+      "family": "Trinco para Sensor de Segurança",
+      "counts": {
+        "CHOICE": 20,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 16,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "FITA Flexivel Magnetica",
+      "counts": {
+        "CHOICE": 7,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 1,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "FITA Magnética Série",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 0,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Fibra Óptica para Sensor",
+      "counts": {
+        "CHOICE": 10,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 2,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Sensor Laser",
+      "counts": {
+        "CHOICE": 13,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 6,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "Sensor de Pressão",
+      "counts": {
+        "CHOICE": 56,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 52,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "TAG RFID",
+      "counts": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 5,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sensores",
+      "family": "TELA Sensivel AO",
+      "counts": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 8,
+        "PORTWELL": 0,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sinalização Industrial",
+      "family": "Elemento Sonoro",
+      "counts": {
+        "CHOICE": 18,
+        "PORTWELL": 3,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 18,
+        "PORTWELL": 3,
+        "ECO": 0
+      }
+    },
+    {
+      "macro": "Sinalização Industrial",
+      "family": "Sinalizador Audiovisual",
+      "counts": {
+        "CHOICE": 148,
+        "PORTWELL": 1,
+        "ECO": 0
+      },
+      "with_attributes": {
+        "CHOICE": 148,
+        "PORTWELL": 1,
+        "ECO": 0
+      }
+    }
+  ],
+  "organization_id": "8cbaed7f-d92d-463c-8045-10bc86b6b160"
+}

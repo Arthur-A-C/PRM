@@ -16,10 +16,18 @@ Monólito modular FastAPI no mesmo domínio da interface Jinja2. PostgreSQL é o
 - `app/repositories/comparisons.py`: persistência ordenada de comparações exploratórias.
 - `app/services/catalog_matching.py`: normalização, recuperação por índice invertido e pontuação lexical sem serviço externo.
 - `app/repositories/matching.py`: cobertura global, pares sugeridos e análise de preços da execução mais recente.
+- `app/services/catalog_gaps.py` e `app/repositories/matching.py`: agregação de ofertas concorrentes sem candidato em sinais de marca e família, com exemplos e paginação, sem persistência ou migração adicional.
 - `app/routers/`: API versionada, health checks e páginas HTML.
 - `migrations/`: evolução aditiva do esquema por Alembic.
 - `scripts/`: entrada operacional explícita para Windows.
 - `scripts/import_pipeline_enrichment.py`: prévia e publicação dos atributos tratados, associados por empresa e código externo.
+- `app/services/dimensional_csv.py`, `scripts/import_dimensional_staging.py` e `app/services/dimensional_dashboard.py`: leitura CSV incremental, carga atômica no PostgreSQL de staging e consulta somente leitura de sua reconciliação na visão geral. O banco oficial não recebe ofertas Dimensional nessa etapa.
+
+## Isolamento da Dimensional
+
+`prm_mvp` continua sendo o banco operacional. `prm_pipeline_staging` foi inicializado a partir de backup verificado e contém, além da base existente, o lote Dimensional. O importador exige que a configuração principal aponte para `prm_mvp`, troca **somente o nome do banco** para `prm_pipeline_staging`, valida o hash fixado do CSV e usa uma transação para todos os 77.965 SKUs. Repetição do mesmo hash é idempotente. Uma nova revisão da mesma empresa é recusada até existir fluxo de atualização/revisão.
+
+O esquema atual foi reutilizado sem migração: `catalog_imports` guarda origem/hash, `import_rows` preserva os 20 campos e linhas físicas, `offers` guarda a identidade empresa+SKU, `offer_observations` registra disponibilidade declarada sem quantidade confiável e `offer_prices` separa preço anunciado de referência. Moeda `XXX`, data nula e unidade ausente impedem interpretação como condição comercial conhecida. As 3.790 afirmações técnicas continuam **propostas de simulação**, sem resolução/homologação persistida. O painel de staging não se mistura aos filtros, preços comparáveis ou métricas de cobertura oficiais.
 
 ## Fluxo de autenticação
 
@@ -40,3 +48,7 @@ A migração `20260922_0006` adiciona `brand_aliases`, com origem e estado de re
 A migração `20260923_0007` adiciona `offer_enrichments`. A oferta mantém sua fonte e preços originais; o enriquecimento guarda família, modelo, códigos de busca, atributos e proveniência separadamente. A importação bruta trata cada oferta nova ou alterada na mesma transação, antes de disparar a correspondência. Uma planilha externa já tratada pode substituir somente essa camada por código externo, com validação de cobertura e SHA-256. O matcher `lexical-v1.3` utiliza os sinais tratados de ambas as partes, registra motivos e penaliza incompatibilidades técnicas críticas. Não executamos scripts externos do ZIP nem importamos seus cruzamentos previamente calculados.
 
 O dashboard agrega `offer_enrichments` por empresa sobre o recorte analítico e separa a origem `pipeline` do tratamento de regra. O relatório da última execução agrupa apenas relações principais `confirmado`/`sugerido` pelas empresas próprias; o funil mantém candidatos separados da cobertura forte. Até três pares fortes são carregados com preços para destaque, reutilizando o cálculo nominal do comparador e sem declarar margem quando as modalidades diferem.
+
+O relatório de lacunas lê a mesma execução concluída do pareador. Oferta concorrente ativa e não excluída só entra se não tiver par principal em estado `candidato`, `sugerido` ou `confirmado`; uma relação rejeitada não a retira do universo a investigar. A marca é comparada pelo ID canônico e a família por rótulo tratado exato, com ambas as dimensões contadas separadamente. A consulta é somente de leitura e sempre limitada à organização autenticada. A interface oferece grupos principais, todas as opções em seletores e listagem paginada por grupo. Um grupo sem marca ou família correspondente não é uma lacuna confirmada: qualidade de cadastro, classificação e falso negativo do matcher ainda exigem revisão.
+
+A busca do catálogo combina termos com E e campos com OU, escapando caracteres especiais de `ILIKE`; consulta tanto campos originais quanto marca canônica e enriquecimento tratado por subconsultas correlacionadas. O filtro de família usa `offer_enrichments.family_group`. Preço usa a modalidade válida mais recente para filtrar, sempre com escopo da organização e sem alterar dados. A página HTML e a API compartilham `CatalogFilters` e `list_offers`; 100 itens é o padrão, com limite máximo opcional de 200.
