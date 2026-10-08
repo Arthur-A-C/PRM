@@ -2,8 +2,11 @@ import json
 import re
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import Response
+
+from app.dependencies import CurrentAuth
+from app.services.security import secrets_match
 
 from app.services.qwen import (
     analyze_product_with_qwen,
@@ -20,6 +23,11 @@ router = APIRouter(
 )
 
 
+def _require_authorized(auth: CurrentAuth, csrf_token: str | None) -> None:
+    if not csrf_token or not secrets_match(auth.login_session.csrf_hash, csrf_token):
+        raise HTTPException(status_code=403, detail="Token CSRF inválido.")
+
+
 def _safe_filename(value: str) -> str:
     value = value.strip().upper()
     value = re.sub(r"[^A-Z0-9._-]+", "-", value)
@@ -32,7 +40,10 @@ async def extrair_especificacoes(
     codigo: Annotated[str, Form(...)],
     nome: Annotated[str, Form(...)],
     datasheet: Annotated[UploadFile, File(...)],
+    auth: CurrentAuth,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ):
+    _require_authorized(auth, csrf_token)
     codigo = codigo.strip()
     nome = nome.strip()
 
@@ -101,7 +112,10 @@ async def analisar_produto(
     codigo: Annotated[str, Form(...)],
     nome: Annotated[str, Form(...)],
     informacoes_adicionais: Annotated[str, Form(...)],
+    auth: CurrentAuth,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ):
+    _require_authorized(auth, csrf_token)
     codigo = codigo.strip()
     nome = nome.strip()
     empresa = empresa.strip().lower()
@@ -166,8 +180,11 @@ async def gerar_datasheet(
     empresa: Annotated[str, Form(...)],
     codigo: Annotated[str, Form(...)],
     analysis_json: Annotated[str, Form(...)],
+    auth: CurrentAuth,
     imagens: Annotated[list[UploadFile] | None, File()] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ):
+    _require_authorized(auth, csrf_token)
     empresa = empresa.strip().lower()
     codigo = codigo.strip()
 

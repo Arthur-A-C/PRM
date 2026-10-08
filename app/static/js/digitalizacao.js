@@ -478,6 +478,7 @@
         "/api/v1/digitalizacao/extrair-especificacoes",
         {
           method: "POST",
+          headers: { "X-CSRF-Token": document.querySelector('input[name="csrf_token"]')?.value || "" },
           body: formData,
         }
       );
@@ -922,6 +923,7 @@
         "/api/v1/digitalizacao/analisar",
         {
           method: "POST",
+          headers: { "X-CSRF-Token": document.querySelector('input[name="csrf_token"]')?.value || "" },
           body: formData,
         }
       );
@@ -1404,6 +1406,7 @@
         "/api/v1/digitalizacao/gerar-datasheet",
         {
           method: "POST",
+          headers: { "X-CSRF-Token": document.querySelector('input[name="csrf_token"]')?.value || "" },
           body: formData,
         }
       );
@@ -1591,22 +1594,11 @@
   }
 
   function handleGeneratePackage() {
-    const manifest =
-      packageManifest();
-
-    console.group(
-      "PRM · Digitalização · Manifesto do pacote"
-    );
-
-    console.log(manifest);
-
-    console.groupEnd();
-
-    showMessage(
-      `Pacote ${manifest.codigo} ainda não foi gerado. ` +
-      "O manifesto foi preparado no navegador, mas o backend Python ainda precisa montar e exportar o pacote final.",
-      "success"
-    );
+    if (window.prmRegistration?.downloadPackage) {
+      window.prmRegistration.downloadPackage();
+    } else {
+      showMessage("Serviço de pacote indisponível.", "warning");
+    }
   }
 
   function installDragAndDrop() {
@@ -1768,6 +1760,23 @@
       }
     );
   }
+
+  window.prmDigitalizacao = {
+    snapshot: () => ({
+      company: elements.empresa?.value || "",
+      sku: elements.codigo?.value.trim() || "",
+      technicalName: elements.produto?.value.trim() || "",
+      analysis: state.analysisResult,
+      images: state.images.map((image) => ({ file: image.file, rotation: image.rotation })),
+      generatedDatasheet: state.datasheetUrl
+        ? { url: state.datasheetUrl, filename: state.datasheetFilename }
+        : null,
+      sourceDatasheet: state.supplierDatasheet,
+      drawing3d: state.drawing3d,
+      imageSize: elements.imageSize?.value || "1200",
+      imageQuality: Number(elements.imageQuality?.value || 90),
+    }),
+  };
 
   bindEvents();
 

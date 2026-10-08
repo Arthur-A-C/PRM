@@ -621,4 +621,64 @@
 
   </section>
 
+  <section class="panel digitalizacao-panel" id="cadastro-automatizado" aria-labelledby="cadastro-heading">
+    <div class="digitalizacao-section-heading">
+      <div class="digitalizacao-section-number">5</div>
+      <div>
+        <p class="eyebrow">Preparação para cadastro</p>
+        <h2 id="cadastro-heading">Cadastro automatizado</h2>
+        <p>Revise o produto estruturado, gere arquivos locais e aprove cada saída antes de qualquer cadastro externo.</p>
+      </div>
+    </div>
+    <div class="digitalizacao-form-grid">
+      <div class="digitalizacao-field digitalizacao-field-wide">
+        <label for="cadastro-titulo">Título comercial</label>
+        <input id="cadastro-titulo" type="text" placeholder="Nome exibido no WooCommerce">
+      </div>
+      <div class="digitalizacao-field">
+        <label for="cadastro-fornecedor">Fornecedor/fabricante</label>
+        <input id="cadastro-fornecedor" type="text">
+      </div>
+      <div class="digitalizacao-field">
+        <label for="cadastro-categoria">Categoria hierárquica</label>
+        <input id="cadastro-categoria" type="text" placeholder="Categoria > Subcategoria">
+      </div>
+      <div class="digitalizacao-field digitalizacao-field-wide">
+        <label for="cadastro-descricao-curta">Descrição curta</label>
+        <textarea id="cadastro-descricao-curta" rows="3"></textarea>
+      </div>
+      <div class="digitalizacao-field digitalizacao-field-wide">
+        <label for="cadastro-descricao">Descrição completa (HTML revisável)</label>
+        <textarea id="cadastro-descricao" rows="9"></textarea>
+      </div>
+      <div class="digitalizacao-field digitalizacao-field-wide">
+        <label for="cadastro-atributos">Atributos (JSON: nome e valores)</label>
+        <textarea id="cadastro-atributos" rows="5" placeholder='[{"name":"Tipo","values":["Painel"]}]'></textarea>
+      </div>
+      <div class="digitalizacao-field">
+        <label for="cadastro-export">Export WooCommerce atualizado (opcional; por padrão usa o ZIP Choice/SAG/Portwell instalado no servidor)</label>
+        <input id="cadastro-export" type="file" accept=".csv">
+      </div>
+      <div class="digitalizacao-field">
+        <label for="cadastro-cigam-modelo">Modelo CIGAM</label>
+        <input id="cadastro-cigam-modelo" type="file" accept=".xlsx">
+      </div>
+      <div class="digitalizacao-field digitalizacao-field-wide">
+        <label for="cadastro-planilha">Planilha de lote (XLSX/CSV)</label>
+        <input id="cadastro-planilha" type="file" accept=".xlsx,.csv">
+      </div>
+    </div>
+    <div class="digitalizacao-ai-action">
+      <button type="button" id="cadastro-descricao-gerar">Gerar descrição fundamentada</button>
+      <button type="button" id="cadastro-lote-previa">Prévia do lote</button>
+      <button type="button" id="cadastro-arquivos-previa">Localizar arquivos do SKU</button>
+      <button type="button" id="cadastro-cigam-baixar">Baixar CIGAM</button>
+      <button type="button" id="cadastro-woo-previa">Prévia ao vivo no WooCommerce</button>
+      <button type="button" id="cadastro-woo-baixar">Baixar CSV WooCommerce</button>
+      <button type="button" id="cadastro-pacote-baixar">Baixar pacote ZIP</button>
+    </div>
+    <label><input id="cadastro-aprovado" type="checkbox"> Revisei o produto e aprovo a geração do CSV WooCommerce</label>
+    <p id="cadastro-status" role="status">Nenhuma saída gerada. Cadastro direto na loja permanece desativado até configuração e validação.</p>
+    <pre id="cadastro-previa" class="digitalizacao-registration-preview" hidden></pre>
+  </section>
 </div>

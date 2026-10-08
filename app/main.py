@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import auth, catalog, digitalizacao, health, pages
+from app.routers import auth, catalog, digitalizacao, health, pages, registration
 
 
 settings = get_settings()
@@ -19,3 +19,4 @@ app.include_router(auth.router)
 app.include_router(catalog.router)
 app.include_router(pages.router)
 app.include_router(digitalizacao.router)
+app.include_router(registration.router)

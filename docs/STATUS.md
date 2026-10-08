@@ -1,5 +1,15 @@
 # Status do projeto
 
+## Atualização de 08/10/2026 — cadastro automatizado na Digitalização (implementação local)
+
+- A pasta oficial continua `C:\Users\PW\Documents\PRM`. O ZIP recebido com **todos os exports** de Choice, SAG e Portwell foi copiado sem alterar o original para `data/imports/exports_woocommerce_choice_sag_portwell.zip` (ignorado pelo Git); SHA-256: `844690755b70b314cb7a331d5c1b0265c28e7b8317d49395bed83bdda87bc32f`.
+- Auditoria dos exports: Choice 2.714 SKUs, 116 colunas, 15 blocos de atributo e 350 linhas de lotes antigos sem colunas finais; SAG 298 SKUs, 104 colunas, 16 blocos e 100 linhas sem quatro colunas finais; Portwell 1.018 SKUs, 133 colunas e 18 blocos. A leitura completa preserva o cabeçalho mais amplo e preenche somente as células finais ausentes. Há nomes de atributo com indicação global/local divergente (Choice: 4; Portwell: 1); novos atributos afetados exigem revisão. Registros existentes com mais de 15 atributos são preservados, mas o limite impede acrescentar outros.
+- Na página existente de Digitalização, foi adicionada a seção **Cadastro automatizado** e endpoints protegidos para modelo central validado, descrição determinística fundamentada, prévia de planilha em lote, descoberta de arquivos, consulta WooCommerce somente leitura, CSV Woo por cabeçalho da empresa, XLSX CIGAM e pacote ZIP real com imagens processadas. O export padrão é selecionado pelo código da empresa no ZIP; upload manual de export mais recente continua opcional.
+- CSV de produto existente parte da linha original e preserva ID, preço, imagens, metadados e campos não aprovados; produto novo sai como rascunho. Avisos de revisão são expostos sem impedir o download do CSV. O metadado `_hide_product_price` **não é ativado para novos produtos** até validação na loja. Nenhum CSV foi importado em loja real.
+- A planilha CIGAM recebida é um modelo de 16 colunas com apenas um exemplo; campos sem origem no modelo central permanecem vazios e são sinalizados. O script Flask/Playwright recebido foi auditado; somente a descoberta/classificação segura de arquivos foi adaptada ao FastAPI. Nenhuma automação de upload nem escrita Woo/ERP está ativada.
+- Testes específicos de cadastro: **9 aprovados**. Suíte completa: **69 aprovados, 3 avisos**. Não foi aplicada migração, nem alterado `prm_mvp`, `prm_pipeline_staging`, WooCommerce ou CIGAM. Mais detalhes, configuração e pendências em [CADASTRO_AUTOMATIZADO.md](CADASTRO_AUTOMATIZADO.md).
+
+
 ## Atualização de 01/10/2026 — política de senha e gestor
 
 - Por solicitação do operador, o mínimo de senha do PRM passou de 12 para **6 caracteres** em `app/services/security.py`; os fluxos interativos de cadastro e o teste de segurança foram atualizados. O hash Argon2 e as demais regras de autenticação não mudaram. Essa redução vale para todas as contas novas e diminui a resistência a tentativas de adivinhação; é recomendado usar senhas longas mesmo com o mínimo reduzido.
