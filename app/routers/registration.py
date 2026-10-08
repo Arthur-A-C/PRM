@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
@@ -14,6 +15,7 @@ from app.dependencies import CurrentAuth
 from app.schemas.registration import RegistrationProduct
 from app.services.registration_cigam import export_cigam_xlsx
 from app.services.registration_description import build_description
+from app.services.digitalization_storage import verify_package
 from app.services.registration_exports import load_company_export
 from app.services.registration_files import classify_files, configured_root, find_product_folder
 from app.services.registration_package import build_package, safe_component
@@ -42,16 +44,32 @@ def parse_product(raw: str) -> RegistrationProduct:
 
 class DescriptionRequest(BaseModel):
     product: RegistrationProduct
+    run_id: str | None = None
+
+
+def require_validated_run(run_id: str | None, product: RegistrationProduct) -> dict:
+    if not run_id:
+        raise HTTPException(status_code=409, detail="Finalize e valide a digitalização antes do cadastro.")
+    try:
+        record = verify_package(run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if (record.get("status") != "validated" or record.get("company") != product.company
+            or record.get("sku") != product.sku or record.get("name") != product.technical_name):
+        raise HTTPException(status_code=409, detail="Pacote não validado para esta empresa e SKU.")
+    return record
 
 
 class FilePreviewRequest(BaseModel):
     company: str
     sku: str
+    run_id: str | None = None
 
 
 @router.post("/descricao")
 def description(payload: DescriptionRequest, auth: CurrentAuth, csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
     require_manager(auth, csrf_token)
+    require_validated_run(payload.run_id, payload.product)
     html, warnings = build_description(payload.product)
     return {"html": html, "warnings": warnings, "status": "needs_review"}
 
@@ -59,6 +77,7 @@ def description(payload: DescriptionRequest, auth: CurrentAuth, csrf_token: Anno
 @router.post("/woocommerce/previa")
 def woo_preview(payload: DescriptionRequest, auth: CurrentAuth, csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
     require_manager(auth, csrf_token)
+    require_validated_run(payload.run_id, payload.product)
     try:
         return preview_live_product(payload.product)
     except ValueError as exc:
@@ -71,6 +90,11 @@ def woo_preview(payload: DescriptionRequest, auth: CurrentAuth, csrf_token: Anno
 def files_preview(payload: FilePreviewRequest, auth: CurrentAuth, csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
     require_manager(auth, csrf_token)
     try:
+        if payload.run_id:
+            record = verify_package(payload.run_id)
+            if record["company"] != payload.company or record["sku"] != payload.sku:
+                raise ValueError("Execução não corresponde à empresa e ao SKU selecionados.")
+            return {"found": True, "sku": payload.sku, "run_id": payload.run_id, "files": classify_files(Path(record["folder_path"]))}
         folder = find_product_folder(configured_root(payload.company), payload.sku)
         if folder is None:
             return {"found": False, "sku": payload.sku, "files": None}
@@ -107,11 +131,13 @@ async def sheet_preview(
 async def woo_csv(
     auth: CurrentAuth,
     product_json: Annotated[str, Form(...)],
+    run_id: Annotated[str, Form(...)],
     export_file: Annotated[UploadFile | None, File()] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ):
     require_manager(auth, csrf_token)
     product = parse_product(product_json)
+    require_validated_run(run_id, product)
     if product.validation_status != "approved":
         raise HTTPException(status_code=409, detail="Aprovação explícita necessária antes do CSV WooCommerce.")
     try:

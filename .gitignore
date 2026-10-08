@@ -14,5 +14,6 @@ data/backups/*
 data/tools/*
 data/imports/*
 !data/imports/.gitkeep
+data/products/*
 data/analysis/staging/*
 *.log

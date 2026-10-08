@@ -1,5 +1,22 @@
 # Status do projeto
 
+## Atualização de 08/10/2026 — Digitalização persistente antes do WooCommerce
+
+- A etapa de arquivos agora é real: fotos ordenadas/processadas no backend, PDF Choice/SAG/Portwell salvo em rascunho persistente, pasta física por empresa e Código CIGAM literal, manifesto com caminhos e hashes, ZIP validado e recuperação por ID após recarga. A imagem principal é indicada pelo manifesto, não por ordem alfabética. A pasta-base `PRM_PRODUCT_STORAGE_ROOT` é configurável; padrão local `data/products/`, ignorado pelo Git.
+- A finalização é atômica por pasta temporária, bloqueia sobrescrita e oferece nova versão somente após confirmação. O CSV WooCommerce e a descrição ficam bloqueados até o pacote estar validado; antes de gerar CSV o backend confere novamente hashes dos arquivos e conteúdo do ZIP. Nenhuma escrita WooCommerce ou CIGAM foi realizada.
+- Novos endpoints autenticados em `app/routers/digitalizacao.py` criam/consultam a execução, entregam PDF/fotos/ZIP e finalizam a pasta. O frontend guarda o ID e pode recuperá-lo após atualizar a página. A ordem das rotas foi corrigida para que o catch-all HTML não intercepte os novos GETs da API.
+- Verificações e detalhes operacionais em [DIGITALIZACAO_PRODUTO.md](DIGITALIZACAO_PRODUTO.md). Pendências: teste em compartilhamento de rede real, política de retenção de rascunhos, validação visual em celular e fase posterior de escrita WooCommerce/Playwright com confirmação específica.
+- Suíte completa após a mudança: **86 testes aprovados, 3 avisos**; JavaScript de Digitalização e cadastro passou em `node --check`. Os testes de integração usam armazenamento temporário e credenciais simuladas. Nenhuma pasta de produto real, banco ou loja foi alterada durante os testes.
+
+
+## Atualização de 08/10/2026 — redesign visual do PRM
+
+- A identidade visual foi renovada **no frontend existente**, sem criar dashboard separado nem alterar backend, banco ou integrações. O design system em `app/static/css/design-system.css` centraliza paleta industrial (azul petróleo/grafite), superfícies, bordas, sombras, estados de foco, transições, responsividade e preferência por movimento reduzido. Login, sidebar, cabeçalho, indicadores, cards, filtros, tabelas, comparações e Digitalização receberam o novo acabamento.
+- A imagem original com Portwell, Choice e SAG foi copiada sem modificação para `app/static/brand-lockup.png` e aparece no cabeçalho, no login e na comparação direta estática. O SHA-256 da cópia corresponde ao arquivo de Downloads. Os cards de seleção na Digitalização exibem nomes/símbolos tipográficos; a imagem oficial permanece intacta.
+- A Digitalização mantém seus IDs, eventos e endpoints. Foram adicionados cards sincronizados com o seletor de empresa, estados de carregamento, refinamento do stepper, upload, imagens e seção de cadastro. A navegação móvel tem botão, fechamento por clique externo/Escape e `aria-expanded`.
+- Verificações: `node --check` em `ui.js` e `registration.js`; **70 testes aprovados, 3 avisos**, inclusive assets HTTP, login e templates. Capturas locais do login em Edge headless, nas larguras 1440 e 500 px, foram inspecionadas; os arquivos estão em `data/exports/`, ignorados pelo Git. A largura de 390 px não foi conclusiva por limite mínimo da janela headless, portanto uma checagem em aparelho real ainda é recomendada. Nenhum deploy ou push foi realizado.
+
+
 ## Atualização de 08/10/2026 — cadastro automatizado na Digitalização (implementação local)
 
 - A pasta oficial continua `C:\Users\PW\Documents\PRM`. O ZIP recebido com **todos os exports** de Choice, SAG e Portwell foi copiado sem alterar o original para `data/imports/exports_woocommerce_choice_sag_portwell.zip` (ignorado pelo Git); SHA-256: `844690755b70b314cb7a331d5c1b0265c28e7b8317d49395bed83bdda87bc32f`.

@@ -100,8 +100,7 @@ class RegistrationProduct(BaseModel):
     def keep_code_as_text(cls, value: object) -> str:
         if not isinstance(value, str):
             raise ValueError("SKU/CIGAM code must be supplied as text to preserve leading zeros.")
-        value = value.strip()
-        if not value or value.startswith(("=", "+", "-", "@")):
+        if not value or value != value.strip() or value.startswith(("=", "+", "-", "@")):
             raise ValueError("Invalid or unsafe SKU/CIGAM code.")
         return value
 

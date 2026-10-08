@@ -11,11 +11,12 @@
   <aside class="sidebar">
     <a class="product-brand" href="/" aria-label="PRM — início">
       <span class="brand-mark brand-mark-small" aria-hidden="true">PRM</span>
-      <span><strong>Catálogos</strong><small>Inteligência comercial</small></span>
+      <span><strong>PRM Workspace</strong><small>Inteligência de produto</small></span>
     </a>
+    <p class="sidebar-caption">Áreas de trabalho</p>
     <nav aria-label="Navegação principal">
       {% for label, href in nav_items %}
-      <a href="{{ href }}" {% if active_path == href %}aria-current="page"{% endif %}>{{ label }}</a>
+      <a href="{{ href }}" {% if active_path == href %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">{% if href == '/' %}▦{% elif href == '/catalogos' %}▤{% elif href == '/comparador' %}⇄{% elif href == '/digitalizacao' %}◈{% else %}◇{% endif %}</span><span>{{ label }}</span></a>
       {% endfor %}
     </nav>
     <div class="sidebar-footer">
@@ -29,11 +30,14 @@
   </aside>
   <main class="content" id="conteudo">
     <header class="page-header">
-      <div>
-        <p class="eyebrow">Dashboard PRM</p>
-        <h1>{{ title }}</h1>
+      <div class="page-header-main">
+        <div class="page-heading">
+          <button class="mobile-nav-toggle" type="button" data-prm-nav-toggle aria-label="Abrir menu" aria-expanded="false">☰</button>
+          <div><p class="eyebrow">Workspace / {{ title }}</p><h1>{{ title }}</h1></div>
+        </div>
+        <p class="page-subtitle">Portwell · Choice · SAG em uma plataforma de inteligência comercial.</p>
       </div>
-      <span class="status-badge">Integrações externas não configuradas</span>
+      <div class="brand-lockup" role="img" aria-label="Logotipos Portwell, Choice e SAG"></div>
     </header>
 
     {% if title == "Visão geral" %}
@@ -438,6 +442,7 @@
 {% endblock %}
 
 {% block scripts %}
+  <script src="{{ url_for('static', path='/js/ui.js') }}?v=20261008-1" defer></script>
   {% if title == "Digitalização" %}
   <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20260924-1" defer></script>
   <script src="{{ url_for('static', path='/js/registration.js') }}?v=20261008-1" defer></script>

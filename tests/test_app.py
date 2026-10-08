@@ -30,6 +30,21 @@ def test_login_page_is_accessible_and_localized() -> None:
     assert response.status_code == 200
     assert "Acesse o painel" in response.text
     assert "lang=\"pt-BR\"" in response.text
+    assert "login-brand-lockup" in response.text
+    assert "/css/design-system.css" in response.text
+
+
+def test_visual_assets_are_served() -> None:
+    for path, expected_type in (
+        ("/static/css/design-system.css", "text/css"),
+        ("/static/js/ui.js", "javascript"),
+        ("/static/brand-lockup.png", "image/png"),
+        ("/static/favicon.svg", "image/svg+xml"),
+    ):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert expected_type in response.headers["content-type"]
+        assert response.content
 
 
 def test_unknown_page_is_not_silently_accepted() -> None:

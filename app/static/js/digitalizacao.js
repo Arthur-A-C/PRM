@@ -32,6 +32,8 @@
     review: $("#digitalizacao-review"),
     reviewContent: $("#digitalizacao-review-content"),
     gerarDatasheet: $("#digitalizacao-gerar-datasheet"),
+    aprovar: $("#digitalizacao-aprovar"),
+    previewPages: $("#digitalizacao-preview-pages"),
     datasheetStatus: $("#digitalizacao-datasheet-status"),
     datasheetResult: $("#digitalizacao-datasheet-result"),
     datasheetDownload: $("#digitalizacao-datasheet-download"),
@@ -53,22 +55,16 @@
     analysisResult: null,
     datasheetUrl: null,
     datasheetFilename: null,
+    runId: null,
+    finalized: false,
+    approved: false,
     extractingSpecs: false,
     extractedSpecs: "",
     lastExtractionKey: null,
   };
 
-  function sanitizeCode(value) {
-    return String(value || "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .replace(/[^\w.-]/g, "")
-      .replace(/_+/g, "_")
-      .toUpperCase();
-  }
-
   function currentCode() {
-    return sanitizeCode(elements.codigo?.value) || "CODIGO";
+    return String(elements.codigo?.value || "");
   }
 
   function formatBytes(bytes) {
@@ -134,6 +130,12 @@
     state.datasheetUrl = null;
     state.datasheetFilename = null;
     state.datasheetGenerated = false;
+    state.runId = null;
+    state.finalized = false;
+    state.approved = false;
+    if (elements.previewPages) elements.previewPages.replaceChildren();
+    state.images.forEach((image) => { image.processedUrl = null; });
+    window.dispatchEvent(new CustomEvent("prm:digitalizacao-run", { detail: { status: "invalidated" } }));
 
     if (elements.datasheetResult) {
       elements.datasheetResult.hidden = true;
@@ -156,7 +158,7 @@
 
     if (elements.datasheetStatus) {
       elements.datasheetStatus.textContent =
-        "Os dados foram alterados. Faça uma nova análise com Qwen antes de gerar o datasheet.";
+        "Os dados foram alterados. Faça uma nova análise com Claude antes de gerar o datasheet.";
     }
 
     if (elements.review) {
@@ -320,9 +322,9 @@
 
       const img = document.createElement("img");
 
-      img.src = image.url;
+      img.src = image.processedUrl || image.url;
       img.alt = `Prévia de ${image.file.name}`;
-      img.style.transform = `rotate(${image.rotation}deg)`;
+      img.style.transform = image.processedUrl ? "none" : `rotate(${image.rotation}deg)`;
       img.style.transition = "transform .18s ease";
 
       preview.appendChild(img);
@@ -528,7 +530,7 @@
 
       if (elements.extractionStatus) {
         elements.extractionStatus.textContent =
-          "✓ Texto do datasheet extraído. Revise e edite antes de analisar com Qwen.";
+          "✓ Texto do datasheet extraído. Revise e edite antes de analisar com Claude.";
       }
 
       showMessage(
@@ -602,6 +604,7 @@
       elements.drawing3d?.files?.[0] || null;
 
     state.drawing3d = file;
+    invalidateAnalysis();
 
     if (elements.drawing3dName) {
       elements.drawing3dName.textContent = file
@@ -639,7 +642,7 @@
   }
 
   function updatePackageTree() {
-    const code = currentCode();
+    const code = currentCode() || "CODIGO";
 
     if (elements.packageCode) {
       elements.packageCode.textContent = `${code}/`;
@@ -770,18 +773,19 @@
     );
 
     const step2Complete =
-      state.images.length > 0;
+      state.images.length > 0 || Boolean(state.runId && state.datasheetGenerated);
 
     const step3Complete = Boolean(
       state.supplierDatasheet ||
-      elements.specs?.value.trim()
+      elements.specs?.value.trim() ||
+      state.datasheetGenerated
     );
 
     const completion = [
       step1Complete,
       step2Complete,
       step3Complete,
-      state.analyzed,
+      state.finalized,
     ];
 
     steps.forEach((step, index) => {
@@ -819,11 +823,12 @@
     }
 
     if (elements.gerarDatasheet) {
-      elements.gerarDatasheet.disabled = !state.analyzed;
+      elements.gerarDatasheet.disabled = !state.analyzed || !state.images.length;
     }
 
     if (elements.gerar) {
-      elements.gerar.disabled = !state.datasheetGenerated;
+      elements.gerar.disabled = !state.approved || state.finalized;
+      if (elements.aprovar) elements.aprovar.disabled = !state.datasheetGenerated || state.approved;
     }
   }
 
@@ -869,7 +874,7 @@
     return div;
   }
 
-  async function analyzeWithQwen() {
+  async function analyzeWithClaude() {
     if (!elements.analisar) {
       return;
     }
@@ -877,9 +882,9 @@
     const specsText =
       elements.specs?.value.trim() || "";
 
-    if (!specsText) {
+    if (!specsText && !state.supplierDatasheet && !state.images.length) {
       showMessage(
-        "Extraia ou informe as especificações antes de analisar o produto.",
+        "Envie um PDF, fotos ou informe as especificações antes de analisar o produto.",
         "warning",
         elements.analisar?.parentElement
       );
@@ -893,7 +898,7 @@
       elements.analisar.disabled = true;
 
       elements.analisar.textContent =
-        "Analisando com Qwen...";
+        "Analisando com Claude...";
 
       const formData =
         new FormData();
@@ -918,6 +923,11 @@
         "informacoes_adicionais",
         specsText
       );
+      formData.append("configuracao", $("#digitalizacao-configuracao")?.value || "");
+      formData.append("opcionais", $("#digitalizacao-opcionais")?.value || "");
+      formData.append("nivel", $("#digitalizacao-nivel")?.value || "completo");
+      if (state.supplierDatasheet) formData.append("datasheet", state.supplierDatasheet);
+      state.images.forEach((image) => formData.append("imagens", image.file));
 
       const response = await fetch(
         "/api/v1/digitalizacao/analisar",
@@ -945,9 +955,9 @@
 
       state.analyzed = true;
 
-      renderQwenReview(
-        result.data
-      );
+      state.claudeWarnings = result.avisos || [];
+      state.claudePendencias = result.pendencias || [];
+      renderClaudeReview(result.data);
 
       if (elements.datasheetStatus) {
         elements.datasheetStatus.textContent =
@@ -964,7 +974,7 @@
 
       showMessage(
         error.message ||
-        "Erro durante a análise com Qwen.",
+        "Erro durante a análise com Claude.",
         "warning",
         elements.analisar?.parentElement
       );
@@ -979,13 +989,44 @@
     }
   }
 
-  function renderQwenReview(data) {
+  function renderClaudeReview(data) {
     if (
       !elements.review ||
       !elements.reviewContent
     ) {
       return;
     }
+
+    elements.reviewContent.replaceChildren();
+    const summary = document.createElement("p");
+    summary.textContent = `${data.modelo || ""} · ${data.categoria || ""} · ${data.subtitulo || ""}`;
+    elements.reviewContent.append(summary);
+    const pending = [...(data.pendencias || []), ...(state.claudeWarnings || [])];
+    if (pending.length) {
+      const list = document.createElement("ul");
+      pending.forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        list.append(li);
+      });
+      elements.reviewContent.append(list);
+    }
+    const label = document.createElement("label");
+    label.textContent = "Dados técnicos estruturados (revise e edite o JSON antes de gerar o PDF)";
+    const editor = document.createElement("textarea");
+    editor.id = "digitalizacao-json-editor";
+    editor.rows = 18;
+    editor.style.width = "100%";
+    editor.value = JSON.stringify(data, null, 2);
+    editor.addEventListener("input", () => {
+      clearGeneratedDatasheet();
+      updateButtons();
+    });
+    label.append(editor);
+    elements.reviewContent.append(label);
+    elements.review.hidden = false;
+    elements.review.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
 
     elements.reviewContent.innerHTML =
       "";
@@ -1362,6 +1403,16 @@
       return;
     }
 
+    const editor = $("#digitalizacao-json-editor");
+    if (editor) {
+      try {
+        state.analysisResult = JSON.parse(editor.value);
+      } catch (_) {
+        showMessage("O JSON editado está inválido.", "warning", elements.review);
+        return;
+      }
+    }
+
     const originalText =
       elements.gerarDatasheet?.textContent ||
       "Gerar Datasheet";
@@ -1394,6 +1445,12 @@
         "analysis_json",
         JSON.stringify(state.analysisResult)
       );
+
+      formData.append("nome", elements.produto?.value.trim() || "");
+      formData.append("rotations_json", JSON.stringify(state.images.map((image) => image.rotation)));
+      formData.append("size", elements.imageSize?.value || "1200");
+      formData.append("quality", elements.imageQuality?.value || "90");
+      if (state.supplierDatasheet) formData.append("datasheet", state.supplierDatasheet);
 
       state.images.forEach((image) => {
         formData.append(
@@ -1428,13 +1485,14 @@
         throw new Error(detail);
       }
 
-      const pdfBlob =
-        await response.blob();
-
       clearGeneratedDatasheet();
-
-      state.datasheetUrl =
-        URL.createObjectURL(pdfBlob);
+      state.runId = response.headers.get("X-PRM-Run-ID");
+      if (!state.runId) throw new Error("Servidor não retornou o identificador do datasheet salvo.");
+      state.datasheetUrl = `/api/v1/digitalizacao/execucoes/${state.runId}/datasheet`;
+      state.images.forEach((image, index) => {
+        image.processedUrl = `/api/v1/digitalizacao/execucoes/${state.runId}/fotos/${index + 1}`;
+      });
+      renderImages();
 
       const disposition =
         response.headers.get(
@@ -1451,6 +1509,10 @@
         `${currentCode()}_Datasheet.pdf`;
 
       state.datasheetGenerated = true;
+      state.finalized = false;
+      state.approved = false;
+      window.dispatchEvent(new CustomEvent("prm:digitalizacao-run", { detail: { status: "draft", runId: state.runId } }));
+      await loadDraftPreview();
 
       if (elements.datasheetDownload) {
         elements.datasheetDownload.href =
@@ -1505,6 +1567,54 @@
 
       updateButtons();
     }
+  }
+
+  async function loadDraftPreview(record = null) {
+    if (!state.runId || !elements.previewPages) return;
+    if (!record) {
+      const response = await fetch(`/api/v1/digitalizacao/execucoes/${state.runId}`);
+      if (!response.ok) throw new Error("Não foi possível recuperar as prévias do PDF.");
+      record = await response.json();
+    }
+    elements.previewPages.replaceChildren();
+    for (let index = 1; index <= (record.preview_count || 0); index += 1) {
+      const link = document.createElement("a");
+      link.href = state.datasheetUrl;
+      link.target = "_blank";
+      const image = document.createElement("img");
+      image.src = `/api/v1/digitalizacao/execucoes/${state.runId}/previas/${index}`;
+      image.alt = `Página ${index} do datasheet`;
+      image.style.maxWidth = "100%";
+      link.append(image);
+      elements.previewPages.append(link);
+    }
+    const problems = [...(record.pending || []), ...(record.warnings || [])];
+    if (problems.length) {
+      const list = document.createElement("ul");
+      problems.forEach((text) => { const item = document.createElement("li"); item.textContent = text; list.append(item); });
+      elements.previewPages.append(list);
+    }
+    state.approved = record.status === "approved" || record.status === "validated";
+    updateButtons();
+  }
+
+  async function approveDatasheet() {
+    if (!state.runId) return;
+    const response = await fetch(`/api/v1/digitalizacao/execucoes/${state.runId}`);
+    if (!response.ok) throw new Error("Rascunho não encontrado.");
+    const record = await response.json();
+    const pending = record.pending || [];
+    if (pending.length && !window.confirm(`Há ${pending.length} pendência(s) técnica(s). Confirma que revisou todas e deseja aprovar?`)) return;
+    const form = new FormData();
+    form.append("acknowledge_pending", String(pending.length > 0));
+    const approval = await fetch(`/api/v1/digitalizacao/execucoes/${state.runId}/aprovar`, {
+      method: "POST", headers: { "X-CSRF-Token": document.querySelector('input[name="csrf_token"]')?.value || "" }, body: form,
+    });
+    const result = await approval.json();
+    if (!approval.ok) throw new Error(result.detail || "Falha ao aprovar datasheet.");
+    state.approved = true;
+    if (elements.datasheetStatus) elements.datasheetStatus.textContent = "Datasheet aprovado. Você pode criar a pasta do produto.";
+    updateButtons();
   }
 
   function packageManifest() {
@@ -1594,8 +1704,8 @@
   }
 
   function handleGeneratePackage() {
-    if (window.prmRegistration?.downloadPackage) {
-      window.prmRegistration.downloadPackage();
+    if (window.prmRegistration?.finalizePackage) {
+      window.prmRegistration.finalizePackage();
     } else {
       showMessage("Serviço de pacote indisponível.", "warning");
     }
@@ -1705,10 +1815,9 @@
         if (
           elements.codigo.value.trim()
         ) {
-          elements.codigo.value =
-            sanitizeCode(
-              elements.codigo.value
-            );
+          if (elements.codigo.value !== elements.codigo.value.trim()) {
+            showMessage("Remova os espaços nas extremidades do Código CIGAM; o PRM não altera o código automaticamente.", "warning");
+          }
         }
 
         updatePageState();
@@ -1730,13 +1839,16 @@
 
     elements.analisar?.addEventListener(
       "click",
-      analyzeWithQwen
+      analyzeWithClaude
     );
 
     elements.gerarDatasheet?.addEventListener(
       "click",
       handleGenerateDatasheet
     );
+    elements.aprovar?.addEventListener("click", () => {
+      approveDatasheet().catch((error) => showMessage(error.message, "warning", elements.review));
+    });
 
     elements.gerar?.addEventListener(
       "click",
@@ -1764,18 +1876,46 @@
   window.prmDigitalizacao = {
     snapshot: () => ({
       company: elements.empresa?.value || "",
-      sku: elements.codigo?.value.trim() || "",
+      sku: elements.codigo?.value || "",
       technicalName: elements.produto?.value.trim() || "",
       analysis: state.analysisResult,
       images: state.images.map((image) => ({ file: image.file, rotation: image.rotation })),
       generatedDatasheet: state.datasheetUrl
         ? { url: state.datasheetUrl, filename: state.datasheetFilename }
         : null,
+      runId: state.runId,
       sourceDatasheet: state.supplierDatasheet,
       drawing3d: state.drawing3d,
       imageSize: elements.imageSize?.value || "1200",
       imageQuality: Number(elements.imageQuality?.value || 90),
     }),
+    restoreRun: (record) => {
+      if (!record || !record.run_id || !record.analysis) return;
+      elements.empresa.value = record.company;
+      document.querySelectorAll("[data-company-select]").forEach((card) => {
+        card.setAttribute("aria-pressed", String(card.dataset.companySelect === record.company));
+      });
+      elements.codigo.value = record.sku;
+      elements.produto.value = record.name;
+      state.analysisResult = record.analysis;
+      state.analyzed = true;
+      state.runId = record.run_id;
+      state.finalized = record.status === "validated";
+      state.approved = record.status === "approved" || record.status === "validated";
+      state.datasheetGenerated = true;
+      state.datasheetUrl = `/api/v1/digitalizacao/execucoes/${record.run_id}/datasheet`;
+      state.datasheetFilename = `${record.sku}_Datasheet.pdf`;
+      if (elements.datasheetDownload) {
+        elements.datasheetDownload.href = state.datasheetUrl;
+        elements.datasheetDownload.download = state.datasheetFilename;
+      }
+      if (elements.datasheetResult) elements.datasheetResult.hidden = false;
+      if (elements.datasheetStatus) elements.datasheetStatus.textContent = "Datasheet salvo no servidor; revise antes de prosseguir.";
+      loadDraftPreview(record).catch((error) => showMessage(error.message, "warning", elements.review));
+      updatePageState();
+    },
+    markFinalized: (value) => { state.finalized = Boolean(value); updatePageState(); },
+    invalidateForFiles: () => { invalidateAnalysis(); updatePageState(); },
   };
 
   bindEvents();

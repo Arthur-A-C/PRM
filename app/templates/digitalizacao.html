@@ -2,7 +2,7 @@
 
   <section class="digitalizacao-hero">
     <div>
-      <p class="eyebrow">Fluxo de preparação</p>
+      <p class="eyebrow">Digitalização / Fluxo de preparação</p>
       <h2>Central de digitalização</h2>
       <p>
         Organize fotos, documentos técnicos e informações do produto
@@ -10,9 +10,9 @@
       </p>
     </div>
 
-    <div class="digitalizacao-hero-badge">
-      <span>PRM</span>
-      <strong>Digitalização</strong>
+    <div class="digitalizacao-hero-badge" aria-hidden="true">
+      <span>01 — 04</span>
+      <strong>Do arquivo ao cadastro</strong>
     </div>
   </section>
 
@@ -71,6 +71,12 @@
 
     <div class="digitalizacao-form-grid">
 
+      <div class="digitalizacao-company-cards digitalizacao-field-wide" role="group" aria-label="Selecionar empresa">
+        <button type="button" data-company-select="portwell" aria-pressed="false"><span class="company-card-symbol">P</span><strong>Portwell</strong><small>Automação industrial</small></button>
+        <button type="button" data-company-select="choice" aria-pressed="false"><span class="company-card-symbol">C</span><strong>Choice</strong><small>Tecnologia e energia</small></button>
+        <button type="button" data-company-select="sag" aria-pressed="false"><span class="company-card-symbol">S</span><strong>SAG</strong><small>Controle e posicionamento</small></button>
+      </div>
+
       <div class="digitalizacao-field">
         <label for="digitalizacao-empresa">
           Empresa
@@ -115,6 +121,9 @@
           placeholder="Digite o nome ou título comercial do produto"
         >
       </div>
+      <div class="digitalizacao-field"><label for="digitalizacao-configuracao">Configuração específica</label><input id="digitalizacao-configuracao" type="text"></div>
+      <div class="digitalizacao-field"><label for="digitalizacao-opcionais">Opcionais</label><input id="digitalizacao-opcionais" type="text"></div>
+      <div class="digitalizacao-field"><label for="digitalizacao-nivel">Nível do datasheet</label><select id="digitalizacao-nivel"><option value="completo">Completo</option><option value="resumido">Resumido</option></select></div>
 
     </div>
 
@@ -372,7 +381,7 @@
 
       <small id="digitalizacao-extraction-status">
         Ao selecionar um PDF, o sistema extrairá todo o texto técnico
-        e preencherá este campo automaticamente. O Qwen será usado na análise.
+        e preencherá este campo automaticamente. O Claude analisará também o PDF e as fotos originais.
       </small>
 
     </div>
@@ -391,7 +400,7 @@
 
       <div>
         <p class="eyebrow">Inteligência artificial</p>
-        <h2>Análise técnica com Qwen</h2>
+        <h2>Análise técnica com Claude</h2>
 
         <p>
           O sistema utilizará as informações disponíveis
@@ -448,7 +457,7 @@
 
         <div>
           <strong>Imagens</strong>
-          <small>Usadas no datasheet final; não são enviadas ao Qwen</small>
+          <small>Enviadas ao Claude para classificação e usadas no datasheet final</small>
         </div>
       </div>
 
@@ -461,7 +470,7 @@
         id="digitalizacao-analisar"
         type="button"
       >
-        Analisar produto com Qwen
+        Analisar produto com Claude
       </button>
 
     </div>
@@ -522,6 +531,10 @@
       >
         Baixar Datasheet PDF
       </a>
+    </div>
+    <div id="digitalizacao-preview-pages" class="digitalizacao-review-grid" aria-label="Prévia das páginas do PDF"></div>
+    <div class="digitalizacao-ai-action">
+      <button id="digitalizacao-aprovar" type="button" disabled>Aprovar datasheet revisado</button>
     </div>
 
   </section>
@@ -603,17 +616,24 @@
         <h3>Preparar arquivos</h3>
 
         <p>
-          Fotos, documentos e informações serão tratados
-          e renomeados conforme o padrão do PRM.
+          O backend salvará o datasheet revisado, fotos processadas e documentos na pasta da empresa e do Código CIGAM.
         </p>
+
+        <div class="digitalizacao-field"><label for="digitalizacao-manuais">Manuais (PDF, opcionais)</label><input id="digitalizacao-manuais" type="file" accept=".pdf" multiple></div>
+        <div class="digitalizacao-field"><label for="digitalizacao-certificados">Certificados (PDF, opcionais)</label><input id="digitalizacao-certificados" type="file" accept=".pdf" multiple></div>
+        <div class="digitalizacao-field"><label for="digitalizacao-outros">Outros documentos (opcionais)</label><input id="digitalizacao-outros" type="file" accept=".pdf,.zip,.step,.stp,.dwg,.dxf" multiple></div>
 
 
         <button
           id="digitalizacao-gerar"
           type="button"
         >
-          Gerar pacote
+          Finalizar digitalização e gerar pacote
         </button>
+        <button id="digitalizacao-baixar-pacote" type="button" disabled>Baixar Pacote Completo</button>
+        <p id="digitalizacao-pacote-status" role="status" aria-live="polite">Aguardando datasheet revisado e validação da pasta.</p>
+        <div class="digitalizacao-field"><label for="digitalizacao-run-id">Identificador da execução (para recuperar depois)</label><input id="digitalizacao-run-id" type="text" autocomplete="off" placeholder="Será exibido após gerar o datasheet"></div>
+        <button id="digitalizacao-recuperar" type="button">Recuperar execução</button>
 
       </div>
 
@@ -669,13 +689,13 @@
       </div>
     </div>
     <div class="digitalizacao-ai-action">
-      <button type="button" id="cadastro-descricao-gerar">Gerar descrição fundamentada</button>
+      <button type="button" id="cadastro-descricao-gerar" disabled>Gerar descrição fundamentada</button>
       <button type="button" id="cadastro-lote-previa">Prévia do lote</button>
       <button type="button" id="cadastro-arquivos-previa">Localizar arquivos do SKU</button>
       <button type="button" id="cadastro-cigam-baixar">Baixar CIGAM</button>
-      <button type="button" id="cadastro-woo-previa">Prévia ao vivo no WooCommerce</button>
-      <button type="button" id="cadastro-woo-baixar">Baixar CSV WooCommerce</button>
-      <button type="button" id="cadastro-pacote-baixar">Baixar pacote ZIP</button>
+      <button type="button" id="cadastro-woo-previa" disabled>Prévia ao vivo no WooCommerce</button>
+      <button type="button" id="cadastro-woo-baixar" disabled>Gerar cadastro WooCommerce (CSV)</button>
+      <button type="button" id="cadastro-pacote-baixar" disabled>Baixar pacote validado</button>
     </div>
     <label><input id="cadastro-aprovado" type="checkbox"> Revisei o produto e aprovo a geração do CSV WooCommerce</label>
     <p id="cadastro-status" role="status">Nenhuma saída gerada. Cadastro direto na loja permanece desativado até configuração e validação.</p>

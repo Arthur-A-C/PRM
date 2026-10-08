@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import re
 from pathlib import Path
 
@@ -47,6 +48,27 @@ def find_product_folder(root: Path, sku: str) -> Path | None:
 
 def classify_files(folder: Path) -> dict:
     """Classify only; never upload or infer that a document matches the product."""
+    manifest_path = folder / "manifest.json"
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest.get("status") != "validated" or manifest.get("folder_path") != str(folder):
+                raise ValueError("Manifesto não corresponde à pasta validada.")
+            def existing(relative: str) -> str:
+                path = (folder / relative).resolve()
+                if not path.is_relative_to(folder.resolve()) or not path.is_file():
+                    raise ValueError(f"Arquivo do manifesto ausente ou fora da pasta: {relative}.")
+                return str(path)
+            ordered = [existing(relative) for relative in manifest["ordered_images"]]
+            if not ordered or ordered[0] != manifest["main_image_path"]:
+                raise ValueError("Imagem principal diverge da ordem do manifesto.")
+            documents = [
+                {"role": item["role"], "path": existing(item["path"])}
+                for item in manifest["files"] if item["role"] not in {"main_image", "gallery"}
+            ]
+            return {"main_image": ordered[0], "gallery": ordered[1:], "documents": documents, "warnings": []}
+        except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            raise ValueError("Manifesto do produto inválido.") from exc
     images = []
     documents = []
     folders = [folder]

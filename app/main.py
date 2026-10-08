@@ -17,6 +17,6 @@ app.mount("/static", StaticFiles(directory=Path("app/static")), name="static")
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(catalog.router)
-app.include_router(pages.router)
 app.include_router(digitalizacao.router)
 app.include_router(registration.router)
+app.include_router(pages.router)  # Catch-all page route must follow the API routes.
