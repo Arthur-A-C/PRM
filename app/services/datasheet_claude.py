@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from PIL import Image
+from dotenv import load_dotenv
 
 from app.services.datasheet_core import DatasheetResult
 from app.services.datasheet_prompt import REVIEW_PROMPT, TOOL, system_prompt, user_message
@@ -85,6 +86,7 @@ def gerar_datasheet_com_claude(empresa: str, nome: str, anexos: dict[str, bytes]
                                revisoes: int = 2, model: str | None = None, client=None) -> GeracaoDatasheet:
     """anexos: {nome_arquivo: bytes}. Nomeie as fotos img_01.jpg, img_02.png... na ordem desejada."""
     import anthropic
+    load_dotenv()
 
     model = model or os.environ.get("DATASHEET_MODEL")
     if not model:
@@ -101,8 +103,8 @@ def gerar_datasheet_com_claude(empresa: str, nome: str, anexos: dict[str, bytes]
     system = [{"type": "text", "text": system_prompt(empresa), "cache_control": {"type": "ephemeral"}}]
 
     def ask() -> tuple[dict[str, Any], Any]:
-        resp = client.messages.create(model=model, max_tokens=32000, temperature=0.2, system=system,
-                                      tools=[TOOL], tool_choice={"type": "tool", "name": TOOL["name"]},
+        resp = client.messages.create(model=model, max_tokens=32000, output_config={"effort": "medium"}, system=system,
+                                      tools=[TOOL], tool_choice={"type": "auto"},
                                       messages=messages)
         if getattr(resp, "stop_reason", None) == "max_tokens":
             raise ValueError("O Claude atingiu o limite de tokens; reduza os anexos ou o nível de detalhe.")

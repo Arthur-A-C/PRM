@@ -54,3 +54,22 @@ def test_unknown_page_is_not_silently_accepted() -> None:
 
 def test_templates_compile() -> None:
     assert templates.get_template("shell.html") is not None
+
+
+def test_company_logos_use_individual_crops_of_original_asset() -> None:
+    html = templates.get_template("digitalizacao.html").render()
+    for company, crop in (
+        ("portwell", "54 355 550 178"),
+        ("choice", "657 355 532 178"),
+        ("sag", "1256 355 370 178"),
+    ):
+        assert f'class="company-card-logo logo-{company}"' in html
+        assert f'viewBox="{crop}"' in html
+    assert html.count('href="/static/brand-lockup.png"') == 3
+    assert html.count('preserveAspectRatio="xMidYMid slice"') == 3
+
+
+def test_login_lockup_uses_cropped_original_asset() -> None:
+    response = client.get("/login")
+    assert 'viewBox="48 348 1576 190"' in response.text
+    assert 'href="/static/brand-lockup.png"' in response.text

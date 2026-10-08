@@ -1,13 +1,15 @@
 {% extends "base.html" %}
+{% import "_brand_logos.html" as logos %}
 {% block body %}
-<main class="login-layout">
-  <div class="login-visual" aria-hidden="true">
-    <div class="login-visual-content"><span class="login-kicker">PRM / Workspace</span><h2>Inteligência para cada decisão de produto.</h2><p>Três marcas, um fluxo de análise e cadastro mais claro.</p></div>
-    <div class="login-brand-lockup"></div>
+<main class="login-layout" id="conteudo">
+  <div class="login-visual">
+    <div class="login-visual-content"><span class="login-kicker">Product Relationship Management</span><h2>Do dado técnico à decisão certa.</h2><p>Um espaço de trabalho para organizar, analisar e publicar produtos com confiança.</p></div>
+    {{ logos.lockup('login-brand-lockup') }}
+    <span class="login-visual-index" aria-hidden="true">PRM / 01 — 03</span>
   </div>
   <section class="login-card" aria-labelledby="login-title">
     <div class="brand-mark" aria-hidden="true">PRM</div>
-    <p class="eyebrow">Inteligência de catálogos</p>
+    <p class="eyebrow">Acesso ao workspace</p>
     <h1 id="login-title">Acesse o painel</h1>
     <p class="muted">Use a conta individual criada pelo gestor.</p>
     {% if error %}<p class="alert alert-error" role="alert">{{ error }}</p>{% endif %}
@@ -19,7 +21,9 @@
       <button type="submit">Entrar</button>
     </form>
     <p class="fine-print">O acesso às integrações depende das configurações e permissões do ambiente.</p>
+    <button class="theme-toggle login-theme-toggle" type="button" data-prm-theme-toggle aria-label="Alternar tema"><span data-prm-theme-label>Tema escuro</span></button>
   </section>
 </main>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='/js/ui.js') }}?v=20261008-2" defer></script>{% endblock %}
 

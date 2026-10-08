@@ -24,6 +24,41 @@
   });
   window.matchMedia("(min-width: 601px)").addEventListener("change", closeNav);
 
+  const themeButtons = Array.from(document.querySelectorAll("[data-prm-theme-toggle]"));
+  const refreshThemeLabels = () => {
+    const dark = document.documentElement.dataset.theme === "dark";
+    themeButtons.forEach((button) => {
+      button.setAttribute("aria-label", dark ? "Ativar tema claro" : "Ativar tema escuro");
+      button.setAttribute("aria-pressed", String(dark));
+      const label = button.querySelector("[data-prm-theme-label]");
+      if (label) label.textContent = dark ? "Tema claro" : "Tema escuro";
+    });
+  };
+  themeButtons.forEach((button) => button.addEventListener("click", () => {
+    const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem("prm-theme", theme); } catch (_) { /* preferência opcional */ }
+    refreshThemeLabels();
+  }));
+  refreshThemeLabels();
+
+  const compact = document.querySelector("[data-prm-sidebar-compact]");
+  const shell = document.querySelector(".app-shell");
+  const refreshCompact = () => {
+    const isCompact = Boolean(shell?.classList.contains("sidebar-is-compact"));
+    compact?.setAttribute("aria-expanded", String(!isCompact));
+    compact?.setAttribute("aria-label", isCompact ? "Expandir navegação" : "Recolher navegação");
+    const label = compact?.querySelector(".sidebar-compact-label");
+    if (label) label.textContent = isCompact ? "Expandir" : "Recolher";
+  };
+  try { if (localStorage.getItem("prm-sidebar") === "compact") shell?.classList.add("sidebar-is-compact"); } catch (_) { /* preferência opcional */ }
+  compact?.addEventListener("click", () => {
+    const isCompact = shell.classList.toggle("sidebar-is-compact");
+    try { localStorage.setItem("prm-sidebar", isCompact ? "compact" : "expanded"); } catch (_) { /* preferência opcional */ }
+    refreshCompact();
+  });
+  refreshCompact();
+
   const company = document.getElementById("digitalizacao-empresa");
   const cards = Array.from(document.querySelectorAll("[data-company-select]"));
   if (company && cards.length) {

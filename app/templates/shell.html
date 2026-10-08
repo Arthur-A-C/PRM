@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_brand_logos.html" as logos %}
 
 {% block extra_head %}
   {% if title == "Digitalização" %}
@@ -11,17 +12,18 @@
   <aside class="sidebar">
     <a class="product-brand" href="/" aria-label="PRM — início">
       <span class="brand-mark brand-mark-small" aria-hidden="true">PRM</span>
-      <span><strong>PRM Workspace</strong><small>Inteligência de produto</small></span>
+      <span class="brand-copy"><strong>PRM</strong><small>Product Relationship Management</small></span>
     </a>
+    <button class="sidebar-compact-toggle" type="button" data-prm-sidebar-compact aria-label="Recolher navegação" aria-expanded="true"><span aria-hidden="true">‹</span><span class="sidebar-compact-label">Recolher</span></button>
     <p class="sidebar-caption">Áreas de trabalho</p>
     <nav aria-label="Navegação principal">
       {% for label, href in nav_items %}
-      <a href="{{ href }}" {% if active_path == href %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">{% if href == '/' %}▦{% elif href == '/catalogos' %}▤{% elif href == '/comparador' %}⇄{% elif href == '/digitalizacao' %}◈{% else %}◇{% endif %}</span><span>{{ label }}</span></a>
+      <a href="{{ href }}" title="{{ label }}" {% if active_path == href %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">{% if href == '/' %}▦{% elif href == '/catalogos' %}▤{% elif href == '/comparador' %}⇄{% elif href == '/digitalizacao' %}◈{% else %}◇{% endif %}</span><span class="nav-label">{{ label }}</span></a>
       {% endfor %}
     </nav>
     <div class="sidebar-footer">
-      <span>{{ user.name }}</span>
-      <small>{{ user.role|capitalize }}</small>
+      <span class="sidebar-user-name">{{ user.name }}</span>
+      <small class="sidebar-user-role">{{ user.role|capitalize }}</small>
       <form action="/logout" method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button class="button-link" type="submit">Sair</button>
@@ -33,14 +35,21 @@
       <div class="page-header-main">
         <div class="page-heading">
           <button class="mobile-nav-toggle" type="button" data-prm-nav-toggle aria-label="Abrir menu" aria-expanded="false">☰</button>
-          <div><p class="eyebrow">Workspace / {{ title }}</p><h1>{{ title }}</h1></div>
+          <div><p class="eyebrow">PRM / {{ title }}</p><h1>{{ title }}</h1></div>
         </div>
         <p class="page-subtitle">Portwell · Choice · SAG em uma plataforma de inteligência comercial.</p>
       </div>
-      <div class="brand-lockup" role="img" aria-label="Logotipos Portwell, Choice e SAG"></div>
+      <div class="page-header-actions">
+        <button class="theme-toggle" type="button" data-prm-theme-toggle aria-label="Alternar tema"><span class="theme-toggle-icon" aria-hidden="true">◐</span><span data-prm-theme-label>Tema escuro</span></button>
+        {{ logos.lockup() }}
+      </div>
     </header>
 
     {% if title == "Visão geral" %}
+    <section class="dashboard-command" aria-labelledby="dashboard-command-heading">
+      <div><p class="eyebrow">Central de trabalho</p><h2 id="dashboard-command-heading">Dados claros. Próximas ações, à vista.</h2><p>Acompanhe o portfólio publicado e avance para a preparação de novos produtos.</p></div>
+      <div class="dashboard-command-actions"><a href="/digitalizacao">Iniciar digitalização <span aria-hidden="true">↗</span></a><a href="/catalogos">Explorar catálogos <span aria-hidden="true">→</span></a></div>
+    </section>
     <section class="notice" aria-label="Estado dos dados">
       <strong>Dados publicados.</strong>
       <span>Indicadores calculados sobre ofertas ativas; uma exclusão analítica reversível não entra nos totais.</span>
@@ -442,9 +451,9 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="{{ url_for('static', path='/js/ui.js') }}?v=20261008-1" defer></script>
+  <script src="{{ url_for('static', path='/js/ui.js') }}?v=20261008-2" defer></script>
   {% if title == "Digitalização" %}
-  <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20260924-1" defer></script>
+  <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20261008-claude-4" defer></script>
   <script src="{{ url_for('static', path='/js/registration.js') }}?v=20261008-1" defer></script>
   {% endif %}
 {% endblock %}

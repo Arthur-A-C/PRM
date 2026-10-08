@@ -4,11 +4,15 @@ Atualizado em 08/10/2026. Este fluxo salva artefatos reais no backend antes de q
 
 ## Configuração
 
+Para a análise técnica com Claude, mantenha `ANTHROPIC_API_KEY` apenas no `.env` local. O modelo solicitado foi configurado como `DATASHEET_MODEL=claude-opus-5-5`, com esforço `medium` na chamada. Reinicie o servidor após alterar o `.env`. O botão **Analisar produto com Claude** exige empresa, Código CIGAM, nome e ao menos uma fonte: PDF, foto ou especificações manuais. A análise real consome créditos da API e não foi executada nos testes automatizados; o acesso da conta ao modelo ainda precisa ser confirmado.
+
 Por padrão, os arquivos ficam em `data/products/` no projeto (ignorado pelo Git). Para usar outro disco ou pasta de rede Windows, configure `PRM_PRODUCT_STORAGE_ROOT` com **caminho absoluto** no ambiente do processo, por exemplo `D:\PRM\Produtos`. Confirme permissões de leitura/escrita da conta que executa o servidor e inclua a pasta nos backups operacionais. Não aponte para a raiz de um disco ou para uma pasta compartilhada ampla sem definir permissões adequadas.
 
 O Código CIGAM é usado **literalmente** como nome da pasta e do SKU. Zeros à esquerda permanecem. Espaços nas extremidades, caracteres proibidos pelo Windows e nomes reservados são rejeitados com erro; não há renomeação silenciosa. As empresas usam raízes separadas: `<raiz>/choice/<SKU>/`, `<raiz>/sag/<SKU>/` e `<raiz>/portwell/<SKU>/`.
 
 ## Fluxo
+
+Um PDF pode ser gerado, revisado e aprovado apenas com o material técnico, sem foto separada. Para finalizar a pasta/ZIP e seguir ao WooCommerce, acrescente uma foto principal e gere novamente o PDF; o pacote final não aceita produto sem imagem principal. A aprovação de um PDF com pendências técnicas exige confirmação explícita.
 
 1. Na Digitalização, selecione empresa, código, nome, fotos e documentos. Escolha a principal e ordene as demais; a ordem visual vira a ordem persistida. Rotação, tamanho e qualidade JPEG são aplicados pelo backend aos arquivos reais.
 2. Revise a análise e clique em **Gerar Datasheet**. O PDF da empresa e as fotos processadas são gravados sob `_runs/<id>/`; o navegador recebe o identificador da execução e exibe a prévia processada. O link de PDF passa a ler o arquivo salvo no servidor.

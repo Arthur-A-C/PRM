@@ -1,5 +1,20 @@
 # Status do projeto
 
+## Correção das logos — 08/10/2026
+
+- Portwell, Choice e SAG agora têm enquadramentos individuais nos cards da Digitalização, feitos com SVG `viewBox` sobre a imagem original intacta. O recorte anterior por `background-position` variava com a largura do card e mostrava partes das marcas vizinhas.
+- A composição conjunta do login, cabeçalho e comparação direta usa o mesmo enquadramento centralizado. A versão do CSS foi atualizada para evitar cache do estilo antigo.
+- Capturas locais de desktop (1366 px) e celular (390 px) confirmaram as três marcas completas e ausência de rolagem horizontal; foram acrescentados testes de regressão para os recortes.
+- Suíte completa após a correção: **94 testes aprovados, 3 avisos**.
+
+## Atualização de 08/10/2026 — redesign 2.0 da interface
+
+- Nova camada visual `app/static/css/prm-v2.css` aplicada ao shell existente: navegação compacta, cabeçalho, login, dashboard, formulários, tabelas e componentes responsivos. Tema claro/escuro e preferência de navegação são locais ao navegador.
+- A Digitalização ganhou resumo contextual, etapas navegáveis, prévia de foto e visualizador de PDF por página. Os IDs e endpoints do fluxo de análise, aprovação e geração foram preservados.
+- A identidade mantém Portwell, Choice e SAG em primeiro plano, com acentos dos temas locais de datasheet. Nenhum dado, banco, loja ou serviço externo foi alterado por esta etapa; não houve deploy ou push.
+- Verificações: `node --check` dos dois scripts alterados; suíte completa com **92 testes aprovados, 3 avisos**. Captura local de login em largura real de 390 e 360 CSS px; em 360 px não houve rolagem horizontal. A revisão visual autenticada da Digitalização com dados reais continua pendente.
+- Escopo, referências e limitações estão em [REDESIGN_2_0.md](REDESIGN_2_0.md).
+
 ## Atualização de 08/10/2026 — Digitalização persistente antes do WooCommerce
 
 - A etapa de arquivos agora é real: fotos ordenadas/processadas no backend, PDF Choice/SAG/Portwell salvo em rascunho persistente, pasta física por empresa e Código CIGAM literal, manifesto com caminhos e hashes, ZIP validado e recuperação por ID após recarga. A imagem principal é indicada pelo manifesto, não por ordem alfabética. A pasta-base `PRM_PRODUCT_STORAGE_ROOT` é configurável; padrão local `data/products/`, ignorado pelo Git.
@@ -200,6 +215,17 @@ As saídas tratadas `Produtos-Choice.xlsx`, `Produtos-Portwell.xlsx` e `Produtos
 - Serviço Windows, teste de restauração e acesso em rede ainda não foram configurados. O backup foi criado e validado, mas não restaurado em banco separado.
 
 ## Próxima tarefa concreta
+
+### Digitalização Claude e datasheets — 08/10/2026
+
+- Correção de geração/aprovação: o botão Gerar Datasheet não exige mais foto quando já existe análise técnica. Rascunhos de PDF sem foto podem ser visualizados e aprovados; somente a criação do pacote final requer foto principal. A extração local de texto do PDF não invalida mais uma análise Claude já concluída em paralelo; a seleção posterior de desenho 3D também não descarta a análise, pois ele não é fonte do datasheet. O carregamento de prévias falho não descarta o PDF salvo. O JavaScript recebeu nova versão de cache.
+
+- O pacote `prm-datasheets.zip` foi auditado (README, motor, temas, prompts e testes) e integrado sem alterar dados publicados. O fluxo de Digitalização passou a aceitar PDF e fotos na análise Claude, mantendo geração de PDFs Portwell/Choice/SAG, prévias, pendências, edição do JSON e aprovação humana antes do pacote.
+- Corrigido o botão **Analisar produto com Claude**: ele agora habilita com PDF, foto **ou** especificações manuais, além de empresa, código e nome. O JavaScript recebeu nova versão de cache. A extração de texto do PDF é local; não usa Qwen.
+- `DATASHEET_MODEL=claude-opus-5-5` foi definido no `.env` local a pedido do usuário. A chamada foi ajustada para `output_config.effort=medium`, `tool_choice=auto` e sem `temperature`, conforme a API do Opus 5.5. Reinicie o servidor para carregar o `.env`. Nenhuma chamada real à API foi feita; não foi possível verificar ainda se a conta tem acesso ao modelo.
+- Teste mockado do endpoint com PDF e foto passou; testes do motor do ZIP passaram. A suíte completa passou com **92 testes** (3 avisos de dependências/dados), incluindo PDF sem foto, foto referenciada no JSON Claude e aprovação com pendência, sem chamadas reais à API. O pacote final continua isolado em `data/products` e WooCommerce permanece bloqueado até a validação do pacote.
+- Pendente: validar uma chamada real após autorização, conferir visualmente as três marcas e a política de imagens/contatos oficiais, além de testar o fluxo completo na interface com o servidor reiniciado.
+- Configuração Opus 5.5 e rotas verificadas com 3 testes simulados adicionais (sem consumo de créditos).
 
 1. Revisar manualmente as 11 sugestões fortes, amostra dos 456 candidatos e principais sinais de lacuna (especialmente marcas cadastradas como fornecedor), para calibrar falsos positivos e negativos.
 2. Criar fila de revisão humana para confirmar/rejeitar candidatos e lacunas, com justificativa e revisor.

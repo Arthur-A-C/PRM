@@ -58,6 +58,7 @@
     runId: null,
     finalized: false,
     approved: false,
+    savedImageCount: 0,
     extractingSpecs: false,
     extractedSpecs: "",
     lastExtractionKey: null,
@@ -133,6 +134,7 @@
     state.runId = null;
     state.finalized = false;
     state.approved = false;
+    state.savedImageCount = 0;
     if (elements.previewPages) elements.previewPages.replaceChildren();
     state.images.forEach((image) => { image.processedUrl = null; });
     window.dispatchEvent(new CustomEvent("prm:digitalizacao-run", { detail: { status: "invalidated" } }));
@@ -317,8 +319,20 @@
         card.appendChild(badge);
       }
 
-      const preview = document.createElement("div");
+      const preview = document.createElement("button");
+      preview.type = "button";
       preview.className = "digitalizacao-image-preview";
+      preview.setAttribute("aria-label", `Ampliar foto ${image.file.name}`);
+      preview.addEventListener("click", () => {
+        const dialog = document.getElementById("digitalizacao-image-dialog");
+        const enlarged = document.getElementById("digitalizacao-image-dialog-preview");
+        if (!dialog || !enlarged) return;
+        enlarged.src = image.processedUrl || image.url;
+        enlarged.alt = `Foto ampliada de ${image.file.name}`;
+        enlarged.style.transform = image.processedUrl ? "none" : `rotate(${image.rotation}deg)`;
+        document.getElementById("digitalizacao-image-dialog-title").textContent = image.file.name;
+        dialog.showModal();
+      });
 
       const img = document.createElement("img");
 
@@ -526,7 +540,7 @@
         elements.specs.value = finalText;
       }
 
-      invalidateAnalysis();
+      if (!state.analyzed) invalidateAnalysis();
 
       if (elements.extractionStatus) {
         elements.extractionStatus.textContent =
@@ -604,7 +618,6 @@
       elements.drawing3d?.files?.[0] || null;
 
     state.drawing3d = file;
-    invalidateAnalysis();
 
     if (elements.drawing3dName) {
       elements.drawing3dName.textContent = file
@@ -810,26 +823,28 @@
 
   function updateButtons() {
     if (elements.analisar) {
-      const hasSpecs =
-        Boolean(elements.specs?.value.trim());
+      const hasSource = Boolean(
+        elements.specs?.value.trim() ||
+        state.supplierDatasheet ||
+        state.images.length
+      );
 
       elements.analisar.disabled = Boolean(
-        state.extractingSpecs ||
         !elements.codigo?.value.trim() ||
         !elements.produto?.value.trim() ||
         !elements.empresa?.value ||
-        !hasSpecs
+        !hasSource
       );
     }
 
     if (elements.gerarDatasheet) {
-      elements.gerarDatasheet.disabled = !state.analyzed || !state.images.length;
+      elements.gerarDatasheet.disabled = !state.analyzed;
     }
 
     if (elements.gerar) {
-      elements.gerar.disabled = !state.approved || state.finalized;
-      if (elements.aprovar) elements.aprovar.disabled = !state.datasheetGenerated || state.approved;
+      elements.gerar.disabled = !state.approved || !state.savedImageCount || state.finalized;
     }
+    if (elements.aprovar) elements.aprovar.disabled = !state.datasheetGenerated || state.approved;
   }
 
   function updatePageState() {
@@ -837,6 +852,27 @@
     updateSourceStates();
     updateProgress();
     updateButtons();
+    updateContext();
+  }
+
+  function updateContext() {
+    const company = elements.empresa?.value || "";
+    const labels = { portwell: "Portwell", choice: "Choice", sag: "SAG" };
+    const page = document.querySelector(".digitalizacao-page");
+    if (page) page.dataset.company = company;
+    const put = (id, value) => { const target = document.getElementById(id); if (target) target.textContent = value; };
+    put("context-product-name", elements.produto?.value.trim() || "Novo produto");
+    put("context-company", labels[company] || "Não selecionada");
+    put("context-code", currentCode() || "—");
+    put("context-images", String(state.images.length || state.savedImageCount || 0));
+    put("context-source", state.supplierDatasheet ? "Recebido" : "Não enviado");
+    let next = "Selecione uma empresa e identifique o produto.";
+    if (company && currentCode() && elements.produto?.value.trim()) next = "Envie o material técnico e organize as fotos.";
+    if (state.analyzed) next = "Revise os dados técnicos e gere o PDF.";
+    if (state.datasheetGenerated) next = "Confira as páginas e aprove o datasheet.";
+    if (state.approved) next = state.savedImageCount ? "Crie a pasta CIGAM e valide o pacote." : "Adicione uma foto principal antes de finalizar o pacote.";
+    if (state.finalized) next = "Pacote validado. Revise a preparação do cadastro.";
+    put("context-next-action", next);
   }
 
   function createReviewField(
@@ -1511,8 +1547,13 @@
       state.datasheetGenerated = true;
       state.finalized = false;
       state.approved = false;
+      state.savedImageCount = state.images.length;
       window.dispatchEvent(new CustomEvent("prm:digitalizacao-run", { detail: { status: "draft", runId: state.runId } }));
-      await loadDraftPreview();
+      try {
+        await loadDraftPreview();
+      } catch (previewError) {
+        showMessage(previewError.message, "warning", elements.review);
+      }
 
       if (elements.datasheetDownload) {
         elements.datasheetDownload.href =
@@ -1577,16 +1618,56 @@
       record = await response.json();
     }
     elements.previewPages.replaceChildren();
-    for (let index = 1; index <= (record.preview_count || 0); index += 1) {
-      const link = document.createElement("a");
-      link.href = state.datasheetUrl;
-      link.target = "_blank";
-      const image = document.createElement("img");
-      image.src = `/api/v1/digitalizacao/execucoes/${state.runId}/previas/${index}`;
-      image.alt = `Página ${index} do datasheet`;
-      image.style.maxWidth = "100%";
-      link.append(image);
-      elements.previewPages.append(link);
+    const pages = Number(record.preview_count || 0);
+    if (pages) {
+      let current = 1;
+      const viewer = document.createElement("div");
+      viewer.className = "datasheet-viewer";
+      const toolbar = document.createElement("div");
+      toolbar.className = "datasheet-viewer-toolbar";
+      const previous = document.createElement("button");
+      previous.type = "button";
+      previous.textContent = "← Anterior";
+      const counter = document.createElement("strong");
+      const next = document.createElement("button");
+      next.type = "button";
+      next.textContent = "Próxima →";
+      const zoom = document.createElement("button");
+      zoom.type = "button";
+      zoom.textContent = "Ampliar";
+      zoom.setAttribute("aria-pressed", "false");
+      zoom.addEventListener("click", () => {
+        const active = viewer.classList.toggle("is-zoomed");
+        zoom.textContent = active ? "Ajustar" : "Ampliar";
+        zoom.setAttribute("aria-pressed", String(active));
+      });
+      const open = document.createElement("a");
+      open.href = state.datasheetUrl;
+      open.target = "_blank";
+      open.rel = "noopener";
+      open.textContent = "Abrir PDF ↗";
+      const page = document.createElement("img");
+      page.alt = "Prévia do datasheet";
+      const canvas = document.createElement("div");
+      canvas.className = "datasheet-viewer-canvas";
+      canvas.append(page);
+      const show = () => {
+        page.src = `/api/v1/digitalizacao/execucoes/${state.runId}/previas/${current}`;
+        page.alt = `Página ${current} de ${pages} do datasheet`;
+        counter.textContent = `Página ${current} / ${pages}`;
+        previous.disabled = current === 1;
+        next.disabled = current === pages;
+      };
+      previous.addEventListener("click", () => { current -= 1; show(); });
+      next.addEventListener("click", () => { current += 1; show(); });
+      toolbar.append(previous, counter, next, zoom, open);
+      viewer.append(toolbar, canvas);
+      elements.previewPages.append(viewer);
+      show();
+    } else {
+      const message = document.createElement("p");
+      message.textContent = "Prévia de páginas indisponível. Abra o PDF para revisão.";
+      elements.previewPages.append(message);
     }
     const problems = [...(record.pending || []), ...(record.warnings || [])];
     if (problems.length) {
@@ -1595,6 +1676,7 @@
       elements.previewPages.append(list);
     }
     state.approved = record.status === "approved" || record.status === "validated";
+    state.savedImageCount = Number(record.image_count || 0);
     updateButtons();
   }
 
@@ -1613,8 +1695,10 @@
     const result = await approval.json();
     if (!approval.ok) throw new Error(result.detail || "Falha ao aprovar datasheet.");
     state.approved = true;
-    if (elements.datasheetStatus) elements.datasheetStatus.textContent = "Datasheet aprovado. Você pode criar a pasta do produto.";
-    updateButtons();
+    if (elements.datasheetStatus) elements.datasheetStatus.textContent = state.savedImageCount
+      ? "Datasheet aprovado. Você pode criar a pasta do produto."
+      : "Datasheet aprovado. Adicione uma foto principal e gere o PDF novamente para criar o pacote final.";
+    updatePageState();
   }
 
   function packageManifest() {
@@ -1759,6 +1843,12 @@
   }
 
   function bindEvents() {
+    document.getElementById("digitalizacao-image-dialog-close")?.addEventListener("click", () => {
+      document.getElementById("digitalizacao-image-dialog")?.close();
+    });
+    document.querySelectorAll("[data-step-target]").forEach((step) => {
+      step.addEventListener("click", () => document.getElementById(step.dataset.stepTarget)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    });
     elements.imagensInput?.addEventListener(
       "change",
       (event) => {
@@ -1902,6 +1992,7 @@
       state.runId = record.run_id;
       state.finalized = record.status === "validated";
       state.approved = record.status === "approved" || record.status === "validated";
+      state.savedImageCount = Number(record.image_count || 0);
       state.datasheetGenerated = true;
       state.datasheetUrl = `/api/v1/digitalizacao/execucoes/${record.run_id}/datasheet`;
       state.datasheetFilename = `${record.sku}_Datasheet.pdf`;

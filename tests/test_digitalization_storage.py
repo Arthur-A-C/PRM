@@ -8,7 +8,7 @@ from reportlab.pdfgen import canvas
 from pypdf import PdfReader
 
 from app.schemas.registration import RegistrationProduct
-from app.services.digitalization_storage import create_draft, finalize_draft, load_run, run_file, validate_sku, verify_package
+from app.services.digitalization_storage import approve_draft, create_draft, finalize_draft, load_run, run_file, validate_sku, verify_package
 from app.services.registration_files import classify_files
 from app.services.registration_package import process_image
 from app.services.datasheet_choice import generate_choice_datasheet
@@ -60,6 +60,7 @@ def test_rotation_changes_actual_image_pixels():
 def test_finalize_creates_folder_manifest_and_valid_zip(monkeypatch, tmp_path):
     monkeypatch.setenv("PRM_PRODUCT_STORAGE_ROOT", str(tmp_path))
     record = create_draft("choice", "00123", "Produto técnico", {"specs": ["x"]}, [process_image(_image(), rotation=90), process_image(_image())], _pdf())
+    approve_draft(record["run_id"])
     final = finalize_draft(record["run_id"], _product(), [("source_datasheet", "orig.pdf", _pdf())])
     folder = tmp_path / "choice" / "00123"
     assert final["status"] == "validated"
@@ -81,8 +82,10 @@ def test_finalize_creates_folder_manifest_and_valid_zip(monkeypatch, tmp_path):
 def test_existing_folder_requires_explicit_new_version(monkeypatch, tmp_path):
     monkeypatch.setenv("PRM_PRODUCT_STORAGE_ROOT", str(tmp_path))
     first = create_draft("choice", "00123", "Produto técnico", {"x": 1}, [process_image(_image())], _pdf())
+    approve_draft(first["run_id"])
     finalize_draft(first["run_id"], _product(), [])
     second = create_draft("choice", "00123", "Produto técnico", {"x": 2}, [process_image(_image())], _pdf())
+    approve_draft(second["run_id"])
     with pytest.raises(FileExistsError):
         finalize_draft(second["run_id"], _product(), [])
     updated = finalize_draft(second["run_id"], _product(), [], new_version=True)
@@ -94,6 +97,7 @@ def test_existing_folder_requires_explicit_new_version(monkeypatch, tmp_path):
 def test_modified_final_file_invalidates_package(monkeypatch, tmp_path):
     monkeypatch.setenv("PRM_PRODUCT_STORAGE_ROOT", str(tmp_path))
     record = create_draft("choice", "00123", "Produto técnico", {"x": 1}, [process_image(_image())], _pdf())
+    approve_draft(record["run_id"])
     finalize_draft(record["run_id"], _product(), [])
     assert verify_package(record["run_id"])["status"] == "validated"
     (tmp_path / "choice" / "00123" / "Fotos" / "00123_variante.jpg").write_bytes(b"alterado")

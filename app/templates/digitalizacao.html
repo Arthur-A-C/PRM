@@ -1,3 +1,4 @@
+{% import "_brand_logos.html" as logos %}
 <div class="digitalizacao-page">
 
   <section class="digitalizacao-hero">
@@ -19,43 +20,45 @@
 
   <section class="digitalizacao-progress" aria-label="Etapas da digitalização">
 
-    <div class="digitalizacao-step is-active">
+    <button class="digitalizacao-step is-active" type="button" data-step-target="digitalizacao-produto-etapa">
       <span>1</span>
       <div>
         <strong>Produto</strong>
         <small>Identificação</small>
       </div>
-    </div>
+    </button>
 
-    <div class="digitalizacao-step">
+    <button class="digitalizacao-step" type="button" data-step-target="digitalizacao-fotos-etapa">
       <span>2</span>
       <div>
         <strong>Imagens</strong>
         <small>Tratamento visual</small>
       </div>
-    </div>
+    </button>
 
-    <div class="digitalizacao-step">
+    <button class="digitalizacao-step" type="button" data-step-target="digitalizacao-documentos-etapa">
       <span>3</span>
       <div>
         <strong>Datasheet</strong>
         <small>Documentação técnica</small>
       </div>
-    </div>
+    </button>
 
-    <div class="digitalizacao-step">
+    <button class="digitalizacao-step" type="button" data-step-target="digitalizacao-pacote-etapa">
       <span>4</span>
       <div>
         <strong>Pacote final</strong>
         <small>Revisão e exportação</small>
       </div>
-    </div>
+    </button>
 
   </section>
 
 
+  <div class="digitalizacao-workspace">
+    <div class="digitalizacao-main">
   <!-- ETAPA 1 -->
-  <section class="panel digitalizacao-panel">
+  <section class="panel digitalizacao-panel" id="digitalizacao-produto-etapa">
 
     <div class="digitalizacao-section-heading">
       <div class="digitalizacao-section-number">1</div>
@@ -72,9 +75,9 @@
     <div class="digitalizacao-form-grid">
 
       <div class="digitalizacao-company-cards digitalizacao-field-wide" role="group" aria-label="Selecionar empresa">
-        <button type="button" data-company-select="portwell" aria-pressed="false"><span class="company-card-symbol">P</span><strong>Portwell</strong><small>Automação industrial</small></button>
-        <button type="button" data-company-select="choice" aria-pressed="false"><span class="company-card-symbol">C</span><strong>Choice</strong><small>Tecnologia e energia</small></button>
-        <button type="button" data-company-select="sag" aria-pressed="false"><span class="company-card-symbol">S</span><strong>SAG</strong><small>Controle e posicionamento</small></button>
+        <button type="button" data-company-select="portwell" aria-pressed="false">{{ logos.company('portwell') }}<strong>Portwell</strong><small>Automação industrial</small></button>
+        <button type="button" data-company-select="choice" aria-pressed="false">{{ logos.company('choice') }}<strong>Choice</strong><small>Tecnologia e energia</small></button>
+        <button type="button" data-company-select="sag" aria-pressed="false">{{ logos.company('sag') }}<strong>SAG</strong><small>Controle e posicionamento</small></button>
       </div>
 
       <div class="digitalizacao-field">
@@ -131,7 +134,7 @@
 
 
   <!-- ETAPA 2 -->
-  <section class="panel digitalizacao-panel">
+  <section class="panel digitalizacao-panel" id="digitalizacao-fotos-etapa">
 
     <div class="digitalizacao-section-heading">
 
@@ -255,7 +258,7 @@
 
 
   <!-- ETAPA 3 -->
-  <section class="panel digitalizacao-panel">
+  <section class="panel digitalizacao-panel" id="digitalizacao-documentos-etapa">
 
     <div class="digitalizacao-section-heading">
 
@@ -390,7 +393,7 @@
 
 
   <!-- QWEN -->
-  <section class="panel digitalizacao-ai-panel">
+  <section class="panel digitalizacao-ai-panel" id="digitalizacao-analise-etapa">
 
     <div class="digitalizacao-section-heading">
 
@@ -541,7 +544,7 @@
 
 
   <!-- ETAPA 4 -->
-  <section class="panel digitalizacao-package">
+  <section class="panel digitalizacao-package" id="digitalizacao-pacote-etapa">
 
     <div class="digitalizacao-section-heading">
 
@@ -701,4 +704,34 @@
     <p id="cadastro-status" role="status">Nenhuma saída gerada. Cadastro direto na loja permanece desativado até configuração e validação.</p>
     <pre id="cadastro-previa" class="digitalizacao-registration-preview" hidden></pre>
   </section>
+    </div>
+    <aside class="digitalizacao-context" aria-label="Contexto da digitalização">
+      <div class="digitalizacao-context-card">
+        <p class="eyebrow">Produto em preparação</p>
+        <strong id="context-product-name">Novo produto</strong>
+        <dl>
+          <div><dt>Empresa</dt><dd id="context-company">Não selecionada</dd></div>
+          <div><dt>Código CIGAM</dt><dd id="context-code">—</dd></div>
+          <div><dt>Fotos</dt><dd id="context-images">0</dd></div>
+          <div><dt>PDF original</dt><dd id="context-source">Pendente</dd></div>
+        </dl>
+        <div class="context-divider"></div>
+        <p class="context-next-label">Próxima ação</p>
+        <p id="context-next-action" role="status" aria-live="polite">Selecione uma empresa e identifique o produto.</p>
+        <nav aria-label="Ir para uma etapa">
+          <a href="#digitalizacao-produto-etapa">01 · Produto</a>
+          <a href="#digitalizacao-fotos-etapa">02 · Fotos</a>
+          <a href="#digitalizacao-documentos-etapa">03 · Documentos</a>
+          <a href="#digitalizacao-analise-etapa">04 · Análise</a>
+          <a href="#digitalizacao-review">05 · Revisão</a>
+          <a href="#digitalizacao-pacote-etapa">06 · Pacote</a>
+          <a href="#cadastro-automatizado">07 · Cadastro</a>
+        </nav>
+      </div>
+    </aside>
+  </div>
+  <dialog id="digitalizacao-image-dialog" class="digitalizacao-image-dialog" aria-label="Visualização ampliada da foto">
+    <div class="digitalizacao-image-dialog-header"><strong id="digitalizacao-image-dialog-title">Foto</strong><button type="button" id="digitalizacao-image-dialog-close">Fechar</button></div>
+    <img id="digitalizacao-image-dialog-preview" alt="Foto ampliada do produto">
+  </dialog>
 </div>

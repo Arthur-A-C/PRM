@@ -72,8 +72,6 @@ def create_draft(
         raise ValueError("Nome e análise técnica são obrigatórios.")
     if not pdf.startswith(b"%PDF-") or b"%%EOF" not in pdf[-1024:]:
         raise ValueError("O gerador não retornou um PDF válido.")
-    if not processed_images:
-        raise ValueError("Adicione pelo menos uma foto antes de gerar o datasheet.")
     if len(processed_images) > 20 or len(pdf) > 30 * 1024 * 1024 or sum(map(len, processed_images)) + len(pdf) > 100 * 1024 * 1024:
         raise ValueError("Rascunho excede o limite de 20 fotos ou 100 MiB.")
     root = storage_root()
@@ -199,6 +197,8 @@ def finalize_draft(
         raise ValueError("Esta execução já foi finalizada; use o pacote existente ou crie novo rascunho.")
     if record["status"] != "approved":
         raise ValueError("Aprove o datasheet antes de criar a pasta final do produto.")
+    if record["image_count"] < 1:
+        raise ValueError("Adicione uma foto principal e gere novamente o datasheet antes de criar o pacote final.")
     if product.company != record["company"] or product.sku != record["sku"] or product.technical_name != record["name"]:
         raise ValueError("Empresa, SKU ou nome divergem do datasheet revisado; gere novo datasheet.")
     sku = validate_sku(product.sku)

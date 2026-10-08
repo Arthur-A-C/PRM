@@ -1,0 +1,9 @@
+{# A single, unmodified source image is cropped by SVG viewBox. #}
+{% macro lockup(class_name='brand-lockup') -%}
+<svg class="{{ class_name }}" role="img" aria-label="Portwell Industrial Automation, Choice e SAG" viewBox="48 348 1576 190" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><image href="/static/brand-lockup.png" x="0" y="0" width="1672" height="941" /></svg>
+{%- endmacro %}
+
+{% macro company(company_name) -%}
+{% if company_name == 'portwell' %}{% set crop = '54 355 550 178' %}{% elif company_name == 'choice' %}{% set crop = '657 355 532 178' %}{% else %}{% set crop = '1256 355 370 178' %}{% endif %}
+<svg class="company-card-logo logo-{{ company_name }}" aria-hidden="true" viewBox="{{ crop }}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg"><image href="/static/brand-lockup.png" x="0" y="0" width="1672" height="941" /></svg>
+{%- endmacro %}
