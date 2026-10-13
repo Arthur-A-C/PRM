@@ -6,6 +6,8 @@ Monólito modular FastAPI no mesmo domínio da interface Jinja2. PostgreSQL é o
 
 ## Módulos atuais
 
+Desde 09/10/2026, a análise atual usa snapshots refinados separados das ofertas legadas, descritos em [CATALOGOS_REFINADOS.md](CATALOGOS_REFINADOS.md). `refined_catalog.py` ingere/audita os quatro adaptadores em streaming; `refined_catalog_database.py` persiste/publica por organização. A migração `20261009_0008` adiciona três tabelas sem modificar ofertas antigas. Cadastros e evidências de atributos ficam em JSONB; variantes/resoluções técnicas relacionais e o novo motor ainda estão pendentes. `/catalogos` lê o snapshot publicado; `view=legacy` preserva o fluxo anterior. As seções antigas abaixo descrevem a arquitetura legada e não significam que a comparação Dimensional foi homologada.
+
 - `app/config.py`: configuração tipada, com `.env` local e prefixo `PRM_`.
 - `app/db.py`: criação tardia do engine PostgreSQL e sessões curtas por requisição.
 - `app/models/`: modelo relacional SQLAlchemy.

@@ -1,5 +1,21 @@
 # API
 
+## Atributos canônicos da base refinada
+
+As observações persistidas no snapshot atual incluem `attribute_code`, `canonical_label`, `mapping_version`, `normalized_value`, `value_type`, `unit`, `configuration_scope`, `knowledge_state`, `raw_name`, `raw_value` e evidências. A matriz HTML `/comparacao-atual` alinha código/escopo/unidade, não nomes brutos. Contrato e aliases: [NORMALIZACAO_ATRIBUTOS.md](NORMALIZACAO_ATRIBUTOS.md). Nenhum endpoint legado passa a operar automaticamente sobre esses snapshots; o resumo do dashboard continua no schema 2. Normalização de campo não significa equivalência do produto.
+
+## Fotografia refinada de 09/10/2026
+
+Navegação de comparação atual (HTML autenticado): `/catalogos?source=eco|dimensional&group=shared|not_found|review` filtra os grupos dos gráficos. `group=quality_review` lista qualquer registro com alerta de qualidade. `source=own` restringe a Portwell/Choice. Grupos dos gráficos são sinais de família, não equivalência; `review` filtra família desconhecida, não todos os alertas.
+
+`reference=UUID&run_id=RUN` mantém um produto de referência ao escolher candidatos no catálogo. `/comparacao-atual?run_id=RUN&item=UUID&item=UUID` aceita de 2 a 8 UUIDs distintos do snapshot vigente, valida escopo/visibilidade e mostra matriz exploratória. IDs ausentes/inacessíveis: 404; seleção inválida ou snapshot alterado: 422. Só gestores acessam itens internos/preços ocultos. Rotas GET não persistem decisão de equivalência. Seleções usam UUIDs canônicos, não IDs de ofertas legadas.
+
+A nova base publicada é exibida em `/catalogos` (HTML autenticado), usando os snapshots `refined_catalog_*` da organização, com 100 itens por página. Parâmetros: `source` (`portwell`, `choice`, `eco`, `dimensional`), `family`, `q` (título), `page`, `internal=1` (somente gestor). `/catalogos?view=legacy` abre a base anterior. Visão geral, Comparador e Importações distinguem a fotografia nova de indicadores históricos.
+
+`GET /api/v1/dashboard/summary` usa exclusivamente o snapshot oficial da organização e retorna **schema_version=2**, `status`, `run_id`, `accepted`, `public`, `own_public`, `sources`, `competitors`, `technical_status` e `strict_coverage_percent`. `competitors` contém distribuição por família: `total`, `shared_family`, `family_not_found`, `family_pending` e percentuais com todos os registros no denominador. Não significa equivalência. Sem snapshot, retorna `status=no_current_snapshot`, `run_id=null`, sem indicadores antigos. Clientes do contrato anterior do resumo precisam migrar.
+
+Os demais endpoints `/api/v1` de ofertas/comparação **continuam sendo contratos legados**, não os novos UUIDs canônicos. Não enviar IDs do snapshot para comparação direta legada. Nova comparação técnica/coverage API está pendente. Operação e limites: [CATALOGOS_REFINADOS.md](CATALOGOS_REFINADOS.md).
+
 Base versionada: `/api/v1`.
 
 ## Endpoints implementados

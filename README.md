@@ -4,6 +4,8 @@ Product Relationship Manager: aplicação interna para analisar catálogos de pr
 
 Este repositório contém o código e a documentação da primeira entrega (`0.1.0`). O [marco da entrega](docs/ENTREGA_0_1.md) resume o que funciona e seus limites; o [estado operacional](docs/STATUS.md) registra as verificações mais recentes.
 
+A [nova base refinada](docs/CATALOGOS_REFINADOS.md), publicada em 09/10/2026, reúne os quatro arquivos atuais em snapshots separados do histórico: 89.693 registros e 500.016 observações de atributos. Catálogos abre a nova fotografia, com acesso ao histórico preservado. **Comparação técnica/cobertura dessa nova base ainda não foram homologadas**; os próximos gates estão documentados.
+
 ## O que já funciona
 
 - Login individual, sessões e páginas protegidas.

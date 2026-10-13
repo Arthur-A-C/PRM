@@ -2,12 +2,12 @@ import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Header, HTTPException, Query
+from sqlalchemy import inspect
 
 from app.dependencies import CurrentAuth, DbSession
 from app.repositories.catalog import (
     CatalogFilters,
     comparison_preview,
-    dashboard_summary,
     filter_options,
     get_offer_detail,
     list_offers,
@@ -17,6 +17,8 @@ from app.repositories.matching import catalog_gap_report, catalog_match_report
 from app.schemas.comparison import ComparisonCreate
 from app.services.comparable_snapshot import load_snapshot, snapshot_view
 from app.services.security import secrets_match
+from app.services.current_analysis import summarize_current
+from app.services.refined_catalog_database import database_manifest
 
 
 router = APIRouter(prefix="/api/v1", tags=["catálogos"])
@@ -24,7 +26,8 @@ router = APIRouter(prefix="/api/v1", tags=["catálogos"])
 
 @router.get("/dashboard/summary")
 def summary(auth: CurrentAuth, db: DbSession) -> dict:
-    return dashboard_summary(db, auth.user.organization_id)
+    manifest = database_manifest(db, auth.user.organization_id) if inspect(db.get_bind()).has_table("refined_catalog_runs") else None
+    return summarize_current(manifest)
 
 
 @router.get("/filters/options")

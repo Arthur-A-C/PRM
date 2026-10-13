@@ -15,6 +15,7 @@ from app.models.catalog import (
 from app.models.comparison import Comparison, ComparisonItem
 from app.models.identity import Company, LoginSession, Organization, User
 from app.models.matching import CatalogMatch, CatalogMatchRun
+from app.models.refined_catalog import RefinedCatalogRun, RefinedCatalogItem, RefinedCatalogRaw
 
 __all__ = [
     "Base",
@@ -37,4 +38,7 @@ __all__ = [
     "OfferPrice",
     "Organization",
     "User",
+    "RefinedCatalogRun",
+    "RefinedCatalogItem",
+    "RefinedCatalogRaw",
 ]

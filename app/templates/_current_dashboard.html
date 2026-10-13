@@ -1,0 +1,27 @@
+<section class="notice"><strong>Dados atuais do e-commerce.</strong><span>Esta página usa exclusivamente os novos arquivos importados e publicados. Dados anteriores não participam dos indicadores ou gráficos.</span></section>
+<section class="metric-grid dashboard-metrics" aria-label="Indicadores da base atual">
+  <article class="metric"><span>Registros da base atual</span><strong>{{ "{:,}".format(current_analysis.accepted).replace(',', '.') }}</strong><small>Quatro fontes, sem somar o histórico</small></article>
+  <article class="metric"><span>Portfólio próprio visível</span><strong>{{ "{:,}".format(current_analysis.own_public).replace(',', '.') }}</strong><small>Portwell e Choice publicadas e visíveis</small></article>
+  <article class="metric"><span>Registros na visão pública</span><strong>{{ "{:,}".format(current_analysis.public).replace(',', '.') }}</strong><small>Itens próprios internos ficam separados</small></article>
+  <article class="metric"><span>Comparação técnica</span><strong>Pendente</strong><small>Sem percentual de equivalência validado</small></article>
+</section>
+<section class="panel" aria-labelledby="current-comparison-heading">
+  <div class="panel-heading"><p class="eyebrow">Comparação da fotografia atual</p><h2 id="current-comparison-heading">Presença nas famílias do nosso catálogo</h2></div>
+  <p>Referência: Portwell e Choice visíveis no novo e-commerce. Os gráficos contam registros concorrentes em famílias propostas compartilhadas, não produtos equivalentes. Classificações pendentes permanecem no denominador.</p>
+  {% for c in current_analysis.competitors %}
+  <h3>{{ 'ECO' if c.source == 'eco' else 'Dimensional' }}</h3>
+  <div class="analysis-kpis">
+    <div><strong>{{ c.shared_percent }}%</strong><span>{{ c.shared_family }} registros em famílias também presentes nas nossas empresas</span><a href="/catalogos?source={{ c.source }}&group=shared">Ver produtos e comparar</a></div>
+    <div><strong>{{ c.family_not_found }}</strong><span>em famílias não encontradas na base própria atual</span><a href="/catalogos?source={{ c.source }}&group=not_found">Investigar produtos sem família própria</a></div>
+    <div><strong>{{ c.family_pending }}</strong><span>com classificação pendente</span><a href="/catalogos?source={{ c.source }}&group=review">Conferir produtos pendentes</a></div>
+  </div>
+  <div class="analysis-track" role="img" aria-label="{{ c.shared_family }} em famílias compartilhadas, {{ c.family_not_found }} sem família própria localizada e {{ c.family_pending }} pendentes entre {{ c.total }} registros">
+    <span class="analysis-strong" style="width: {{ c.shared_percent }}%"></span><span class="analysis-candidate" style="width: {{ c.not_found_percent }}%"></span>
+  </div>
+  <p class="analysis-note">Universo: {{ c.total }} registros. {{ c.shared_percent }}% em famílias compartilhadas · {{ c.not_found_percent }}% em famílias não localizadas · {{ c.pending_percent }}% pendentes. Não encontrado neste recorte não comprova ausência no portfólio completo.</p>
+  {% endfor %}
+  <p class="gap-caveat">A nova base é a referência definitiva desta análise. Isso não resolve automaticamente conflitos de especificação, não confirma substituição técnica e não permite comparar preços sem condições compatíveis. Os pareamentos e análises de preço anteriores não são exibidos.</p>
+  <a href="/catalogos">Explorar os produtos atuais</a>
+  <a href="/catalogos?group=quality_review">Conferir também os produtos com alertas de qualidade</a>
+</section>
+{% include "_refined_analysis.html" %}

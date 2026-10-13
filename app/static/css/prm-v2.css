@@ -40,27 +40,6 @@
   --shadow-md: 0 14px 36px rgba(17, 44, 53, .10);
   font-family: Inter, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
 }
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --prm-bg: #111b22;
-  --prm-surface: #19262f;
-  --prm-raised: #20313b;
-  --prm-ink: #edf4f4;
-  --prm-soft: #b0c0c4;
-  --prm-border: #35464f;
-  --prm-action: #68c4cc;
-  --prm-action-hover: #8ad8de;
-  --prm-focus: #f1bd72;
-  --prm-success: #82d8b2;
-  --prm-warning: #f1c381;
-  --prm-error: #f3a39b;
-  --prm-info: #8ac7ef;
-  --navy: #edf4f4;
-  --navy-2: #2c5360;
-  --ring: rgba(104, 196, 204, .24);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .1), 0 8px 24px rgba(0, 0, 0, .09);
-  --shadow-md: 0 14px 36px rgba(0, 0, 0, .25);
-}
 html { background: var(--prm-bg); scroll-padding-top: 1.25rem; }
 body { background: var(--prm-bg); color: var(--prm-ink); }
 ::selection { background: var(--prm-action); color: #fff; }
@@ -126,7 +105,8 @@ label { overflow-wrap: anywhere; }
 .company { background: var(--prm-raised); border-color: var(--prm-border); }
 .company:hover { background: var(--prm-surface); box-shadow: var(--shadow-sm); }
 .company a, .product-card > a { color: var(--prm-action); }
-.filters { padding: .25rem 0 .75rem; }
+.filters { align-items: start; }
+.filters.panel { padding: clamp(1.05rem, 1.8vw, 1.55rem); }
 .filters input:not([type="checkbox"]), .filters select, .reference-selector select, .company-switch select, .save-comparison input { background: var(--prm-surface); color: var(--prm-ink); border-color: var(--prm-border); }
 .table-scroll { background: var(--prm-surface); border-color: var(--prm-border); }
 .technical-matrix thead th { position: sticky; top: 0; z-index: 1; background: var(--prm-raised); color: var(--prm-ink); }
@@ -193,6 +173,7 @@ code, #digitalizacao-run-id, .comparable-table td:first-child { font-family: ui-
 .digitalizacao-company-cards button small { font-size: .65rem; color: var(--prm-soft); }
 .digitalizacao-field label { color: var(--prm-ink); }
 .digitalizacao-field input, .digitalizacao-field select, .digitalizacao-specifications textarea { background: var(--prm-surface); color: var(--prm-ink); border-color: var(--prm-border); }
+.digitalizacao-field textarea { display: block; width: 100%; min-height: 6rem; padding: .75rem .85rem; border: 1px solid var(--prm-border); border-radius: .55rem; background: var(--prm-surface); color: var(--prm-ink); resize: vertical; }
 .digitalizacao-dropzone { border: 1.5px dashed var(--prm-action); background: var(--prm-raised); color: var(--prm-ink); }
 .digitalizacao-dropzone:hover, .digitalizacao-dropzone.is-dragging { background: var(--prm-surface); border-color: var(--company-accent); }
 .digitalizacao-image-card, .digitalizacao-upload-card, .digitalizacao-settings-box { background: var(--prm-raised); border-color: var(--prm-border); box-shadow: none; }
@@ -200,6 +181,8 @@ code, #digitalizacao-run-id, .comparable-table td:first-child { font-family: ui-
 .digitalizacao-image-preview { width: 100%; padding: 0; overflow: hidden; background: #e8edef; box-shadow: none; }
 .digitalizacao-image-preview img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .digitalizacao-image-badge { background: #1e4f59; color: #fff; }
+.digitalizacao-ai-action { flex-wrap: wrap; }
+.digitalizacao-ai-action > button { max-width: 100%; }
 .digitalizacao-ai-panel { margin: 0 0 1rem; border: 1px solid #335b66; background: #1d3c48; box-shadow: none; }
 .digitalizacao-ai-panel .digitalizacao-section-heading h2 { color: #f1fbfb; }
 .digitalizacao-ai-panel .digitalizacao-section-heading p:not(.eyebrow) { color: #c4dadd; }
@@ -234,19 +217,6 @@ code, #digitalizacao-run-id, .comparable-table td:first-child { font-family: ui-
 .login-card h1 { color: var(--prm-ink); }
 .login-theme-toggle { margin-top: 1rem; }
 
-/* Dark-mode treatments for legacy hardcoded surfaces */
-:root[data-theme="dark"] .notice { background: #203d42; color: #d9f2ed; border-color: #3e6466; }
-:root[data-theme="dark"] .alert-error { background: #3f2526; color: #ffd3cf; border-color: #875654; }
-:root[data-theme="dark"] .alert-success { background: #1e4039; color: #d2f6e8; border-color: #3e7565; }
-:root[data-theme="dark"] .price-warning, :root[data-theme="dark"] .catalog-filter-error { background: #443820; color: #ffe4b5; border-color: #6c5630; }
-:root[data-theme="dark"] .product-card, :root[data-theme="dark"] .comparison-card, :root[data-theme="dark"] .company, :root[data-theme="dark"] .digitalizacao-step, :root[data-theme="dark"] .digitalizacao-company-cards button { background: var(--prm-surface); }
-:root[data-theme="dark"] .product-card:hover, :root[data-theme="dark"] .comparison-card:hover, :root[data-theme="dark"] .technical-matrix tbody tr:hover { background: var(--prm-raised); }
-:root[data-theme="dark"] .digitalizacao-dropzone { background: var(--prm-raised); }
-:root[data-theme="dark"] .digitalizacao-image-preview, :root[data-theme="dark"] .datasheet-viewer-canvas { background: #344650; }
-:root[data-theme="dark"] .company-card-logo, :root[data-theme="dark"] .brand-lockup, :root[data-theme="dark"] .login-brand-lockup { background-color: #fff; }
-:root[data-theme="dark"] .reference-badge, :root[data-theme="dark"] .company-focus-badge, :root[data-theme="dark"] .matrix-state { background: #2b4e49; color: #d7f7eb; }
-:root[data-theme="dark"] .company-other-badge { background: #344650; color: #e0ebea; }
-
 @media (max-width: 1260px) {
   .digitalizacao-workspace { grid-template-columns: minmax(0, 1fr) 13.5rem; }
   .dashboard-command { align-items: start; flex-direction: column; }
@@ -262,6 +232,7 @@ code, #digitalizacao-run-id, .comparable-table td:first-child { font-family: ui-
   .app-shell, .app-shell.sidebar-is-compact { grid-template-columns: 13rem minmax(0, 1fr); }
   .app-shell.sidebar-is-compact .brand-copy, .app-shell.sidebar-is-compact .sidebar-caption, .app-shell.sidebar-is-compact .nav-label, .app-shell.sidebar-is-compact .sidebar-user-name, .app-shell.sidebar-is-compact .sidebar-user-role { display: revert; }
   .sidebar-compact-toggle { display: none; }
+  .digitalizacao-hero-badge { display: none; }
 }
 @media (max-width: 600px) {
   .app-shell, .app-shell.sidebar-is-compact { display: block; }

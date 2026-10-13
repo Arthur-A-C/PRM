@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-10-09 — normalização entre empresas
+
+- Dicionário versionado de 54 campos e 86 aliases, incluindo ATR_USB/Portas USB e ATR_COM/Portas Seriais COM; nomes e evidências originais preservados.
+- Conversões conservadoras de escalares/unidades e quantidades; deduplicação e divergência respeitam escopo/unidade. Campos ambíguos não ganham significado inventado.
+- Matriz passa a alinhar códigos canônicos, não nomes de origem; catálogo mostra nomenclatura/valores padronizados e dashboard apresenta contagens de atributos mapeados/não mapeados.
+- Novo snapshot validado primeiro em staging; operação e limites em docs/NORMALIZACAO_ATRIBUTOS.md. Matching técnico continua não avaliado.
+
+## 2026-10-09 — grupos navegáveis e comparação de produtos atuais
+
+- Links dos grupos do dashboard para listas filtradas; conferência adicional por alertas de qualidade.
+- Seleção de 2 a 8 produtos e matriz atual de preços/características; referência fixa para escolher candidatos próprios.
+- Validação de organização, snapshot e visibilidade; sem reutilizar IDs/matches legados ou confirmar equivalência.
+
+## 2026-10-09 — dashboard exclusivamente atual
+
+- Removidos painéis/consultas de análises antigas de Visão geral, Comparador e Importações, sem excluir histórico do banco.
+- Indicadores e gráficos por família derivados apenas do snapshot oficial; sem fallback para dados antigos e sem confundir sobreposição com equivalência.
+- API de resumo do dashboard passa ao schema 2 da nova base; regressões e smokes SQL/HTML/API.
+
+## 2026-10-09 — base refinada de catálogos
+
+- Ingestão/auditoria versionada de WooCommerce Portwell/Choice, ECO XLSX e Dimensional CSV; bruto imutável, evidências, conflitos e cruzamentos legados isolados.
+- Migração aditiva de snapshots, carga em staging e publicação transacional no oficial preservando ofertas anteriores.
+- Nova fotografia e qualidade no dashboard; catálogo atual com 100 registros por página e acesso ao histórico. Comparação técnica nova explicitamente não avaliada.
+- Operação, testes, limites e próximas fases em `docs/CATALOGOS_REFINADOS.md`.
+
 ## Prévia remota temporária — 2026-09-24
 
 - Acesso HTTPS externo de teste por Cloudflare Quick Tunnel, com prazo de duas horas, sem abertura de porta de entrada.

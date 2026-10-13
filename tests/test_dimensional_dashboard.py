@@ -23,9 +23,9 @@ def test_staging_panel_is_labeled_and_not_shown_as_published():
     assert report["audit"]["metrics"]["records"] == 77_965
     assert report["simulation"]["published_offers"] == 0
     manager_html = render("gestor", report)
-    assert "Dimensional — auditoria do CSV" in manager_html
-    assert "77.965" in manager_html
-    assert "ainda não integra o catálogo publicado" in manager_html
+    assert "Base atual indisponível" in manager_html
+    assert "Dimensional — auditoria do CSV" not in manager_html
+    assert "ainda não integra o catálogo publicado" not in manager_html
     seller_html = render("vendedor", None)
     assert "Dimensional — auditoria do CSV" not in seller_html
 
@@ -58,9 +58,8 @@ def test_overview_separates_audited_source_from_live_database():
         comparable=None,
         url_for=lambda *args, **kwargs: "/static/css/app.css",
     )
-    assert "Situação atual do novo catálogo" in html
-    assert "77.965" in html
-    assert "Ofertas Dimensional no banco oficial: 0" in html
-    assert "Banco de staging: 77.965 ofertas" in html
-    assert "Lote reconciliado com a auditoria" in html
-    assert "não representam cobertura do nosso portfólio" in html
+    assert "Base atual indisponível" in html
+    assert "Situação atual do novo catálogo" not in html
+    assert "35.785" not in html
+    assert "Ofertas Dimensional no banco oficial: 0" not in html
+    assert "Banco de staging" not in html

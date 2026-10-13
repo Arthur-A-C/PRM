@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -17,18 +17,15 @@ from app.repositories.catalog import (
     CatalogFilters,
     company_focus_order,
     comparison_preview,
-    dashboard_summary,
     filter_options,
     list_offers,
 )
 from app.repositories.comparisons import save_comparison
-from app.repositories.matching import catalog_gap_report, catalog_match_report
 from app.routers.auth import clear_auth_cookies, set_auth_cookies
 from app.services.auth import authenticate, create_login_session, find_auth_context
 from app.services.catalog_import import parse_decimal
-from app.services.comparable_snapshot import load_snapshot, snapshot_view
-from app.services.dimensional_dashboard import load_dimensional_database_status, load_dimensional_staging
-from app.services.pipeline_staging import load_staging_audit
+from app.services.refined_catalog_database import database_manifest, list_refined_items, current_items, current_comparison
+from app.services.current_analysis import summarize_current
 from app.services.security import secrets_match
 
 
@@ -81,32 +78,48 @@ def render_shell(request: Request, settings: AppSettings, title: str):
             "active_path": request.url.path,
             "csrf_token": request.cookies.get(settings.csrf_cookie_name, ""),
         }
-        if title == "Visão geral":
-            page_context["summary"] = dashboard_summary(db, auth.user.organization_id)
-            page_context["dimensional_staging"] = load_dimensional_staging()
-            page_context["dimensional_database"] = load_dimensional_database_status(auth.user.organization_id)
-            page_context["dimensional_published_count"] = next(
-                (
-                    item["count"]
-                    for item in page_context["summary"]["company_counts"]
-                    if item["code"] == "dimensional"
-                ),
-                0,
-            )
-            comparable = load_snapshot(db, auth.user.organization_id)
-            page_context["comparable"] = snapshot_view(comparable) if comparable else None
-            matching = catalog_match_report(db, auth.user.organization_id, limit=3)
-            matching["price_highlights"] = [
-                item for item in matching["items"]
-                if item["status"] in ("confirmado", "sugerido")
-            ]
-            page_context["matching"] = matching
-        elif title == "Importações e qualidade":
-            page_context["pipeline_audit"] = load_staging_audit() if auth.user.role == "gestor" else None
-            page_context["dimensional_staging"] = load_dimensional_staging() if auth.user.role == "gestor" else None
-            page_context["dimensional_database"] = load_dimensional_database_status(auth.user.organization_id) if auth.user.role == "gestor" else None
-        elif title == "Catálogos":
+        refined_manifest = database_manifest(db, auth.user.organization_id) if inspect(engine).has_table("refined_catalog_runs") else None
+        page_context["refined_analysis"] = refined_manifest if title in {"Visão geral", "Comparador", "Importações e qualidade"} else None
+        if title in {"Visão geral", "Comparador", "Importações e qualidade"}:
+            page_context["current_analysis"] = summarize_current(refined_manifest)
+            return templates.TemplateResponse(request=request, name="shell.html", context=page_context)
+        if title == "Comparação atual":
+            try:
+                ids = [uuid.UUID(value) for value in request.query_params.getlist("item")]
+                if not 2 <= len(set(ids)) <= 8 or len(ids) != len(set(ids)):
+                    raise ValueError("Selecione entre 2 e 8 produtos distintos.")
+                items = current_items(db, auth.user.organization_id, ids,
+                                      run_id=request.query_params.get("run_id"), internal=auth.user.role == "gestor")
+                page_context["current_comparison"] = current_comparison(items)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            except LookupError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            return templates.TemplateResponse(request=request, name="shell.html", context=page_context)
+        if title == "Catálogos":
             query = request.query_params
+            if refined_manifest and query.get("view") != "legacy":
+                try:
+                    refined_page = int(query.get("page", "1"))
+                except ValueError:
+                    refined_page = 1
+                page_context["refined_catalog"] = list_refined_items(
+                    db, auth.user.organization_id, source=query.get("source", ""),
+                    family=query.get("family", ""), search=query.get("q", ""), page=refined_page,
+                    internal=query.get("internal") == "1" and auth.user.role == "gestor",
+                    group=query.get("group", ""),
+                )
+                if query.get("reference"):
+                    try:
+                        reference = current_items(db, auth.user.organization_id, [uuid.UUID(query["reference"])],
+                                                  run_id=query.get("run_id"), internal=auth.user.role == "gestor")
+                        page_context["catalog_reference"] = reference[0]
+                    except ValueError as exc:
+                        raise HTTPException(status_code=422, detail=str(exc)) from exc
+                    except LookupError as exc:
+                        raise HTTPException(status_code=404, detail=str(exc)) from exc
+                page_context["refined_pagination"] = urlencode([(k, v) for k, v in query.multi_items() if k != "page"])
+                return templates.TemplateResponse(request=request, name="shell.html", context=page_context)
             try:
                 page = max(1, int(query.get("page", "1")))
             except ValueError:
@@ -161,43 +174,6 @@ def render_shell(request: Request, settings: AppSettings, title: str):
             page_context["pagination_query"] = urlencode(
                 [(key, value) for key, value in query.multi_items() if key != "page"]
             )
-        elif title == "Comparador":
-            comparable = load_snapshot(db, auth.user.organization_id)
-            query = request.query_params
-            try:
-                comparable_page = int(query.get("comparable_page", "1"))
-            except ValueError:
-                comparable_page = 1
-            page_context["comparable"] = snapshot_view(
-                comparable, (query.get("macro") or "")[:255],
-                (query.get("signal") or "")[:40], comparable_page,
-            ) if comparable else None
-            matching = catalog_match_report(
-                db,
-                auth.user.organization_id,
-                competitor_code=request.query_params.get("company"),
-            )
-            gap_type = query.get("gap_type") if query.get("gap_type") in {"brand", "family"} else None
-            gap_key = (query.get("gap_key") or "")[:255]
-            try:
-                gap_page = max(1, int(query.get("gap_page", "1")))
-            except ValueError:
-                gap_page = 1
-            page_context["matching"] = matching
-            page_context["gaps"] = catalog_gap_report(
-                db, auth.user.organization_id, matching,
-                gap_type=gap_type, gap_key=gap_key, page=gap_page,
-            )
-            page_context["gap_query"] = urlencode({
-                "company": matching["selected_company"]["code"] if matching["selected_company"] else "",
-                "gap_type": gap_type or "",
-                "gap_key": gap_key,
-            })
-            page_context["comparable_query"] = urlencode({
-                "company": matching["selected_company"]["code"] if matching["selected_company"] else "",
-                "macro": page_context["comparable"]["macro"] if comparable else "",
-                "signal": page_context["comparable"]["signal"] if comparable else "",
-            })
         elif title == "Comparação direta":
             try:
                 offer_ids = [uuid.UUID(value) for value in request.query_params.getlist("offer")]
@@ -286,6 +262,11 @@ def dashboard(request: Request, settings: AppSettings):
 @router.get("/comparacao-direta", response_class=HTMLResponse)
 def direct_comparison(request: Request, settings: AppSettings):
     return render_shell(request, settings, "Comparação direta")
+
+
+@router.get("/comparacao-atual", response_class=HTMLResponse)
+def current_comparison_page(request: Request, settings: AppSettings):
+    return render_shell(request, settings, "Comparação atual")
 
 
 @router.post("/comparador/salvar")

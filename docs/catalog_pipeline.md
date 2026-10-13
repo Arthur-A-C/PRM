@@ -1,5 +1,7 @@
 # Pipeline de normalização — implantação por fases
 
+Atualização de 09/10/2026: a [nova fotografia refinada](CATALOGOS_REFINADOS.md) foi auditada/importada em staging e publicada no banco oficial em tabelas de snapshots separadas, por confirmação do operador. Ela passa a ser a base atual da análise, sem excluir os dados deste documento. O estado e os comandos abaixo são históricos da implementação anterior; não representam as contagens atuais nem devem ser usados para sobrescrever a nova base. Comparação técnica da nova fotografia ainda não foi homologada.
+
 Estado em 25/09/2026: **subfase de auditoria e regressões em staging; não publicado**. A fase 1 da especificação ainda depende das migrações base. Esta implementação usa como especificação `PRM_PIPELINE_NORMALIZACAO_PROMPT_CODEX.md` recebido do operador. O pipeline legado e os catálogos publicados permanecem ativos e inalterados.
 
 O staging atual é de **arquivos e relatório**, não um banco clonado. A conta `prm_app` não possui `CREATEDB`, e `prm_pipeline_staging` não existe. Um administrador deve provisionar um PostgreSQL staging separado antes de testar migrações/jobs persistentes; não apontar comandos de staging para `prm_mvp`.

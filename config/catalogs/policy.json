@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "rule_version": "refined-base-v2",
+  "sources": {
+    "portwell": {"kind": "own", "key": "ID", "completeness": "partial", "locale": "pt_BR"},
+    "choice": {"kind": "own", "key": "ID", "completeness": "partial", "locale": "pt_BR"},
+    "eco": {"kind": "competitor", "key": "Codigo_ECO", "completeness": "snapshot", "locale": "excel"},
+    "dimensional": {"kind": "competitor", "key": "sku", "completeness": "snapshot", "locale": "decimal_dot"}
+  },
+  "catalog_policy": {"primary_view": "published_visible", "include_out_of_stock": true, "retain_hidden_internal_view": true, "absent_in_new_file_means_discontinued": false},
+  "matching": {"enabled": false, "allow_price_in_technical_score": false, "allow_legacy_eco_matches_as_evidence": false},
+  "ai": {"enabled": false},
+  "documents": {"automatic_download_enabled": false},
+  "brand_aliases": {"elfin": "new elfin srl", "new elfin": "new elfin srl", "new elfin srl": "new elfin srl"},
+  "families": [
+    {"id": "safety_relay", "label": "Relé de segurança", "pattern": "\\brele de seguranca\\b", "proximity": "core"},
+    {"id": "contactor_coil", "label": "Bobina para contator", "pattern": "\\bbobina.*contator\\b", "form": "accessory", "proximity": "adjacent"},
+    {"id": "overload_relay", "label": "Relé de sobrecarga", "pattern": "\\brele.*sobrecarga\\b", "proximity": "adjacent"},
+    {"id": "contact_block", "label": "Bloco de contato", "pattern": "\\bbloco.*contato\\b", "form": "component", "proximity": "core"},
+    {"id": "button_head", "label": "Cabeçote de botão", "pattern": "\\bcabecote.*(botao|seletor)\\b", "form": "component", "proximity": "core"},
+    {"id": "panel_pc", "label": "Painel PC", "pattern": "\\b(panel pc|painel pc)\\b", "proximity": "core"},
+    {"id": "box_pc", "label": "Box PC", "pattern": "\\b(box pc|computador industrial|pc fanless)\\b", "proximity": "core"},
+    {"id": "monitor", "label": "Monitor industrial", "pattern": "\\bmonitor industrial\\b", "proximity": "core"},
+    {"id": "hmi", "label": "IHM", "pattern": "\\b(ihm|interface homem maquina)\\b", "proximity": "core"},
+    {"id": "plc", "label": "CLP e I/O", "pattern": "\\b(clp|controlador logico|i o remoto)\\b", "proximity": "core"},
+    {"id": "switch", "label": "Switch", "pattern": "\\bswitch\\b", "proximity": "core"},
+    {"id": "gateway", "label": "Gateway/conversor", "pattern": "\\b(gateway|conversor de midia|servidor serial)\\b", "proximity": "core"},
+    {"id": "ups", "label": "UPS", "pattern": "\\b(ups|nobreak)\\b", "proximity": "core"},
+    {"id": "power_supply", "label": "Fonte de alimentação", "pattern": "\\bfonte( de)? alimentacao\\b", "proximity": "core"},
+    {"id": "current_transformer", "label": "Transformador de corrente", "pattern": "\\b(transformador de corrente|bobina rogowski)\\b", "proximity": "core"},
+    {"id": "sensor", "label": "Sensores", "pattern": "\\b(sensor|encoder)\\b", "proximity": "core"},
+    {"id": "machine_safety", "label": "Segurança de máquinas", "pattern": "\\b(cortina de luz|chave de seguranca|intertravamento|scanner de seguranca)\\b", "proximity": "core"},
+    {"id": "contactor", "label": "Contator", "pattern": "\\bcontator\\b", "proximity": "adjacent"},
+    {"id": "circuit_breaker", "label": "Disjuntor", "pattern": "\\bdisjuntor\\b", "proximity": "adjacent"},
+    {"id": "fuse", "label": "Fusível", "pattern": "\\bfusivel\\b", "proximity": "adjacent"},
+    {"id": "signaling", "label": "Comando e sinalização", "pattern": "\\b(botao|seletora|sinaleiro|coluna luminosa|sirene|joystick)\\b", "proximity": "core"},
+    {"id": "drive", "label": "Acionamentos", "pattern": "\\b(inversor|servo drive|servo motor|soft starter)\\b", "proximity": "core"},
+    {"id": "cabling", "label": "Conexões e cabos", "pattern": "\\b(cabo|conector|borne|terminal|prensa cabo)\\b", "form": "component", "proximity": "adjacent"},
+    {"id": "enclosure", "label": "Estrutura e montagem", "pattern": "\\b(gabinete|caixa botoeira|braco de suporte)\\b", "proximity": "adjacent"},
+    {"id": "ppe", "label": "Equipamento de proteção individual", "pattern": "\\b(calcado|botina|capacete|luva de protecao|equipamento de protecao individual)\\b", "proximity": "distant"},
+    {"id": "tools", "label": "Ferramentas", "pattern": "\\b(ferramenta|alicate|furadeira|chave de fenda)\\b", "proximity": "distant"}
+  ]
+}

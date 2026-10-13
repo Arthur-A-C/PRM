@@ -1,0 +1,415 @@
+{
+  "version": "attributes-v3",
+  "attributes": [
+    {
+      "code": "ports.usb",
+      "label": "Portas USB",
+      "aliases": [
+        "USB",
+        "Portas USB"
+      ]
+    },
+    {
+      "code": "ports.serial",
+      "label": "Portas Seriais COM",
+      "aliases": [
+        "COM",
+        "Portas Seriais COM",
+        "Portas COM",
+        "Portas Seriais"
+      ]
+    },
+    {
+      "code": "network.ports",
+      "label": "Portas de Rede",
+      "aliases": [
+        "Portas de Rede",
+        "LAN",
+        "Portas Ethernet"
+      ]
+    },
+    {
+      "code": "communication.protocol",
+      "label": "Protocolo de Comunicação",
+      "aliases": [
+        "Protocolo",
+        "Protocolo de Comunicação",
+        "Protocolos de Comunicação"
+      ]
+    },
+    {
+      "code": "communication.interface",
+      "label": "Interfaces de comunicação",
+      "aliases": [
+        "Interface de Comunicação",
+        "Interfaces de Comunicação"
+      ]
+    },
+    {
+      "code": "compute.cpu.model",
+      "label": "Processador",
+      "aliases": [
+        "Processador",
+        "CPU"
+      ]
+    },
+    {
+      "code": "compute.socket",
+      "label": "Soquete",
+      "aliases": [
+        "Soquete",
+        "Socket"
+      ]
+    },
+    {
+      "code": "compute.ram.type",
+      "label": "Tipo de Memória",
+      "aliases": [
+        "Tipo de Memória"
+      ]
+    },
+    {
+      "code": "compute.storage",
+      "label": "Armazenamento",
+      "aliases": [
+        "Armazenamento"
+      ]
+    },
+    {
+      "code": "compute.storage.type",
+      "label": "Tipo de Armazenamento",
+      "aliases": [
+        "Tipo de Armazenamento"
+      ]
+    },
+    {
+      "code": "compute.os",
+      "label": "Sistema Operacional",
+      "aliases": [
+        "Sistema Operacional"
+      ]
+    },
+    {
+      "code": "display.outputs",
+      "label": "Saídas de Vídeo",
+      "aliases": [
+        "Saídas de Vídeo"
+      ]
+    },
+    {
+      "code": "display.size",
+      "label": "Tamanho da tela",
+      "aliases": [
+        "Tamanho da tela"
+      ]
+    },
+    {
+      "code": "display.resolution",
+      "label": "Resolução da Tela",
+      "aliases": [
+        "Resolução da Tela"
+      ]
+    },
+    {
+      "code": "display.touch",
+      "label": "Tipo de Touch",
+      "aliases": [
+        "Tipo de Touch"
+      ]
+    },
+    {
+      "code": "protection.ip",
+      "label": "Proteção IP",
+      "aliases": [
+        "Proteção IP",
+        "Grau de Proteção (IP)",
+        "Grau de Proteção",
+        "Grau Proteção"
+      ]
+    },
+    {
+      "code": "physical.material",
+      "label": "Material",
+      "aliases": [
+        "Material"
+      ]
+    },
+    {
+      "code": "physical.color",
+      "label": "Cor",
+      "aliases": [
+        "Cor"
+      ]
+    },
+    {
+      "code": "physical.dimensions",
+      "label": "Dimensões",
+      "aliases": [
+        "Dimensões"
+      ]
+    },
+    {
+      "code": "physical.mass",
+      "label": "Peso",
+      "aliases": [
+        "Peso"
+      ]
+    },
+    {
+      "code": "physical.length",
+      "label": "Comprimento",
+      "aliases": [
+        "Comprimento"
+      ]
+    },
+    {
+      "code": "physical.width",
+      "label": "Largura",
+      "aliases": [
+        "Largura"
+      ]
+    },
+    {
+      "code": "physical.height",
+      "label": "Altura",
+      "aliases": [
+        "Altura"
+      ]
+    },
+    {
+      "code": "physical.depth",
+      "label": "Profundidade",
+      "aliases": [
+        "Profundidade"
+      ]
+    },
+    {
+      "code": "physical.diameter",
+      "label": "Diâmetro",
+      "aliases": [
+        "Diâmetro"
+      ]
+    },
+    {
+      "code": "cable.length",
+      "label": "Tamanho do Cabo",
+      "aliases": [
+        "Tamanho do Cabo",
+        "Comprimento do Cabo",
+        "Comprimento Cabo"
+      ]
+    },
+    {
+      "code": "installation.mounting",
+      "label": "Tipo de Montagem",
+      "aliases": [
+        "Tipo de Montagem",
+        "Montagem"
+      ]
+    },
+    {
+      "code": "installation.location",
+      "label": "Instalação",
+      "aliases": [
+        "Instalação"
+      ]
+    },
+    {
+      "code": "electrical.connection",
+      "label": "Conexão",
+      "aliases": [
+        "Conexão",
+        "Conexão Elétrica"
+      ]
+    },
+    {
+      "code": "electrical.supply",
+      "label": "Alimentação",
+      "aliases": [
+        "Alimentação",
+        "Tensão Alimentação"
+      ]
+    },
+    {
+      "code": "electrical.supply.type",
+      "label": "Tipo de Alimentação",
+      "aliases": [
+        "Tipo de Alimentação"
+      ]
+    },
+    {
+      "code": "electrical.voltage.input",
+      "label": "Tensão de Entrada",
+      "aliases": [
+        "Tensão de Entrada"
+      ]
+    },
+    {
+      "code": "electrical.voltage.output",
+      "label": "Tensão de Saída",
+      "aliases": [
+        "Tensão de Saída"
+      ]
+    },
+    {
+      "code": "electrical.voltage.coil",
+      "label": "Tensão da Bobina",
+      "aliases": [
+        "Tensão Bobina",
+        "Tensão da Bobina"
+      ]
+    },
+    {
+      "code": "electrical.voltage.nominal",
+      "label": "Tensão Nominal",
+      "aliases": [
+        "Tensão Nominal",
+        "Tensão Trabalho/Nominal"
+      ]
+    },
+    {
+      "code": "electrical.voltage.unspecified",
+      "label": "Tensão (escopo não informado)",
+      "aliases": [
+        "Tensão"
+      ]
+    },
+    {
+      "code": "electrical.current.nominal",
+      "label": "Corrente Nominal",
+      "aliases": [
+        "Corrente Nominal"
+      ]
+    },
+    {
+      "code": "electrical.current.output",
+      "label": "Corrente de Saída",
+      "aliases": [
+        "Corrente de Saída"
+      ]
+    },
+    {
+      "code": "electrical.current.unspecified",
+      "label": "Corrente (escopo não informado)",
+      "aliases": [
+        "Corrente"
+      ]
+    },
+    {
+      "code": "electrical.poles",
+      "label": "Número de Polos",
+      "aliases": [
+        "Número de Polos",
+        "Número Polos"
+      ]
+    },
+    {
+      "code": "electrical.phases",
+      "label": "Quantidade de Fases",
+      "aliases": [
+        "Quantidade de Fases",
+        "Número de Fases",
+        "Número Fases"
+      ]
+    },
+    {
+      "code": "electrical.contacts",
+      "label": "Contatos",
+      "aliases": [
+        "Contatos"
+      ]
+    },
+    {
+      "code": "electrical.contacts.auxiliary",
+      "label": "Contatos Auxiliares",
+      "aliases": [
+        "Contato Auxiliar",
+        "Contatos Auxiliares"
+      ]
+    },
+    {
+      "code": "electrical.frequency",
+      "label": "Frequência",
+      "aliases": [
+        "Frequência"
+      ]
+    },
+    {
+      "code": "electrical.power",
+      "label": "Potência",
+      "aliases": [
+        "Potência"
+      ]
+    },
+    {
+      "code": "io.digital.input",
+      "label": "Entradas Digitais",
+      "aliases": [
+        "Entradas Digitais",
+        "Entrada Digital"
+      ]
+    },
+    {
+      "code": "io.digital.output",
+      "label": "Saídas Digitais",
+      "aliases": [
+        "Saídas Digitais",
+        "Saída Digital"
+      ]
+    },
+    {
+      "code": "io.analog.input",
+      "label": "Entradas Analógicas",
+      "aliases": [
+        "Entradas Analógicas",
+        "Entrada Analógica"
+      ]
+    },
+    {
+      "code": "io.analog.output",
+      "label": "Saídas Analógicas",
+      "aliases": [
+        "Saídas Analógicas",
+        "Saída Analógica"
+      ]
+    },
+    {
+      "code": "io.relay.output",
+      "label": "Saídas a Relé",
+      "aliases": [
+        "Saídas a Relé"
+      ]
+    },
+    {
+      "code": "environment.temperature.operating",
+      "label": "Temperatura de Operação",
+      "aliases": [
+        "Temperatura de Operação"
+      ]
+    },
+    {
+      "code": "conductor.cross_section",
+      "label": "Seção Nominal",
+      "aliases": [
+        "Seção Nominal",
+        "Seção Nominal Cabo",
+        "Seção Transversal",
+        "Bitola"
+      ]
+    },
+    {
+      "code": "product.line",
+      "label": "Linha",
+      "aliases": [
+        "Linha"
+      ]
+    },
+    {
+      "code": "physical.led",
+      "label": "LED",
+      "aliases": [
+        "LED"
+      ]
+    }
+  ]
+}

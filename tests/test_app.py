@@ -73,3 +73,15 @@ def test_login_lockup_uses_cropped_original_asset() -> None:
     response = client.get("/login")
     assert 'viewBox="48 348 1576 190"' in response.text
     assert 'href="/static/brand-lockup.png"' in response.text
+
+
+def test_dark_theme_layer_is_loaded_after_light_design() -> None:
+    response = client.get("/login")
+    assert response.status_code == 200
+    html = response.text
+    assert html.index("localStorage.getItem('prm-theme')") < html.index("/css/app.css")
+    assert html.index("/css/app.css") < html.index("/css/prm-v2.css") < html.index("/css/prm-dark.css")
+    stylesheet = client.get("/static/css/prm-dark.css")
+    assert stylesheet.status_code == 200
+    assert ":root[data-theme=\"dark\"]" in stylesheet.text
+    assert "--prm-input: #111923" in stylesheet.text
