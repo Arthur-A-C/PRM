@@ -26,6 +26,7 @@ from app.services.auth import authenticate, create_login_session, find_auth_cont
 from app.services.catalog_import import parse_decimal
 from app.services.refined_catalog_database import database_manifest, list_refined_items, current_items, current_comparison
 from app.services.current_analysis import summarize_current
+from app.services.operations_overview import operations_overview
 from app.services.security import secrets_match
 
 
@@ -82,6 +83,7 @@ def render_shell(request: Request, settings: AppSettings, title: str):
         page_context["refined_analysis"] = refined_manifest if title in {"Visão geral", "Comparador", "Importações e qualidade"} else None
         if title in {"Visão geral", "Comparador", "Importações e qualidade"}:
             page_context["current_analysis"] = summarize_current(refined_manifest)
+            page_context["operations"] = operations_overview() if auth.user.role == "gestor" else {"status": "restricted", "items": []}
             return templates.TemplateResponse(request=request, name="shell.html", context=page_context)
         if title == "Comparação atual":
             try:

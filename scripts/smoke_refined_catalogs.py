@@ -34,7 +34,7 @@ def main():
         _verify_counts(conn, args.run_id, 89693, 89693)
         attribute_count = conn.scalar(text("SELECT sum(jsonb_array_length(payload->'attribute_observations')) FROM refined_catalog_items WHERE run_id=:run"), {"run": args.run_id})
         assert attribute_count == sum(c["attributes"] for c in manifest["counts"].values())
-        if manifest['rule_version'] == 'refined-base-v2':
+        if manifest['rule_version'] in {'refined-base-v2', 'refined-base-v3'}:
             aliases = conn.scalars(text("""SELECT a FROM refined_catalog_items i
                 CROSS JOIN LATERAL jsonb_array_elements(i.payload->'attribute_observations') a
                 WHERE i.run_id=:run AND i.source_id='eco'
@@ -44,6 +44,19 @@ def main():
                 expected = ('ports.usb', 'Portas USB') if attr['raw_name'] == 'ATR_USB' else ('ports.serial', 'Portas Seriais COM')
                 assert (attr['attribute_code'], attr['canonical_label']) == expected
                 assert attr['raw_value'] and attr['evidence']
+        if manifest.get('attribute_analysis'):
+            from app.services.catalog_attribute_analysis import AttributeAnalysis
+            audit = AttributeAnalysis()
+            records = conn.scalars(text("""SELECT payload FROM refined_catalog_items i WHERE run_id=:run
+                AND EXISTS (SELECT 1 FROM jsonb_array_elements(i.payload->'attribute_observations') a
+                            WHERE a->>'attribute_code'='compute.os')"""), {'run': args.run_id})
+            for item in records:
+                audit.observe(item, item['attribute_observations'])
+            for source, counts in manifest['counts'].items():
+                audit.counts[source]['total'] = counts['accepted']
+            assert audit.summary()['competitors'] == manifest['attribute_analysis']['competitors']
+            for report in manifest['attribute_analysis']['competitors']:
+                assert sum(report[k] for k in ['equivalent', 'different', 'inconclusive', 'missing_os']) == report['total']
         for source in ["portwell", "choice", "eco", "dimensional"]:
             actual = conn.scalar(text("SELECT count(*) FROM refined_catalog_items WHERE run_id=:run AND source_id=:source"), {"run": args.run_id, "source": source})
             assert actual == manifest["counts"][source]["accepted"]
@@ -99,6 +112,7 @@ def main():
             assert payload["schema_version"] == 2 and payload["run_id"] == args.run_id
             assert payload["accepted"] == 89693 and payload["own_public"] == 3741
             assert payload["strict_coverage_percent"] is None
+            assert payload.get('attribute_analysis') == manifest.get('attribute_analysis')
             print("HTTP 200 /api/v1/dashboard/summary (snapshot atual)")
             print(json.dumps({"current_family_comparison": payload["competitors"]}))
     finally:

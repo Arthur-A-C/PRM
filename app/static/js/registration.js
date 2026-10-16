@@ -106,6 +106,8 @@
     }
   });
   async function restoreLastRun() {
+    const linkedRun = new URLSearchParams(window.location.search).get("execucao") || "";
+    if (/^[0-9a-f]{32}$/.test(linkedRun)) localStorage.setItem(lastRunKey, linkedRun);
     const runId = localStorage.getItem(lastRunKey);
     if (!runId) return;
     try {

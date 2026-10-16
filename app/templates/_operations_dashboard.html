@@ -1,0 +1,300 @@
+{% import '_workspace_icons.html' as ui %}
+{% import '_brand_logos.html' as brand %}
+{% macro number(value) %}{{ '{:,}'.format(value).replace(',', '.') }}{% endmacro %}
+{% macro pct(part, whole) %}{{ ('%.1f'|format(100 * part / whole)).replace('.', ',') if whole else '0,0' }}{% endmacro %}
+{% macro date_br(value) %}{{ value[8:10] ~ '/' ~ value[5:7] ~ '/' ~ value[0:4] if value and value|length >= 10 else '—' }}{% endmacro %}
+{% set counts = refined_analysis.counts %}
+{% set total_accepted = current_analysis.accepted %}
+{% set total_attributes = current_analysis.sources|sum(attribute='with_attributes') %}
+{% set total_pending = current_analysis.sources|sum(attribute='unknown_family') %}
+{% set ops = operations if operations is defined and operations else {'status': 'unavailable', 'items': []} %}
+<div class="operations cc" data-operations data-initial-view="{{ 'quality' if title == 'Importações e qualidade' else 'attributes' if title == 'Comparador' else 'overview' }}">
+
+  <div class="cc-toolbar cc-reveal">
+    <div class="cc-tabs" role="tablist" aria-label="Visões da central">
+      <button id="ops-tab-overview" type="button" role="tab" aria-selected="true" aria-controls="ops-overview" data-ops-view="overview">{{ ui.icon('grid') }}<span>Panorama</span><b class="cc-count" data-cc-tab-count="overview">{{ ops['items']|length }}</b></button>
+      <button id="ops-tab-attributes" type="button" role="tab" aria-selected="false" aria-controls="ops-attributes" tabindex="-1" data-ops-view="attributes">{{ ui.icon('compare') }}<span>Atributos</span></button>
+      <button id="ops-tab-quality" type="button" role="tab" aria-selected="false" aria-controls="ops-quality" tabindex="-1" data-ops-view="quality">{{ ui.icon('activity') }}<span>Qualidade</span><b class="cc-count">{{ number(current_analysis.sources|sum(attribute='conflicting_attributes')) }}</b></button>
+    </div>
+    <div class="cc-filters" role="group" aria-label="Filtros da central">
+      <div class="cc-field"><label for="ops-company">Empresa</label><select id="ops-company" data-ops-company><option value="all">Grupo · todas</option><option value="portwell">Portwell</option><option value="choice">Choice</option><option value="sag">SAG</option><optgroup label="Concorrentes (catálogo)"><option value="eco">ECO Automação</option><option value="dimensional">Dimensional</option></optgroup></select></div>
+      <div class="cc-field"><label for="cc-period">Período</label><select id="cc-period" data-cc-period><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Últimos 12 meses</option><option value="all">Todo o histórico</option></select></div>
+      <div class="cc-field"><label for="cc-status">Status</label><select id="cc-status" data-cc-status><option value="all">Todos</option><option value="draft">Aguardando revisão</option><option value="approved">Aprovado · sem pacote</option><option value="validated">Concluído</option><option value="attention">Com pendências</option></select></div>
+      <button type="button" class="cc-icon-btn" data-cc-refresh aria-label="Atualizar dados operacionais" title="Atualizar dados operacionais">{{ ui.icon('refresh') }}</button>
+      <button type="button" class="cc-icon-btn" data-ops-density aria-pressed="false" aria-label="Alternar densidade compacta" title="Densidade compacta">{{ ui.icon('grid') }}</button>
+      <a class="cc-btn cc-btn-primary" href="/digitalizacao">{{ ui.icon('plus') }}<span>Nova digitalização</span></a>
+    </div>
+  </div>
+
+  <div class="cc-statusline cc-reveal" aria-label="Situação da base publicada">
+    <span class="cc-status-chip is-ok"><span class="cc-lamp" aria-hidden="true"></span>Base publicada</span>
+    <span><small>Fotografia</small>{{ date_br(refined_analysis.created_at) }}</span>
+    <span><small>Execução</small><code title="{{ refined_analysis.run_id }}">{{ refined_analysis.run_id[:12] }}</code></span>
+    <span><small>Regras</small>{{ refined_analysis.rule_version|default('—') }}</span>
+    <span><small>Processamento</small>{{ refined_analysis.elapsed_seconds|default('—')|string|replace('.', ',') }} s</span>
+    <span><small>IA no pipeline</small>{{ refined_analysis.ai_calls|default(0) }} chamadas</span>
+    <span class="cc-status-chip is-warn">{{ ui.icon('info') }}Equivalência técnica não avaliada</span>
+    <span class="cc-statusline-sync" data-cc-sync role="status" aria-live="polite"></span>
+  </div>
+
+  <section id="ops-overview" role="tabpanel" aria-labelledby="ops-tab-overview" data-ops-pane="overview" class="cc-pane">
+
+    <header class="cc-section-head cc-reveal">
+      <div><p class="cc-kicker">01 · Centro de operações</p><h2>Digitalização e cadastro</h2></div>
+      <p class="cc-section-scope" data-cc-scope>Registros persistidos de digitalização · últimos 30 dias · grupo</p>
+    </header>
+
+    <div class="cc-ops" data-cc-ops data-ops-status="{{ ops.status }}">
+      <div class="cc-ops-grid">
+        <section class="cc-panel cc-ops-kpis cc-reveal" aria-labelledby="cc-ops-kpi-heading">
+          <header class="cc-panel-head"><h3 id="cc-ops-kpi-heading">Indicadores do período</h3><span class="cc-tag" data-cc-period-tag>30 dias</span></header>
+          <div class="cc-kpi-stack">
+            {% for key, label, icon, hint in [
+              ('validated', 'Concluídos', 'check', 'pacote ZIP validado'),
+              ('draft', 'Aguardando revisão', 'file', 'datasheet a aprovar'),
+              ('approved', 'Em andamento', 'clock', 'aprovado · sem pacote'),
+              ('datasheets', 'Datasheets gerados', 'sheet', 'PDFs salvos no servidor'),
+              ('packages', 'Pacotes ZIP', 'package', 'pastas CIGAM validadas'),
+              ('attention', 'Com pendências', 'alert', 'avisos não reconhecidos')] %}
+            <button type="button" class="cc-mini is-{{ key }}" data-cc-kpi="{{ key }}" aria-describedby="cc-kpi-hint-{{ key }}">
+              <span class="cc-mini-icon">{{ ui.icon(icon) }}</span>
+              <span class="cc-mini-label">{{ label }}</span>
+              <strong class="cc-mini-value" data-cc-kpi-value><span class="cc-skeleton" aria-hidden="true"></span></strong>
+              <svg class="cc-spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true" data-cc-spark></svg>
+              <small id="cc-kpi-hint-{{ key }}">{{ hint }}</small>
+            </button>
+            {% endfor %}
+          </div>
+          <p class="cc-footnote">{{ ui.icon('info') }}<span>Falhas, CSV e cadastros WooCommerce ainda não têm registro persistido; não são estimados.</span></p>
+        </section>
+
+        <section class="cc-panel cc-evolution cc-reveal" aria-labelledby="cc-evolution-heading">
+          <header class="cc-panel-head">
+            <div><p class="cc-kicker">Evolução operacional</p><h3 id="cc-evolution-heading">Etapas acumuladas no período</h3></div>
+            <div class="cc-legend-toggle" role="group" aria-label="Séries do gráfico">
+              <button type="button" aria-pressed="true" data-cc-series="created"><i class="ser-created" aria-hidden="true"></i>Datasheets</button>
+              <button type="button" aria-pressed="true" data-cc-series="approved"><i class="ser-approved" aria-hidden="true"></i>Aprovações</button>
+              <button type="button" aria-pressed="true" data-cc-series="validated"><i class="ser-validated" aria-hidden="true"></i>Pacotes</button>
+            </div>
+          </header>
+          <div class="cc-evolution-total" data-cc-evolution-total aria-live="polite"></div>
+          <div class="cc-chart" data-cc-evolution role="img" aria-label="Gráfico de etapas registradas por dia"><div class="cc-chart-skeleton" aria-hidden="true"></div></div>
+          <details class="cc-table-details"><summary>Ver dados do gráfico</summary><div class="table-scroll"><table><thead><tr><th scope="col">Dia</th><th scope="col">Datasheets</th><th scope="col">Aprovações</th><th scope="col">Pacotes</th></tr></thead><tbody data-cc-evolution-table></tbody></table></div></details>
+        </section>
+
+        <section class="cc-panel cc-attention cc-reveal" aria-labelledby="cc-attention-heading">
+          <header class="cc-panel-head"><div><p class="cc-kicker">Fila</p><h3 id="cc-attention-heading">Atenção necessária</h3></div><b class="cc-count is-alert" data-cc-attention-count>0</b></header>
+          <ol class="cc-queue" data-cc-attention><li class="cc-skeleton-row" aria-hidden="true"></li><li class="cc-skeleton-row" aria-hidden="true"></li><li class="cc-skeleton-row" aria-hidden="true"></li></ol>
+        </section>
+      </div>
+
+      <section class="cc-panel cc-pipeline-panel cc-reveal" aria-labelledby="cc-pipeline-heading">
+        <header class="cc-panel-head"><div><p class="cc-kicker">Pipeline de produtos</p><h3 id="cc-pipeline-heading">Digitalização → Claude → Datasheet → Pacote → CSV → WooCommerce</h3></div><span class="cc-tag" data-cc-bottleneck>—</span></header>
+        <ol class="cc-flow" data-cc-pipeline>
+          {% for key, label, caption, icon in [
+            ('created', 'Digitalização', 'execuções iniciadas', 'scan'),
+            ('analysis', 'Análise Claude', 'análise técnica salva', 'activity'),
+            ('datasheet', 'Datasheet', 'PDF gerado', 'sheet'),
+            ('approved', 'Aprovação', 'revisão humana', 'check'),
+            ('validated', 'Pacote ZIP', 'pasta CIGAM validada', 'package'),
+            ('csv', 'CSV', 'sem registro persistido', 'file'),
+            ('woocommerce', 'WooCommerce', 'sem registro persistido', 'cart')] %}
+          <li class="cc-flow-step" data-cc-stage="{{ key }}">
+            <span class="cc-flow-icon">{{ ui.icon(icon) }}</span>
+            <span class="cc-flow-label">{{ label }}</span>
+            <strong data-cc-stage-value>—</strong>
+            <small data-cc-stage-note>{{ caption }}</small>
+            <span class="cc-flow-bar" aria-hidden="true"><i></i></span>
+          </li>
+          {% endfor %}
+        </ol>
+        <ul class="cc-integrations" aria-label="Integrações">
+          <li><span>Base de análise</span><strong class="is-ok">{{ ui.icon('check') }}Publicada</strong></li>
+          <li><span>Equivalência técnica</span><strong class="is-warn">{{ ui.icon('info') }}Em avaliação</strong></li>
+          <li><span>Claude API</span><strong class="is-idle">Sem telemetria</strong></li>
+          <li><span>WooCommerce</span><strong class="is-idle">Sem telemetria</strong></li>
+        </ul>
+      </section>
+
+      <div class="cc-ops-row">
+        <section class="cc-panel cc-reveal" aria-labelledby="cc-heat-heading">
+          <header class="cc-panel-head"><div><p class="cc-kicker">Atividade recente</p><h3 id="cc-heat-heading">Eventos por dia · 12 semanas</h3></div><span class="cc-tag" data-cc-heat-total>—</span></header>
+          <div class="cc-heatmap" data-cc-heatmap role="img" aria-label="Mapa de calor de eventos por dia"></div>
+          <div class="cc-heat-legend" aria-hidden="true"><span>Menos</span><i class="h0"></i><i class="h1"></i><i class="h2"></i><i class="h3"></i><i class="h4"></i><i class="h5"></i><span>Mais</span></div>
+        </section>
+        <section class="cc-panel cc-reveal" aria-labelledby="cc-dist-heading">
+          <header class="cc-panel-head"><div><p class="cc-kicker">Distribuição</p><h3 id="cc-dist-heading">Portwell · Choice · SAG</h3></div><span class="cc-tag">clique para filtrar</span></header>
+          <div class="cc-distribution" data-cc-distribution>
+            {% for source, label in [('portwell', 'Portwell'), ('choice', 'Choice'), ('sag', 'SAG')] %}
+            <button type="button" class="cc-dist-row co-{{ source }}" data-ops-company-card="{{ source }}" aria-pressed="false">
+              <span class="cc-company-logo">{{ brand.company(source) }}</span><span class="sr-only">Filtrar por {{ label }}</span>
+              <span class="cc-dist-metric"><small>Catálogo visível</small>{% if source in counts %}<strong>{{ number(counts[source].public_catalog) }}</strong>{% else %}<strong>—</strong>{% endif %}<span class="cc-dist-bar" aria-hidden="true"><i style="--w: {{ (100 * counts[source].public_catalog / current_analysis.own_public) if source in counts and current_analysis.own_public else 0 }}%"></i></span></span>
+              <span class="cc-dist-metric"><small>Digitalizações</small><strong data-cc-dist-runs="{{ source }}">—</strong><span class="cc-dist-bar is-runs" aria-hidden="true"><i data-cc-dist-runs-bar="{{ source }}" style="--w: 0%"></i></span></span>
+              <span class="cc-dist-note">{% if source in counts %}Catálogo disponível · {{ pct(counts[source].with_attributes, counts[source].accepted) }}% com atributos{% else %}Sem catálogo nesta fotografia{% endif %}</span>
+            </button>
+            {% endfor %}
+          </div>
+          <p class="cc-caption" data-ops-context-message aria-live="polite">Selecione uma empresa para filtrar indicadores, operações e busca.</p>
+        </section>
+      </div>
+
+      <div class="cc-ops-row cc-ops-row-wide">
+        <section class="cc-panel cc-reveal" aria-labelledby="cc-recent-heading">
+          <header class="cc-panel-head">
+            <div><p class="cc-kicker">Produtos recentes</p><h3 id="cc-recent-heading">Execuções de digitalização</h3></div>
+            <div class="cc-table-search">{{ ui.icon('search') }}<label class="sr-only" for="cc-recent-search">Filtrar produtos recentes</label><input id="cc-recent-search" type="search" placeholder="Código CIGAM ou nome" data-cc-recent-search autocomplete="off"></div>
+          </header>
+          <div class="cc-table-wrap table-scroll"><table class="cc-recent-table"><thead><tr>
+            <th scope="col" aria-sort="none"><button type="button" data-cc-sort="company">Empresa</button></th>
+            <th scope="col" aria-sort="none"><button type="button" data-cc-sort="sku">Código CIGAM</button></th>
+            <th scope="col" aria-sort="none"><button type="button" data-cc-sort="name">Nome</button></th>
+            <th scope="col" aria-sort="none"><button type="button" data-cc-sort="stage">Etapa</button></th>
+            <th scope="col" aria-sort="descending"><button type="button" data-cc-sort="updated">Atualização</button></th>
+            <th scope="col"><span class="sr-only">Ações</span></th>
+          </tr></thead><tbody data-cc-recent><tr><td colspan="6"><span class="cc-skeleton cc-skeleton-line" aria-hidden="true"></span></td></tr></tbody></table></div>
+          <div class="cc-chart-foot"><span data-cc-recent-status role="status" aria-live="polite"></span><button type="button" class="cc-link" data-cc-recent-more hidden>Mostrar mais</button></div>
+        </section>
+        <section class="cc-panel cc-reveal" aria-labelledby="cc-feed-heading">
+          <header class="cc-panel-head"><div><p class="cc-kicker">Feed</p><h3 id="cc-feed-heading">Atividade operacional</h3></div>{{ ui.icon('activity') }}</header>
+          <ol class="cc-feed" data-cc-feed><li class="cc-skeleton-row" aria-hidden="true"></li><li class="cc-skeleton-row" aria-hidden="true"></li></ol>
+        </section>
+      </div>
+    </div>
+
+    <header class="cc-section-head cc-section-gap cc-reveal">
+      <div><p class="cc-kicker">02 · Inteligência de portfólio</p><h2>Catálogo e mapa competitivo</h2><p class="cc-section-scope">Dados atuais do e-commerce · somente a fotografia publicada, sem histórico</p></div>
+      <form action="/catalogos" method="get" class="cc-search" role="search"><label class="sr-only" for="ops-search">Pesquisar no catálogo</label>{{ ui.icon('search') }}<input id="ops-search" name="q" type="search" maxlength="200" placeholder="Pesquisar produto, modelo ou aplicação…"><input type="hidden" name="source" value="" data-ops-search-source><button type="submit">Buscar</button></form>
+    </header>
+
+    <section class="cc-kpis" aria-label="Indicadores da base atual">
+      <article class="cc-kpi cc-kpi-hero cc-reveal">
+        <span class="cc-kpi-label">{{ ui.icon('catalog') }}Registros analisados</span>
+        <strong data-ops-total data-count="{{ total_accepted }}">{{ number(total_accepted) }}</strong>
+        <small data-ops-scope>Quatro fontes · fotografia atual</small>
+        <div class="cc-meter" role="img" aria-label="Visão pública sobre registros aceitos" data-ops-meter="public"><i style="--w: {{ (100 * current_analysis.public / total_accepted) if total_accepted else 0 }}%"></i></div>
+        <span class="cc-kpi-foot"><b data-ops-meter-label="public">{{ pct(current_analysis.public, total_accepted) }}%</b> na visão pública</span>
+      </article>
+      <article class="cc-kpi cc-reveal">
+        <span class="cc-kpi-label">{{ ui.icon('grid') }}Portfólio próprio visível</span>
+        <strong data-count="{{ current_analysis.own_public }}">{{ number(current_analysis.own_public) }}</strong>
+        <small>Portwell + Choice · indicador do grupo</small>
+        <div class="cc-split" role="img" aria-label="Portwell {{ counts.portwell.public_catalog }} e Choice {{ counts.choice.public_catalog }} produtos visíveis">
+          {% for source, label in [('portwell', 'Portwell'), ('choice', 'Choice')] %}{% if current_analysis.own_public %}<span class="src-{{ source }}" style="--w: {{ 100 * counts[source].public_catalog / current_analysis.own_public }}%" tabindex="0" data-tip-title="{{ label }}" data-tip-value="{{ number(counts[source].public_catalog) }}" data-tip-note="produtos visíveis"></span>{% endif %}{% endfor %}
+        </div>
+        <span class="cc-kpi-foot"><i class="cc-swatch src-portwell" aria-hidden="true"></i>Portwell {{ number(counts.portwell.public_catalog) }} <i class="cc-swatch src-choice" aria-hidden="true"></i>Choice {{ number(counts.choice.public_catalog) }}</span>
+      </article>
+      <article class="cc-kpi cc-reveal">
+        <span class="cc-kpi-label">{{ ui.icon('activity') }}Produtos com atributos</span>
+        <strong data-ops-attributes data-count="{{ total_attributes }}">{{ number(total_attributes) }}</strong>
+        <small>Informações extraídas para análise</small>
+        <div class="cc-meter" role="img" aria-label="Produtos com atributos sobre registros" data-ops-meter="attributes"><i style="--w: {{ (100 * total_attributes / total_accepted) if total_accepted else 0 }}%"></i></div>
+        <span class="cc-kpi-foot"><b data-ops-meter-label="attributes">{{ pct(total_attributes, total_accepted) }}%</b> do contexto</span>
+      </article>
+      <article class="cc-kpi cc-kpi-review cc-reveal">
+        <span class="cc-kpi-label">{{ ui.icon('info') }}Família pendente</span>
+        <strong data-ops-pending data-count="{{ total_pending }}">{{ number(total_pending) }}</strong>
+        <a href="/catalogos?group=review" data-ops-pending-link>Explorar pendências {{ ui.icon('arrow') }}</a>
+        <div class="cc-meter is-pending" role="img" aria-label="Classificação pendente sobre registros" data-ops-meter="pending"><i style="--w: {{ (100 * total_pending / total_accepted) if total_accepted else 0 }}%"></i></div>
+        <span class="cc-kpi-foot"><b data-ops-meter-label="pending">{{ pct(total_pending, total_accepted) }}%</b> aguardando classificação</span>
+      </article>
+    </section>
+
+    <div class="cc-portfolio-grid">
+      <section class="cc-panel ops-coverage cc-reveal" aria-labelledby="cc-coverage-heading">
+        <header class="cc-panel-head"><div><p class="cc-kicker">Mapa competitivo</p><h3 id="cc-coverage-heading">Presença nas famílias do portfólio</h3></div><span class="cc-tag">Referência: Portwell + Choice</span></header>
+        <p class="cc-caption">Famílias compartilhadas indicam proximidade de catálogo; a equivalência técnica dos produtos ainda precisa ser avaliada.</p>
+        <div class="cc-coverage-bars">
+          {% for c in current_analysis.competitors %}
+          <div class="cc-coverage-row" data-cc-coverage-row="{{ c.source }}">
+            <span class="cc-coverage-name">{{ 'ECO Automação' if c.source == 'eco' else 'Dimensional' }}<small>{{ number(c.total) }} registros</small></span>
+            <div class="cc-stack cc-stack-lg" role="img" aria-label="{{ c.shared_percent }}% em famílias compartilhadas, {{ c.not_found_percent }}% sem família própria, {{ c.pending_percent }}% pendentes">
+              {% for key, pkey, label, cls in [('shared_family', 'shared_percent', 'Famílias compartilhadas', 'is-shared'), ('family_not_found', 'not_found_percent', 'Sem família própria', 'is-rival'), ('family_pending', 'pending_percent', 'Classificação pendente', 'is-pending')] %}{% if c[key] %}<span class="{{ cls }}" style="--w: {{ c[pkey] }}%" tabindex="0" data-tip-title="{{ label }}" data-tip-value="{{ number(c[key]) }}" data-tip-note="{{ c[pkey]|string|replace('.', ',') }}% de {{ number(c.total) }} registros"></span>{% endif %}{% endfor %}
+            </div>
+            <b class="cc-coverage-value">{{ c.shared_percent|string|replace('.', ',') }}%</b>
+          </div>
+          {% endfor %}
+        </div>
+        <ul class="cc-legend-list cc-legend-inline" aria-label="Legenda">
+          <li><i class="is-shared" aria-hidden="true"></i>Famílias compartilhadas</li>
+          <li><i class="is-rival" aria-hidden="true"></i>Sem família própria</li>
+          <li><i class="is-pending" aria-hidden="true"></i>Classificação pendente</li>
+        </ul>
+        <div class="cc-segmented" role="group" aria-label="Selecionar concorrente">{% for c in current_analysis.competitors %}<button type="button" data-ops-competitor="{{ c.source }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ 'ECO Automação' if c.source == 'eco' else 'Dimensional' }} <small>{{ number(c.total) }}</small></button>{% endfor %}</div>
+        {% for c in current_analysis.competitors %}
+        <div class="cc-competitor" data-ops-competitor-panel="{{ c.source }}">
+          <div class="cc-gauge" role="img" aria-label="{{ c.shared_percent }}% dos registros em famílias compartilhadas, {{ c.not_found_percent }}% não localizadas, {{ c.pending_percent }}% pendentes">
+            <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="cc-gauge-track" cx="60" cy="60" r="50" pathLength="100"/><circle class="cc-gauge-pending" cx="60" cy="60" r="50" pathLength="100" style="stroke-dasharray: {{ [c.pending_percent - 0.8, 0]|max }} 100; stroke-dashoffset: -{{ c.shared_percent + c.not_found_percent }}"/><circle class="cc-gauge-rival" cx="60" cy="60" r="50" pathLength="100" style="stroke-dasharray: {{ [c.not_found_percent - 0.8, 0]|max }} 100; stroke-dashoffset: -{{ c.shared_percent }}"/><circle class="cc-gauge-shared" cx="60" cy="60" r="50" pathLength="100" style="stroke-dasharray: {{ [c.shared_percent - 0.8, 0]|max }} 100"/></svg>
+            <div><strong>{{ c.shared_percent|string|replace('.', ',') }}<span>%</span></strong><small>em famílias compartilhadas</small></div>
+          </div>
+          <div class="cc-breakdown">
+            <a href="/catalogos?source={{ c.source }}&group=shared"><i class="is-shared" aria-hidden="true"></i><span>Registros em famílias próprias<small>Explorar produtos para comparação</small></span><strong>{{ number(c.shared_family) }}</strong>{{ ui.icon('arrow') }}</a>
+            <a href="/catalogos?source={{ c.source }}&group=not_found"><i class="is-rival" aria-hidden="true"></i><span>Registros sem família própria<small>Investigar possíveis lacunas</small></span><strong>{{ number(c.family_not_found) }}</strong>{{ ui.icon('arrow') }}</a>
+            <a href="/catalogos?source={{ c.source }}&group=review"><i class="is-pending" aria-hidden="true"></i><span>Classificação pendente<small>Revisar antes de concluir</small></span><strong>{{ number(c.family_pending) }}</strong>{{ ui.icon('arrow') }}</a>
+          </div>
+        </div>
+        {% endfor %}
+        <p class="cc-footnote">{{ ui.icon('info') }}<span>Catálogos próprios parciais. Ausência neste recorte não comprova ausência no portfólio completo.</span></p>
+      </section>
+
+      <section class="cc-panel cc-reveal" aria-labelledby="cc-families-heading" data-cc-families>
+        <header class="cc-panel-head"><div><p class="cc-kicker">Composição por família</p><h3 id="cc-families-heading">Onde cada catálogo se concentra</h3></div><span class="cc-tag">% do próprio catálogo</span></header>
+        <div class="cc-chart-controls">
+          <div class="cc-segmented" role="group" aria-label="Concorrente no gráfico">{% for c in current_analysis.competitors %}<button type="button" data-cc-family-rival="{{ c.source }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ 'ECO' if c.source == 'eco' else 'Dimensional' }}</button>{% endfor %}</div>
+          <div class="cc-field cc-field-inline"><label for="cc-family-proximity">Proximidade</label><select id="cc-family-proximity" data-cc-family-proximity><option value="">Todas</option><option value="core">Foco próximo</option><option value="adjacent">Adjacente</option><option value="distant">Distante</option><option value="undecided">Pendente</option></select></div>
+          <div class="cc-field cc-field-inline"><label for="cc-family-sort">Ordenar</label><select id="cc-family-sort" data-cc-family-sort><option value="max">Maior participação</option><option value="group">Grupo</option><option value="rival">Concorrente</option><option value="gap">Diferença</option></select></div>
+        </div>
+        <div class="cc-butterfly-head" aria-hidden="true"><span><i class="cc-swatch is-group"></i>Grupo</span><span>Família</span><span><i class="cc-swatch is-rival"></i><b data-cc-family-rival-label>ECO</b></span></div>
+        <div class="cc-butterfly" data-cc-family-chart role="list" aria-label="Participação por família"><p class="cc-caption">Carregando gráfico…</p></div>
+        <div class="cc-chart-foot"><button type="button" class="cc-link" data-cc-family-more aria-expanded="false">Mostrar todas as famílias</button><span data-cc-family-status role="status" aria-live="polite"></span></div>
+        <p class="cc-caption">Distribuição de registros: não é demanda, cobertura nem equivalência.</p>
+        <details class="cc-table-details"><summary>Ver tabela de famílias</summary>
+          <div class="table-scroll"><table><thead><tr><th scope="col">Família</th><th scope="col">Portwell</th><th scope="col">Choice</th><th scope="col">ECO</th><th scope="col">Dimensional</th><th scope="col">Proximidade</th></tr></thead><tbody>
+            {% for id, f in refined_analysis.families|dictsort %}<tr><th scope="row">{{ f.label }}</th><td>{{ f.counts.get('portwell', 0) }}</td><td>{{ f.counts.get('choice', 0) }}</td><td>{{ f.counts.get('eco', 0) }}</td><td>{{ f.counts.get('dimensional', 0) }}</td><td>{{ {'core':'Foco próximo','adjacent':'Adjacente','distant':'Distante','undecided':'Pendente'}.get(f.proximity, 'Pendente') }}</td></tr>{% endfor %}
+          </tbody></table></div>
+        </details>
+      </section>
+    </div>
+  </section>
+
+  <section id="ops-attributes" role="tabpanel" aria-labelledby="ops-tab-attributes" data-ops-pane="attributes" class="cc-pane">
+    {% include '_attribute_analysis.html' %}
+    {% if not current_analysis.attribute_analysis %}<section class="cc-panel cc-empty"><h3>Análise de atributos ainda não disponível</h3><p>O snapshot publicado não inclui esses indicadores.</p><a class="cc-link" href="/catalogos">Explorar os dados disponíveis {{ ui.icon('arrow') }}</a></section>{% endif %}
+  </section>
+
+  <section id="ops-quality" role="tabpanel" aria-labelledby="ops-tab-quality" data-ops-pane="quality" class="cc-pane">
+    <div class="cc-quality-grid">
+      <section class="cc-panel cc-reveal" aria-labelledby="cc-sources-heading">
+        <header class="cc-panel-head"><div><p class="cc-kicker">Qualidade por fonte</p><h3 id="cc-sources-heading">Extração e classificação</h3></div><span class="cc-tag">sobre registros aceitos</span></header>
+        <div class="cc-source-quality">
+          {% for source, label in [('portwell','Portwell'), ('choice','Choice'), ('eco','ECO Automação'), ('dimensional','Dimensional')] %}
+          {% set c = counts[source] %}
+          <article>
+            <header><span class="cc-source-dot src-{{ source }}" aria-hidden="true"></span><strong>{{ label }}</strong><small>{{ number(c.accepted) }} aceitos</small></header>
+            <div class="cc-meter-row"><span>Com atributos</span><div class="cc-meter" role="img" aria-label="{{ pct(c.with_attributes, c.accepted) }}% com atributos"><i style="--w: {{ (100 * c.with_attributes / c.accepted) if c.accepted else 0 }}%"></i></div><b>{{ pct(c.with_attributes, c.accepted) }}%</b></div>
+            <div class="cc-meter-row"><span>Família pendente</span><div class="cc-meter is-pending" role="img" aria-label="{{ pct(c.unknown_family, c.accepted) }}% com família pendente"><i style="--w: {{ (100 * c.unknown_family / c.accepted) if c.accepted else 0 }}%"></i></div><b>{{ pct(c.unknown_family, c.accepted) }}%</b></div>
+            <p class="cc-caption">{{ number(c.conflicting_attributes) }} atributos conflitantes · {{ number(c.public_catalog) }} na visão pública</p>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="cc-panel cc-reveal" aria-labelledby="cc-snapshot-heading">
+        <p class="cc-kicker">Última fotografia</p>
+        <h3 id="cc-snapshot-heading">{{ date_br(refined_analysis.created_at) }}</h3>
+        <p class="cc-caption">Quatro fontes reunidas em uma base de análise. Contagens incluem itens internos; {{ number(current_analysis.public) }} registros estão na visão pública do catálogo.</p>
+        <div class="cc-source-list">
+          {% for source, label in [('portwell','Portwell'),('choice','Choice'),('eco','ECO'),('dimensional','Dimensional')] %}
+          <a href="/catalogos?source={{ source }}"><span class="cc-source-dot src-{{ source }}" aria-hidden="true"></span><span>{{ label }}</span><strong>{{ number(counts[source].accepted) }}</strong><span class="cc-source-bar" aria-hidden="true"><i style="--w: {{ (100 * counts[source].accepted / total_accepted) if total_accepted else 0 }}%"></i></span></a>
+          {% endfor %}
+        </div>
+        <details><summary>Identificação da análise</summary><code>{{ refined_analysis.run_id }}</code></details>
+      </section>
+    </div>
+    {% include '_refined_analysis.html' %}
+  </section>
+
+  <div class="cc-tooltip" role="tooltip" id="cc-tooltip" hidden><strong data-tip-value></strong><span data-tip-title></span><small data-tip-note></small></div>
+  <div class="cc-toasts" data-cc-toasts role="status" aria-live="polite"></div>
+  <script type="application/json" id="ops-data">{{ current_analysis|tojson }}</script>
+  <script type="application/json" id="ops-families">{{ {'families': refined_analysis.families, 'totals': {'group': counts.portwell.accepted + counts.choice.accepted, 'eco': counts.eco.accepted, 'dimensional': counts.dimensional.accepted}}|tojson }}</script>
+  <script type="application/json" id="ops-runs">{{ ops|tojson }}</script>
+</div>

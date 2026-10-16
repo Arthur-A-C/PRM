@@ -1,0 +1,29 @@
+/* Logos Portwell · Choice · SAG — arquivos individuais com alfa real.
+   A tinta original é preta; no tema escuro (e em superfícies sempre escuras)
+   o filtro a torna clara, como texto da interface. Proporções em /static/brand/brand.css. */
+.brand-logo { display: block; flex: none; width: auto; height: auto; max-width: 100%; user-select: none; -webkit-user-drag: none; transition: filter .2s ease; }
+:root[data-theme="dark"] .brand-logo, .brand-on-dark .brand-logo, .brand-trio-login .brand-logo { filter: invert(.93); }
+.brand-trio-login { color: #e7edf3 !important; }
+
+.brand-trio { --trio-h: 1.4rem; --trio-gap: .85rem; display: inline-flex; align-items: center; gap: var(--trio-gap); max-width: 100%; color: var(--cc-ink, #0d1923); line-height: 0; }
+.brand-trio .brand-logo { height: calc(var(--trio-h) * var(--brand-h, 1)); }
+.brand-trio-sep { flex: none; width: 1px; height: calc(var(--trio-h) * 1.05); background: currentColor; opacity: .22; }
+:root[data-theme="dark"] .brand-trio { color: var(--cc-ink, #e7edf3); }
+.brand-on-dark .brand-trio, .brand-trio.brand-on-dark { color: #e7edf3; }
+
+/* Contextos */
+.brand-trio-header { --trio-h: 1.3rem; --trio-gap: .7rem; padding: 0 .35rem; }
+.brand-trio-sidebar { --trio-h: 1.12rem; --trio-gap: .5rem; display: flex; justify-content: center; margin: 0 auto; }
+.brand-trio-login { --trio-h: 2.3rem; --trio-gap: 1.3rem; }
+.brand-trio-static { --trio-h: 1.5rem; }
+
+/* Seletores de empresa (Digitalização e dashboard) */
+.company-logo { --logo-h: 2.15rem; height: calc(var(--logo-h) * var(--brand-h, 1)); }
+
+@media (max-width: 600px) {
+  .brand-trio-login { --trio-h: 1.6rem; --trio-gap: .9rem; margin: 1rem 0 .4rem; }
+  .company-logo { --logo-h: 1.8rem; }
+}
+@media (forced-colors: active) {
+  .brand-logo { forced-color-adjust: none; filter: none; background: #fff; }
+}

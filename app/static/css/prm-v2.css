@@ -262,3 +262,12 @@ code, #digitalizacao-run-id, .comparable-table td:first-child { font-family: ui-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+.comparison-verdict { display: inline-block; padding: .25rem .6rem; border-radius: .4rem; border: 1px solid currentColor; font-weight: 700; font-size: .85rem; }
+.comparison-verdict--equal, .comparison-verdict--equivalent { color: #14532d; background: #dcfce7; }
+.comparison-verdict--different { color: #991b1b; background: #fee2e2; }
+.comparison-verdict--insufficient, .comparison-verdict--conflict { color: #713f12; background: #fef3c7; }
+.comparison-verdict--reference { color: #1e3a8a; background: #dbeafe; }
+.comparison-verdict--partial { color: #713f12; background: #fef3c7; }
+.comparison-details { margin-block: .75rem; }
+.comparison-details dt { font-weight: 650; margin-top: .65rem; }
+.comparison-details dd { margin: .2rem 0 .6rem; overflow-wrap: anywhere; }

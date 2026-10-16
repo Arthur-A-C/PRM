@@ -1,10 +1,24 @@
-<section class="notice"><strong>Comparação exploratória da base atual.</strong><span>Preços e características lado a lado. Seleção manual ou mesma família não confirma equivalência técnica. Escopos, unidades e conflitos permanecem separados.</span></section>
+<section class="notice"><strong>Comparação de características</strong><span>Os indicadores comparam cada produto com o primeiro da tabela (referência). Equivalente indica o mesmo valor após normalização. A substituição de um produto exige conferir o conjunto das características.</span></section>
 <section class="panel">
   <a href="/catalogos">Voltar aos produtos atuais</a>
-  <div class="table-scroll"><table class="technical-matrix"><thead><tr><th>Característica</th>{% for item in current_comparison['items'] %}<th>{{ {'portwell':'Portwell','choice':'Choice','eco':'ECO','dimensional':'Dimensional'}[item.source_id] }}<br>{{ item.title_display }}<br><small>{{ item.sku or item.record_key }}</small></th>{% endfor %}</tr></thead><tbody>
+  <p>Cada característica reúne seus detalhes em uma única linha. Correspondência parcial indica detalhes coincidentes e informações ainda ausentes ou não interpretadas. Capacidade máxima, capacidade informada e configurações suportadas são comparadas separadamente.</p>
+  <div class="table-scroll"><table class="technical-matrix"><thead><tr><th>Característica</th>{% for item in current_comparison['items'] %}<th>{{ {'portwell':'Portwell','choice':'Choice','eco':'ECO','dimensional':'Dimensional'}[item.source_id] }}<br>{{ item.title_display }}<br><small>{{ item.sku or item.record_key }}{% if loop.first %} · Referência{% endif %}</small></th>{% endfor %}</tr></thead><tbody>
     <tr><th>Família proposta</th>{% for item in current_comparison['items'] %}<td>{{ item.classification.family_label }}</td>{% endfor %}</tr>
     <tr><th>Preços observados</th>{% for item in current_comparison['items'] %}<td>{% for p in item.commercial.prices %}{% if p.amount and (p.visibility != 'internal_only' or user.role == 'gestor') %}<p>{{ p.kind }}: R$ {{ p.amount }}{% if p.visibility == 'internal_only' %} · uso interno{% endif %}</p>{% endif %}{% endfor %}<small>Condições não verificadas; sem preço visível não significa gratuito.</small></td>{% endfor %}</tr>
-    {% for row in current_comparison.rows %}<tr><th>{{ row.label }}<br><small>{{ row.scope }}{% if row.unit %} · {{ row.unit }}{% endif %}</small></th>{% for item in current_comparison['items'] %}<td>{% for value in row['values'].get(item.item_id,[]) %}<p>{{ value.raw }}{% if value.state == 'known' and value.normalized is not none and value.normalized != value.raw %} <small>Padronizado: {{ value.normalized }}{% if row.unit %} {{ row.unit }}{% endif %}</small>{% endif %} <small>Origem: {{ value.name }} · </small><small>({{ {'known':'observado','unknown':'desconhecido','conflicting':'conflito','unparseable':'não interpretado'}.get(value.state,value.state) }})</small></p>{% else %}Não informado{% endfor %}</td>{% endfor %}</tr>{% endfor %}
+    {% for row in current_comparison.display_rows %}<tr><th scope="row">{{ row.label }}{% if row.code == 'compute.os' %}<p><small>Presença e suporte equivalem por família de SO; versão e edição não alteram este indicador.</small></p>{% endif %}</th>
+      {% for item in current_comparison['items'] %}{% set cell = row.cells[item.item_id] %}<td>
+        <span class="comparison-verdict comparison-verdict--{{ cell.status.code }}">{{ cell.status.label }}</span>
+        <dl class="comparison-details">
+          {% for detail in cell.details %}<dt>{{ detail.label }}{% if detail.scope != 'Escopo não informado' %} · {{ detail.scope }}{% endif %}{% if detail.unit %} ({{ detail.unit }}){% endif %}</dt>
+          <dd>{% for value in detail['values'] %}{{ value.normalized if value.normalized is not none else value.raw }}{% if not loop.last %}; {% endif %}{% else %}Não informado{% endfor %}
+            {% if item.item_id != current_comparison.reference_id %}<br><small class="comparison-verdict comparison-verdict--{{ detail.status.code }}">{{ detail.status.label }}</small>
+            {% if detail.status.code in ['different','insufficient','conflict'] %}<br><small>Referência: {% for value in detail.reference %}{{ value.normalized if value.normalized is not none else value.raw }}{% if not loop.last %}; {% endif %}{% else %}Não informado{% endfor %}</small>{% endif %}{% endif %}
+          </dd>{% endfor %}
+        </dl>
+        <details><summary>Dados originais e origem</summary>
+          {% for value in row['values'].get(item.item_id,[]) %}<p>{{ value.raw }}<br><small data-scope="{{ value.scope }}">Origem: {{ value.name }} · {{ {'unspecified':'Escopo não informado','supported':'Suportado','installed':'Instalado','optional':'Opcional'}.get(value.scope,value.scope) }} · {{ {'known':'observado','unknown':'desconhecido','conflicting':'conflito','unparseable':'não interpretado'}.get(value.state,value.state) }}</small></p>{% else %}<p>Não informado</p>{% endfor %}
+        </details>
+      </td>{% endfor %}</tr>{% endfor %}
     <tr><th>Pendências</th>{% for item in current_comparison['items'] %}<td>{{ item.quality_issues|join(', ') or 'Sem alertas registrados; não significa aprovação técnica.' }}</td>{% endfor %}</tr>
   </tbody></table></div>
 </section>

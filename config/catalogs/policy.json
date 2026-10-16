@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "rule_version": "refined-base-v2",
+  "rule_version": "refined-base-v3",
   "sources": {
     "portwell": {"kind": "own", "key": "ID", "completeness": "partial", "locale": "pt_BR"},
     "choice": {"kind": "own", "key": "ID", "completeness": "partial", "locale": "pt_BR"},

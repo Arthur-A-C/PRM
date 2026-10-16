@@ -1,5 +1,33 @@
 # Normalização de atributos entre empresas
 
+## Regra vigente de sistema operacional e indicadores — 14/10/2026
+
+Por decisão do usuário, presença e suporte passam a equivaler por **família de SO**. `Suporta Linux, Suporta Windows` equivale a `Windows 10 IoT | Linux`, inclusive quando outra observação repete apenas `Windows 10 IoT`. A união das famílias elimina repetições e conflitos puramente lexicais; versões, edições e instalação são preservadas nas evidências, mas não decidem igualdade deste atributo. Esta regra substitui a distinção de escopos de SO descrita nas etapas históricas abaixo. Negação explícita, ausência de SO e valores não reconhecidos continuam distintos/pendentes.
+
+Política `os-families-v2`, implementada em `operating_system.py`, integra a identidade do snapshot. O reprocessamento recalcula qualidade, famílias e indicadores de atributos compostos. A API de resumo inclui `attribute_analysis`. O gráfico de SO conta concorrentes com conjunto de famílias de SO igual ao de pelo menos um produto próprio **visível e da mesma família de produto**. Mostra percentual sobre todo o catálogo e sobre os comparáveis, com desconhecidos/sem candidato próprio/sem informação discriminados. É igualdade de um atributo, não equivalência integral do produto. Os gráficos antigos de famílias continuam com seu significado original.
+
+Memória, armazenamento e USB também têm seus indicadores de interpretação recalculados: produtos cujos componentes foram interpretados sobre os produtos que informam o atributo. Isso não exige ficha completa nem significa equivalência. Snapshots históricos e dados originais permanecem preservados.
+
+## Visão composta vigente
+
+A tela usa `display_rows`, construída por `app/services/comparison_details.py`, sem modificar o snapshot. Memória e armazenamento unem seus campos de capacidade/tipo numa linha, com detalhes comparáveis dentro das células. Tecnologia, formato, frequência, slots, capacidade informada e limite máximo têm significados independentes. A expressão `até 64 GB` não informa a quantidade instalada. Intervalos e quantidades por módulo não são somados automaticamente. Campos sem parser permanecem visíveis e não interpretados; observações conflitantes nunca são promovidas a equivalentes.
+
+Todos os demais códigos canônicos também aparecem numa linha por característica com detalhes por escopo/unidade. USB possui detalhes de quantidade por versão, geração e conector; SO mantém escopos dentro da mesma linha. Tensões de entrada/saída/bobina continuam características distintas. Memória de controlador não se une à RAM.
+
+Cada detalhe é comparado ao primeiro produto. O resumo prioriza conflitos, depois diferenças; coincidências acompanhadas de dados faltantes/não interpretados geram **Correspondência parcial**. Igual/Equivalente requer coincidência em todos os detalhes presentes na comparação. Isso não homologa equivalência global do produto. O exemplo USB anteriormente marcado Equivalente passa a parcial na visão composta quando faltam geração/conector, e mantém igualdade na quantidade por versão. Os dados originais de cada célula continuam acessíveis em “Dados originais e origem”.
+
+## Termos e descrições USB
+
+`app/services/usb_comparison.py` interpreta grupos completos de quantidade e versão (`2x USB 2.0`), geração opcional e conector opcional. O dicionário reconhece Type/Tipo, Gen/Generation/Geração, `x`/`×`, espaços e ordem das portas. Grupos repetidos podem ser somados quando as observações não têm conflito registrado.
+
+`2x USB 2.0, 4x USB 3.2` equivale, nas quantidades/versões descritas, a `2 x USB 2.0 Type-A, 4 x USB 3.2 Gen2 Type-A`. A tela informa que geração e conector não descritos na referência continuam não confirmados. Gerações/conectores explicitamente diferentes impedem equivalência; texto residual como OTG, interno, alternativas ou limites impede interpretação automática. O parser não infere equivalência de versões USB distintas. Atua sobre os valores do snapshot em tempo de comparação, preservando banco e originais.
+
+## Comparação visual — 14/10/2026
+
+A matriz usa o primeiro produto como referência, mantendo Portwell/Choice primeiro. Cada característica informa igualdade literal, equivalência após normalização, diferença de valor, dados insuficientes ou conflito. Equivalência de um atributo não confirma equivalência do produto. Capacidades simples usam unidades explícitas (SI/IEC); `1 TB = 1000 GB`, enquanto `1 TiB = 1024 GiB`. Ausência, alternativas e escopos incompatíveis impedem conclusões automáticas.
+
+Memória e tipo de memória aparecem sob uma categoria, com subcampos separados; armazenamento segue o mesmo padrão. Memória sem contexto não é convertida em RAM; memórias de PLC permanecem independentes. Sistema operacional aparece em uma linha única e cada valor mantém o escopo de suporte, instalação, opcionalidade ou não informado. A consolidação acontece na leitura do snapshot, sem sobrescrever observações ou exigir nova importação. Auditoria: `python -m scripts.audit_comparison_fields`.
+
 O pipeline refinado aplica o mesmo dicionário a Portwell, Choice, ECO e Dimensional. Portwell e Choice continuam sendo a referência de apresentação. A normalização de campos não comprova equivalência técnica de produtos nem habilita automaticamente análise de preços.
 
 ## Contrato

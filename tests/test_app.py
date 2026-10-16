@@ -30,7 +30,7 @@ def test_login_page_is_accessible_and_localized() -> None:
     assert response.status_code == 200
     assert "Acesse o painel" in response.text
     assert "lang=\"pt-BR\"" in response.text
-    assert "login-brand-lockup" in response.text
+    assert "brand-trio-login" in response.text
     assert "/css/design-system.css" in response.text
 
 
@@ -56,23 +56,33 @@ def test_templates_compile() -> None:
     assert templates.get_template("shell.html") is not None
 
 
-def test_company_logos_use_individual_crops_of_original_asset() -> None:
+def test_company_selectors_use_individual_transparent_logos() -> None:
     html = templates.get_template("digitalizacao.html").render()
-    for company, crop in (
-        ("portwell", "54 355 550 178"),
-        ("choice", "657 355 532 178"),
-        ("sag", "1256 355 370 178"),
-    ):
-        assert f'class="company-card-logo logo-{company}"' in html
-        assert f'viewBox="{crop}"' in html
-    assert html.count('href="/static/brand-lockup.png"') == 3
-    assert html.count('preserveAspectRatio="xMidYMid slice"') == 3
+    for company in ("portwell", "choice", "sag"):
+        assert f'class="brand-logo brand-logo-{company} company-logo"' in html
+        assert f'src="/static/brand/{company}.png?v=' in html
+    assert "brand-lockup.png" not in html
 
 
-def test_login_lockup_uses_cropped_original_asset() -> None:
+def test_brand_logo_files_have_real_transparency() -> None:
+    from PIL import Image
+    for company in ("portwell", "choice", "sag"):
+        response = client.get(f"/static/brand/{company}.png")
+        assert response.status_code == 200 and "image/png" in response.headers["content-type"]
+        image = Image.open(__import__("io").BytesIO(response.content))
+        assert image.mode == "RGBA"
+        alpha = image.getchannel("A")
+        assert alpha.getpixel((0, 0)) == 0 and alpha.getextrema() == (0, 255)
+        assert image.convert("RGB").getextrema() == ((0, 0), (0, 0), (0, 0))  # tinta preta; o tema define a cor
+    assert ".brand-logo-portwell" in client.get("/static/brand/brand.css").text
+
+
+def test_login_uses_three_individual_logos() -> None:
     response = client.get("/login")
-    assert 'viewBox="48 348 1576 190"' in response.text
-    assert 'href="/static/brand-lockup.png"' in response.text
+    assert 'aria-label="Portwell, Choice e SAG"' in response.text
+    for company in ("portwell", "choice", "sag"):
+        assert f"/static/brand/{company}.png" in response.text
+    assert "brand-lockup.png" not in response.text
 
 
 def test_dark_theme_layer_is_loaded_after_light_design() -> None:

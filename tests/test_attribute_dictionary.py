@@ -50,7 +50,7 @@ def test_dictionary_is_versioned_and_aliases_unambiguous():
     assert len(alias_index()) > 70
     policy = load_policy()
     assert policy['attribute_dictionary']['version'] == 'attributes-v3'
-    assert policy['rule_version'] == 'refined-base-v2'
+    assert policy['rule_version'] == 'refined-base-v3'
 
 
 def test_scalar_units_and_quantity_do_not_create_format_conflicts():

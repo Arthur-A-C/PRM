@@ -37,6 +37,7 @@ def summarize_current(manifest):
                         "not_found_percent": round(100 * not_found / total, 1) if total else 0,
                         "pending_percent": round(100 * unknown / total, 1) if total else 0})
     return {"schema_version": 2, "status": "published", "run_id": manifest["run_id"],
+            "attribute_analysis": manifest.get('attribute_analysis'),
             "created_at": manifest["created_at"], "source_policy": "latest_imports_authoritative",
             "accepted": sum(s["accepted"] for s in sources), "public": sum(s["public"] for s in sources),
             "own_public": sum(s["public"] for s in sources[:2]), "sources": sources, "competitors": reports,

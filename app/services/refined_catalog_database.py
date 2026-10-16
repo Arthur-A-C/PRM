@@ -155,11 +155,14 @@ def current_items(conn, organization_id, ids, *, run_id=None, internal=False):
 
 def current_comparison(items):
     """Matriz exploratória: preserva repetidos, escopos, unidades e conflitos."""
+    from app.services.attribute_comparison import decorate_comparison
     rows = {}
     for item in items:
         for attr in item["attribute_observations"]:
             discriminator = plain(attr["raw_name"]) if attr["attribute_code"].startswith("unmapped.") else ""
-            key = (attr["attribute_code"], attr["configuration_scope"], attr.get("unit") or "", discriminator)
-            row = rows.setdefault(key, {"label": attr.get("canonical_label", attr["raw_name"]), "scope": key[1], "unit": key[2], "values": {}})
-            row["values"].setdefault(item["item_id"], []).append({"raw": attr["raw_value"], "name": attr["raw_name"], "normalized": attr.get("normalized_value"), "state": attr["knowledge_state"]})
-    return {"items": items, "rows": [rows[k] for k in sorted(rows)]}
+            code = attr["attribute_code"]
+            # Uma categoria de SO, preservando o escopo em cada observação.
+            key = (code, "" if code == "compute.os" else attr["configuration_scope"], attr.get("unit") or "", discriminator)
+            row = rows.setdefault(key, {"code": code, "label": attr.get("canonical_label", attr["raw_name"]), "scope": key[1], "unit": key[2], "values": {}})
+            row["values"].setdefault(item["item_id"], []).append({"raw": attr["raw_value"], "name": attr["raw_name"], "normalized": attr.get("normalized_value"), "state": attr["knowledge_state"], "scope": attr["configuration_scope"], "unit": attr.get("unit") or ""})
+    return decorate_comparison(items, [rows[k] for k in sorted(rows)])

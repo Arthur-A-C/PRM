@@ -22,6 +22,8 @@ from time import perf_counter
 from openpyxl import load_workbook
 
 from app.services.catalog_semantics import normalize_cpu
+from app.services.operating_system import os_families, combined_os, VERSION as OS_VERSION
+from app.services.catalog_attribute_analysis import AttributeAnalysis
 from app.services.attribute_dictionary import apply_alias, attribute_name, load_dictionary
 from app.services.catalog_treatment import plain
 from app.services.dimensional_csv import HEADERS, sha256_file, valid_gtin
@@ -84,6 +86,7 @@ def load_policy(path=POLICY):
         if family["proximity"] not in {"core", "adjacent", "distant", "undecided"}:
             raise ValueError("Proximidade inválida")
     policy["attribute_dictionary"] = load_dictionary()
+    policy["operating_system_policy"] = OS_VERSION
     return policy
 
 
@@ -331,6 +334,11 @@ def normalize_record(record, source, policy, batch_id):
     for attr in attributes:
         by_code.setdefault((attr["attribute_code"], attr["configuration_scope"], attr["unit"]), []).append(attr)
     for observations in by_code.values():
+        if observations[0]['attribute_code'] == 'compute.os' and combined_os(observations) is not None:
+            for attr in observations:
+                attr['qualifiers']['os_families'] = sorted(os_families(attr['raw_value']))
+                attr['qualifiers']['comparison_policy'] = OS_VERSION
+            continue
         if len({dumps(a["normalized_value"]) for a in observations if a["knowledge_state"] == "known"}) > 1:
             for attr in observations:
                 attr["knowledge_state"] = "conflicting"
@@ -427,6 +435,7 @@ def atomic_json(path, document):
 
 def run_pipeline(entries, policy, *, output_root=STAGING, archive_root=ARCHIVE):
     started = perf_counter()
+    attribute_analysis = AttributeAnalysis()
     inputs = [{"source_id": e["source_id"], "file": e["path"].name, "sha256": sha256_file(e["path"])} for e in entries]
     run_id = fingerprint({"inputs": inputs, "policy": policy})[:24]
     output_root, archive_root = Path(output_root), Path(archive_root)
@@ -481,6 +490,7 @@ def run_pipeline(entries, policy, *, output_root=STAGING, archive_root=ARCHIVE):
                     issue_writer.writerow([source, spreadsheet_safe(key), record["position"], record["error"], "record_error", True])
                     continue
                 item, attributes = normalize_record(record, source, policy, batch_id)
+                attribute_analysis.observe(item, attributes)
                 counters["accepted"] += 1
                 counters["public_catalog"] += item["public_catalog"]
                 counters["attributes"] += len(attributes)
@@ -528,7 +538,7 @@ def run_pipeline(entries, policy, *, output_root=STAGING, archive_root=ARCHIVE):
     summary = {"schema_version": 1, "run_id": run_id, "mode": "refined_staging", "status": "base_validated",
                "created_at": datetime.now(timezone.utc).isoformat(), "source_observed_at": None,
                "rule_version": policy["rule_version"], "inputs": inputs, "counts": counts, "quality": quality,
-               "families": families, "catalog_completeness": "partial", "matching_status": "not_assessed",
+               "families": families, "attribute_analysis": attribute_analysis.summary(), "catalog_completeness": "partial", "matching_status": "not_assessed",
                "strict_coverage_percent": None, "ai_calls": 0, "ai_cost": "0",
                "elapsed_seconds": round(perf_counter() - started, 3),
                "phases": {"ingestion": "complete", "normalization": "initial_rules_review_required", "matching": "pending", "opportunities": "pending", "incremental_review": "pending"}}

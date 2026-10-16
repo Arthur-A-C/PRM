@@ -1,5 +1,9 @@
 # API
 
+## Indicadores de atributos — 14/10/2026
+
+`GET /api/v1/dashboard/summary` mantém schema 2 e acrescenta `attribute_analysis` (null para snapshots anteriores). `sources` informa contagens de interpretação de memória/armazenamento/USB e reconhecimento de SO. `competitors` informa `total`, `with_os`, `missing_os`, `equivalent`, `different`, `inconclusive`, `equivalent_percent_total` e `equivalent_percent_assessed` (null sem comparáveis). O escopo `os_attribute_same_family_own_public` compara somente o conjunto de famílias de SO com produtos próprios visíveis da mesma família de produto. Não representa cobertura técnica integral; `strict_coverage_percent` continua null. Política: `os-families-v2`.
+
 ## Atributos canônicos da base refinada
 
 As observações persistidas no snapshot atual incluem `attribute_code`, `canonical_label`, `mapping_version`, `normalized_value`, `value_type`, `unit`, `configuration_scope`, `knowledge_state`, `raw_name`, `raw_value` e evidências. A matriz HTML `/comparacao-atual` alinha código/escopo/unidade, não nomes brutos. Contrato e aliases: [NORMALIZACAO_ATRIBUTOS.md](NORMALIZACAO_ATRIBUTOS.md). Nenhum endpoint legado passa a operar automaticamente sobre esses snapshots; o resumo do dashboard continua no schema 2. Normalização de campo não significa equivalência do produto.

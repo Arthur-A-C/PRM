@@ -2,6 +2,8 @@
 
 ## Estado vigente: apenas a nova análise no dashboard
 
+Atualização de 14/10: o snapshot `74f1f8e8300912677e8f49f4` recalcula a base com SO por família (presença/suporte equivalentes), indicadores de interpretação de atributos compostos e gráfico de compatibilidade de SO com nossos produtos visíveis da mesma família. Detalhes operacionais/publicação em [STATUS.md](STATUS.md) e regras em [NORMALIZACAO_ATRIBUTOS.md](NORMALIZACAO_ATRIBUTOS.md). O gráfico de famílias continua distinto da compatibilidade de um atributo; equivalência integral ainda requer análise técnica.
+
 A nomenclatura dos atributos agora é padronizada entre as quatro fontes pelo dicionário versionado: `ATR_USB` → Portas USB, `ATR_COM` → Portas Seriais COM, além de IP, comunicação, IO, dimensões e campos elétricos com escopos distintos. A matriz usa códigos canônicos e mantém os nomes/valores originais visíveis. Auditoria, contrato e limites em [NORMALIZACAO_ATRIBUTOS.md](NORMALIZACAO_ATRIBUTOS.md); execução mais recente e publicação em [STATUS.md](STATUS.md). Novas importações pelo pipeline refinado recebem essas regras automaticamente.
 
 Os grupos agora são navegáveis: clicar em famílias compartilhadas, não localizadas ou classificação pendente abre os respectivos produtos, com filtros por fonte/família e 100 itens por página. Há também filtro de todos os alertas de qualidade. “Escolher produtos próprios para comparar” fixa o concorrente como referência e abre nossas empresas na mesma família; é possível pesquisar em todo o portfólio próprio. Não são candidatos homologados nem resultado fuzzy recalculado.

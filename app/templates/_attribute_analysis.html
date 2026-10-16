@@ -1,0 +1,49 @@
+{% if current_analysis.attribute_analysis %}
+{% set aa = current_analysis.attribute_analysis %}
+<section class="cc-panel cc-reveal" aria-labelledby="cc-os-heading">
+  <header class="cc-panel-head">
+    <div><p class="cc-kicker">Atributo · sistema operacional</p><h3 id="cc-os-heading">Comparação de sistema operacional</h3></div>
+    <span class="cc-tag">Política {{ aa.policy|default('—') }}</span>
+  </header>
+  <p class="cc-caption">Windows/Linux e suporte a Windows/Linux usam as mesmas famílias. Versão, edição e instalação permanecem nos dados originais. Esta análise compara somente o atributo de SO com produtos próprios visíveis da mesma família de produto; não confirma equivalência do produto inteiro.</p>
+  <div class="cc-os-grid">
+    {% for c in aa.competitors %}
+    {% set assessed = c.equivalent + c.different + c.inconclusive %}
+    <article class="cc-os-card">
+      <header><span class="cc-rival-dot" aria-hidden="true"></span><strong>{{ 'ECO Automação' if c.source == 'eco' else 'Dimensional' }}</strong><small>{{ '{:,}'.format(c.total).replace(',', '.') }} registros</small></header>
+      <div class="cc-os-figure"><strong>{{ c.equivalent }}</strong><span>registros com o mesmo conjunto de famílias de SO de um produto próprio da mesma família · {% if c.equivalent and not c.equivalent_percent_total %}menos de 0,01{% else %}{{ c.equivalent_percent_total }}{% endif %}% do catálogo</span></div>
+      <div class="cc-meter-row"><span>Informam SO</span><div class="cc-meter" role="img" aria-label="{{ c.with_os|default(0) }} de {{ c.total }} registros informam SO"><i style="--w: {{ (100 * c.with_os|default(0) / c.total) if c.total else 0 }}%"></i></div><b>{{ c.with_os|default(0) }}</b></div>
+      {% if assessed %}
+      <div class="cc-stack" role="img" aria-label="{{ c.equivalent }} equivalentes, {{ c.different }} diferentes, {{ c.inconclusive }} inconclusivos entre {{ assessed }} registros com SO">
+        {% for key, label, cls in [('equivalent', 'Equivalentes', 'is-shared'), ('different', 'Diferentes', 'is-rival'), ('inconclusive', 'Inconclusivos', 'is-pending')] %}{% if c[key] %}<span class="{{ cls }}" style="--w: {{ 100 * c[key] / assessed }}%" tabindex="0" data-tip-title="{{ label }}" data-tip-value="{{ c[key] }}" data-tip-note="de {{ assessed }} registros com SO informado"></span>{% endif %}{% endfor %}
+      </div>
+      {% endif %}
+      <ul class="cc-legend-list">
+        <li><i class="is-shared" aria-hidden="true"></i>Equivalentes <b>{{ c.equivalent }}</b></li>
+        <li><i class="is-rival" aria-hidden="true"></i>Diferentes <b>{{ c.different }}</b></li>
+        <li><i class="is-pending" aria-hidden="true"></i>Inconclusivos <b>{{ c.inconclusive }}</b></li>
+      </ul>
+      <p class="cc-caption">{{ c.different }} com conjuntos diferentes · {{ c.inconclusive }} inconclusivos · {{ c.missing_os }} sem informação de SO. Total: {{ c.total }}.</p>
+      <p class="cc-caption">Entre os {{ c.equivalent + c.different }} registros com comparação possível: <strong>{{ c.equivalent_percent_assessed if c.equivalent_percent_assessed is not none else 'Não disponível' }}{% if c.equivalent_percent_assessed is not none %}%{% endif %}</strong> com SO equivalente.</p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+<section class="cc-panel cc-reveal" aria-labelledby="cc-interpretation-heading">
+  <header class="cc-panel-head">
+    <div><p class="cc-kicker">Leitura dos campos compostos</p><h3 id="cc-interpretation-heading">Interpretação dos atributos compostos</h3></div>
+  </header>
+  <p class="cc-caption">Quantidade de produtos com descrição interpretada / produtos com o atributo mapeado. Campos sem mapeamento permanecem no painel de qualidade. Mede interpretação dos campos disponíveis, não completude da ficha ou equivalência técnica.</p>
+  <div class="table-scroll cc-table-wrap"><table class="cc-heat-table"><thead><tr><th scope="col">Empresa</th><th scope="col">Memória</th><th scope="col">Armazenamento</th><th scope="col">USB</th><th scope="col">SO reconhecido</th></tr></thead><tbody>
+  {% for source, label in [('portwell','Portwell'), ('choice','Choice'), ('eco','ECO'), ('dimensional','Dimensional')] %}
+  {% set c = aa.sources.get(source, {}) %}
+  <tr data-source="{{ source }}"><th scope="row"><span class="cc-source-dot src-{{ source }}" aria-hidden="true"></span>{{ label }}</th>
+    {% for done_key, total_key in [('memory_interpreted','memory_present'), ('storage_interpreted','storage_present'), ('usb_interpreted','usb_present'), ('recognized_os','with_os')] %}
+    {% set total = c.get(total_key, 0) %}{% set done = c.get(done_key, 0) %}
+    <td>{% if total %}<span class="cc-cell-value">{{ done }} / {{ total }}</span><span class="cc-cell-meter" aria-hidden="true"><i style="--w: {{ 100 * done / total }}%"></i></span><small>{{ (100 * done / total)|round(1) }}%</small>{% else %}<span class="cc-cell-empty">0 / 0 · sem atributo</span>{% endif %}</td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+  </tbody></table></div>
+</section>
+{% endif %}

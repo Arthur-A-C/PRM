@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026-10-15 — logos individuais
+
+- Portwell (nova), Choice e SAG em arquivos com transparência real, adaptados ao tema; aplicados em header, sidebar, login, seletores e comparação direta. Script reproduzível `scripts.extract_brand_logos`.
+
+## 2026-10-15 — PRM 4.0 Industrial Command Center
+
+- Dashboard reorganizado em centro de operações (indicadores com micrográficos, evolução acumulada com crosshair, fila de atenção, pipeline com gargalo, heatmap de 12 semanas, distribuição por empresa, produtos recentes e feed) e inteligência de portfólio (KPIs do snapshot, mapa competitivo, composição por família).
+- Novo endpoint somente leitura `GET /api/v1/operations/overview` (gestores) lê os `record.json` reais da Digitalização; CSV, WooCommerce e falhas aparecem como "sem registro persistido", nunca estimados.
+- Barra operacional com empresa, período, status, atualização (manual e a cada 5 min com a aba visível) e atalho de digitalização; filtros alteram todos os painéis.
+- Operational Clock no cabeçalho (horas/minutos, segundos discretos, data por extenso, BRT), sidebar compacta com tooltips, chip do usuário e tokens semânticos claro/escuro aplicados também à Digitalização.
+- `/digitalizacao?execucao=<id>` recupera uma execução pelo fluxo existente; prévia local aceita `--operations-root`.
+
+## 2026-10-15 — central operacional e workspace visual
+
+- Novo dashboard interativo: contexto por empresa, busca, indicadores do snapshot, cards do grupo, gráfico de famílias ECO/Dimensional e abas de atributos/qualidade, sem dados fictícios.
+- Navegação, cabeçalho, ícones e componentes compartilhados; temas claro/escuro, densidade e layouts responsivos até 320 px.
+- Digitalização com etapas fixas em desktop, contexto recolhível, enquadramento de logos e áreas de fotos/documentos refinadas. Backend, integrações, IDs e banco preservados.
+- Regressões de apresentação, prévia local somente leitura e suíte de navegador com galeria; documentação em `docs/WORKSPACE_VISUAL.md`.
+
+## 2026-10-14 — SO por família e análises recalculadas
+
+- Windows/Linux e suporte a Windows/Linux equivalem por família; listas sobrepostas são unificadas, com versões/edições preservadas nas evidências.
+- Novo snapshot recalcula conflitos, indicadores existentes e interpretação de memória/armazenamento/USB; painel e API acrescentam compatibilidade do atributo SO com denominadores explícitos.
+- Comparação de SO restrita a produtos próprios visíveis da mesma família; não transforma coincidência de um atributo em equivalência integral de produtos.
+
+## 2026-10-14 — características compostas
+
+- Memória e armazenamento passam a uma única linha com comparação por detalhe dentro das células; tecnologia, formato, capacidades e limites explicitados separadamente.
+- Demais atributos consolidados por característica, preservando escopos/unidades; USB mostra quantidades, geração e conector.
+- Novo resumo Correspondência parcial quando há coincidências e lacunas. Valores originais acessíveis e conflitos preservados; sem reimportação do banco.
+
+## 2026-10-14 — equivalência de descrições USB
+
+- Parser de quantidades/versões e dicionário Type/Tipo, Gen/Generation/Geração, com independência de espaços e ordem.
+- Descrições USB compatíveis recebem Equivalente, com explicação dos detalhes ausentes. Diferenças explícitas e conflitos preservados; texto não interpretado não é descartado.
+
+## 2026-10-14 — comparação por atributo
+
+- Indicadores de atributos iguais, equivalentes, diferentes, insuficientes ou conflitantes em relação ao primeiro produto.
+- Memória e armazenamento agrupam capacidade e tipo, mantendo características distintas comparáveis e contexto original.
+- Sistema operacional consolidado em uma linha com escopos preservados; suporte, instalação e configuração opcional não são tratados como iguais.
+- Auditoria do snapshot publicado somente leitura; sem alteração dos catálogos ou dados históricos.
+
 ## 2026-10-09 — normalização entre empresas
 
 - Dicionário versionado de 54 campos e 86 aliases, incluindo ATR_USB/Portas USB e ATR_COM/Portas Seriais COM; nomes e evidências originais preservados.
