@@ -1,0 +1,27 @@
+/* Integrações WooCommerce — layout da página. Controles e painéis vêm de prm-ui.css. */
+#store-integrations { min-width: 0; }
+#store-integrations .integration-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+#store-integrations .store-card { display: flex; flex-direction: column; gap: 1rem; min-width: 0; overflow-wrap: anywhere; }
+#store-integrations .store-card[data-store="portwell"] { --brand: var(--b-portwell); }
+#store-integrations .store-card[data-store="choice"] { --brand: var(--b-choice); }
+#store-integrations .store-card[data-store="sag"] { --brand: var(--b-sag); }
+#store-integrations .store-card { border-top: 3px solid var(--brand); }
+.store-card-head { display: grid; gap: .35rem; }
+.store-card-logo { display: flex; align-items: center; height: 2rem; }
+.store-card-logo .company-logo { --logo-h: 1.7rem; }
+:root .prm-ui .store-card-head h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.store-card-head small { font: 500 .68rem var(--cc-mono); }
+.store-checks { display: grid; gap: .6rem; }
+.store-check { padding: .75rem .85rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface-2); }
+.store-check-label { display: inline-flex; align-items: center; gap: .45rem; color: var(--cc-ink); font-size: .78rem; font-weight: 650; }
+.store-check-label svg { width: 15px; height: 15px; color: var(--cc-ink-3); }
+:root .prm-ui .store-check p { margin: .35rem 0 0; font-size: .76rem; line-height: 1.5; }
+.store-permissions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem .75rem; margin: 0; font-size: .74rem; }
+.store-permissions:empty, .store-media:empty { display: none; }
+.store-permissions dt { color: var(--cc-ink-3); font-family: var(--cc-mono); font-size: .68rem; }
+.store-permissions dd { margin: 0; color: var(--cc-ink); font-weight: 600; text-align: right; }
+:root .prm-ui .store-media { margin: 0; font-size: .74rem; }
+#store-integrations .prm-note { margin-top: auto; }
+#store-integrations .store-test { width: 100%; }
+#store-integrations .store-test:disabled { cursor: wait; }
+@media (max-width: 1100px) { #store-integrations .integration-grid { grid-template-columns: minmax(0, 1fr); } }

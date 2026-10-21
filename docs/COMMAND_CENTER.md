@@ -9,6 +9,7 @@ Dashboard (`/`, também `/comparador` e `/importacoes` com outra aba inicial) e 
 | `app/templates/_operations_dashboard.html` | Composição: barra operacional, status da base, centro de operações, portfólio, abas Atributos/Qualidade |
 | `app/templates/_attribute_analysis.html` | Widgets de SO e interpretação de atributos |
 | `app/templates/shell.html`, `_workspace_icons.html` | Sidebar compacta, cabeçalho, Operational Clock, ícones |
+| `app/static/css/prm-ui.css` | Componentes das telas de trabalho e do login (escopo `.prm-ui`, `.meeting-module`, `.login-layout`) |
 | `app/static/css/command-center.css` | Tokens `--cc-*` (claro/escuro), shell e componentes; carregado por último |
 | `app/static/js/workspace.js` | Shell em todas as páginas: relógio, contexto da Digitalização, menu |
 | `app/static/js/command-center.js` | Somente no dashboard: filtros, gráficos SVG, tabela, feed, atualização |
@@ -36,5 +37,5 @@ Sem `--operations-root`, usa o armazenamento configurado. A prévia serve só GE
 ## Limites
 
 - Logos: arquivos individuais em `app/static/brand/` (ver `scripts/extract_brand_logos.py`).
-- Login e catálogo herdam os tokens, mas não foram redesenhados.
+- Demais telas (Digitalização, lotes, integrações, cadastro, catálogo, login) usam `app/static/css/prm-ui.css` sobre os mesmos tokens; o dashboard não depende dele.
 - Sem telemetria real de Claude/WooCommerce. Os status exibidos são declarativos.

@@ -34,3 +34,9 @@ uvicorn==0.53.0
 watchfiles==1.2.0
 websockets==17.1
 anthropic==1.8.0
+pymupdf>=1.24,<2
+pillow>=10,<13
+numpy>=1.26,<3
+ImageHash==4.3.2
+jsonschema>=4.23,<5
+reportlab>=4,<6

@@ -2,9 +2,9 @@
 {% import "_brand_logos.html" as logos %}
 {% import "_workspace_icons.html" as ui %}
 
-{% block extra_head %}
+{% block page_css %}
   {% if title == "Digitalização" %}
-  <link rel="stylesheet" href="{{ url_for('static', path='/css/digitalizacao.css') }}?v=20260924-1">
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/digitalizacao.css') }}?v=20261020-1">
   {% endif %}
 {% endblock %}
 
@@ -33,7 +33,7 @@
       </form>
     </div>
   </aside>
-  <main class="content" id="conteudo">
+  <main class="content{% if title not in ['Visão geral', 'Comparador', 'Importações e qualidade', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %} prm-ui{% endif %}" id="conteudo">
     {% set page_subtitles = {'Visão geral': 'Operação, portfólio e mapa competitivo', 'Digitalização': 'Do documento técnico ao pacote de cadastro', 'Catálogos': 'Fotografia atual das quatro fontes', 'Comparador': 'Atributos e compatibilidade', 'Importações e qualidade': 'Procedência e qualidade da base', 'Comparação atual': 'Produtos lado a lado'} %}
     <header class="page-header workspace-header cc-header">
       <div class="page-header-main">
@@ -47,7 +47,7 @@
           <time class="workspace-clock" data-workspace-clock><span class="cc-clock-hm" data-clock-hm>--:--</span><span class="cc-clock-s" data-clock-s>:--</span></time>
           <span class="cc-clock-meta"><span data-workspace-date>—</span><span class="cc-clock-zone">BRT · UTC−3</span></span>
         </div>
-        {% if title not in ['Digitalização', 'Visão geral', 'Comparador', 'Importações e qualidade'] %}<a class="cc-header-action" href="/digitalizacao">{{ ui.icon('plus') }}<span>Nova digitalização</span></a>{% endif %}
+        {% if user.role in ['gestor', 'desenvolvedor'] and title not in ['Digitalização', 'Visão geral', 'Comparador', 'Importações e qualidade'] %}<a class="cc-header-action" href="/digitalizacao" title="Nova digitalização">{{ ui.icon('plus') }}<span>Nova digitalização</span></a>{% endif %}
         <button class="theme-toggle" type="button" data-prm-theme-toggle aria-label="Alternar tema"><span class="theme-toggle-icon" aria-hidden="true">{{ ui.icon('moon') }}{{ ui.icon('sun') }}</span><span class="sr-only" data-prm-theme-label>Tema escuro</span></button>
         <span class="cc-user" title="{{ user.name }} · {{ user.role|capitalize }}"><span class="cc-avatar" aria-hidden="true">{{ (user.name or '?')[:1]|upper }}</span><span class="cc-user-copy"><strong>{{ user.name }}</strong><small>{{ user.role|capitalize }}</small></span></span>
         {{ logos.lockup('brand-trio-header') }}
@@ -155,8 +155,18 @@
         {% for row in direct.technical_matrix %}<tr><th scope="row">{{ row.name }}<small>{{ 'Dado tratado' if row.origin == 'enriquecimento' else 'Atributo estruturado' if row.origin == 'atributo_normalizado' else 'Catálogo' }}</small></th>{% for cell in row['values'] %}<td>{% if cell.value is not none %}{{ cell.value }}{% else %}<span class="not-informed">Não informado</span>{% endif %}</td>{% endfor %}<td><span class="matrix-state state-{{ row.status }}">{{ row.status|replace('_', ' ') }}</span></td></tr>{% endfor %}
       </tbody></table></div>
     </section>
+    {% elif title in ['Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
+      {% include '_meeting_pages.html' %}
     {% elif title == "Digitalização" %}
       {% include "digitalizacao.html" %}
+    {% elif title == "Geração em Lote" %}
+      {% include "datasheet_batches.html" %}
+    {% elif title == "Integrações WooCommerce" %}
+      {% include "store_integrations.html" %}
+    {% elif title in ["Gestão", "Criar conta"] %}
+      {% include "_accounts.html" %}
+    {% elif title == "Cadastro via API" %}
+      {% include "store_registration.html" %}
     {% else %}
     <section class="panel empty-state-panel">
       <div class="empty-icon" aria-hidden="true">◇</div>
@@ -165,18 +175,26 @@
       <a class="button-secondary" href="/">Voltar à visão geral</a>
     </section>
     {% endif %}
+    {% if title == 'Visão geral' %}{% include '_planner.html' %}{% endif %}
+    {% if title in ['Visão geral', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}{% include '_activity_dialog.html' %}{% endif %}
   </main>
 </div>
 {% endblock %}
 
 {% block scripts %}
+  {% if title == "Cadastro via API" %}<script src="{{ url_for('static', path='/js/store-registration.js') }}?v=20261021-2" defer></script>{% endif %}
+  {% if title == "Integrações WooCommerce" %}<script src="{{ url_for('static', path='/js/store-integrations.js') }}?v=20261020-1" defer></script>{% endif %}
+  {% if title == "Geração em Lote" %}<script src="{{ url_for('static', path='/js/datasheet-batches.js') }}?v=20261021-folders" defer></script>{% endif %}
+  {% if title in ['Visão geral', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
+  <script src="{{ url_for('static', path='/js/meetings.js') }}?v=20261021-assign" defer></script>
+  {% endif %}
   <script src="{{ url_for('static', path='/js/ui.js') }}?v=20261008-2" defer></script>
   <script src="{{ url_for('static', path='/js/workspace.js') }}?v=20261015-cc2" defer></script>
   {% if refined_analysis and title in ['Visão geral', 'Comparador', 'Importações e qualidade'] %}
   <script src="{{ url_for('static', path='/js/command-center.js') }}?v=20261015-cc2" defer></script>
   {% endif %}
   {% if title == "Digitalização" %}
-  <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20261008-claude-4" defer></script>
+  <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20261020-ui1" defer></script>
   <script src="{{ url_for('static', path='/js/registration.js') }}?v=20261015-cc1" defer></script>
   {% endif %}
 {% endblock %}

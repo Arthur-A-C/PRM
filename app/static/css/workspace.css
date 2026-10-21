@@ -160,36 +160,13 @@
 .operations [hidden] { display: none !important; }
 .operations.is-dense .ops-panel { padding: .9rem; }.operations.is-dense .ops-metrics article { padding: .65rem .9rem; }.operations.is-dense .ops-intro { padding-top: 0; padding-bottom: 1rem; }.operations.is-dense .ops-intro h2 { font-size: 1.8rem; }
 /* Digitalização: persistent context, visible stages and generous document canvas. */
-.workspace-shell .digitalizacao-hero { min-height: 8rem; padding: 1.5rem; background: linear-gradient(120deg,var(--prm-surface),var(--prm-raised)); border-left: 3px solid var(--company-accent); }
-.workspace-shell .digitalizacao-hero h2 { font-size: 1.7rem; letter-spacing: -.04em; }
-.workspace-shell .digitalizacao-hero-badge { background: #19353e; color: #dcf7da; border-radius: .5rem; }
-.workspace-shell .digitalizacao-progress { position: sticky; top: .5rem; z-index: 4; padding: .4rem; border: 1px solid var(--prm-border); background: var(--prm-bg); border-radius: .65rem; }
-.workspace-shell .digitalizacao-step { min-height: 3.7rem; border-radius: .4rem; }
-.workspace-shell .digitalizacao-section-heading h2 { font-size: 1.15rem; letter-spacing: -.025em; }
-.workspace-shell .digitalizacao-section-number { border: 1px solid var(--prm-border); font-family: ui-monospace, monospace; background: var(--prm-raised); }
-.workspace-shell .digitalizacao-main > section { scroll-margin-top: 6.5rem; }
-.workspace-shell .digitalizacao-company-cards button { padding: 1rem; min-height: 7rem; border-radius: .6rem; }
-.workspace-shell .digitalizacao-company-cards button[aria-pressed=true] { border-color: var(--company-accent); box-shadow: inset 0 -3px var(--company-accent); }
-.workspace-shell .digitalizacao-context { top: 6rem; }
-.workspace-shell .digitalizacao-context-card { padding: 1.1rem; }
-.workspace-shell .digitalizacao-dropzone { min-height: 12rem; background: var(--prm-raised); border-color: var(--company-accent); }
-.workspace-shell .digitalizacao-images { gap: .8rem; }
-.workspace-shell .digitalizacao-image-card { border-radius: .6rem; overflow: hidden; }
-.workspace-shell .digitalizacao-ai-panel { background: #18313d; border-color: #376273; }
-.workspace-shell .digitalizacao-ai-panel button { border-radius: .45rem; }
-.workspace-shell .datasheet-viewer-canvas { min-height: 32rem; background: var(--prm-bg); }
-.workspace-shell .digitalizacao-review-field { border: 1px solid var(--prm-border); border-radius: .45rem; padding: .8rem; margin-block: .5rem; }
-.workspace-shell .digitalizacao-registration-preview { border: 1px solid var(--prm-border); border-radius: .5rem; background: var(--prm-raised); }
-.workspace-tools { display: flex; justify-content: space-between; gap: .7rem; align-items: center; margin-bottom: 1rem; color: var(--prm-soft); font-size: .7rem; }
-.workspace-tools button { border: 1px solid var(--prm-border); background: var(--prm-surface); color: var(--prm-ink); font-size: .7rem; box-shadow: none; }
-.digitalizacao-workspace.context-is-hidden { grid-template-columns: 1fr; }.context-is-hidden .digitalizacao-context { display: none; }
 .workspace-shell button,.workspace-shell a,.workspace-shell input { transition: background-color .16s,border-color .16s,box-shadow .16s; }
-@media (min-width: 1600px) { .ops-donut { width: 13rem; }.ops-panel { padding: 1.5rem; }.ops-intro { padding-block: 1.3rem 2rem; } }
-@media (max-width: 1200px) { .ops-layout { grid-template-columns: minmax(0,1fr) 15rem; }.workspace-shell { grid-template-columns: 12.5rem minmax(0,1fr); }.ops-panel { padding: 1rem; }.ops-competitor { gap: .8rem; }.workspace-clock { display: none; }.ops-company { padding: .65rem; }.ops-coverage .ops-panel-heading { flex-wrap: wrap; } }
-@media (max-width: 1000px) { .ops-layout { grid-template-columns: 1fr; }.ops-aside { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }.ops-aside .ops-panel:last-child { grid-column: 1 / -1; }.ops-density { display: none; }.workspace-header .brand-lockup { width: 10rem; flex-basis: 10rem; }.workspace-shell .digitalizacao-workspace { grid-template-columns: 1fr; }.workspace-shell .digitalizacao-context { position: static; } }
-@media (max-width: 760px) { .ops-intro-actions { display: none; }.ops-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }.ops-view-note { display: none; }.ops-context { align-items: stretch; flex-wrap: wrap; }.ops-context > div { width: 100%; }.ops-context select { width: 100%; }.ops-search { flex-basis: 100%; }.ops-company strong { font-size: .95rem; }.ops-company[data-ops-company-card=sag] strong { font-size: .7rem; }.ops-companies { gap: .4rem; }.workspace-shell .digitalizacao-progress { position: static; }.workspace-shell .digitalizacao-main > section { scroll-margin-top: 1rem; } }
-@media (max-width: 600px) { .workspace-shell,.workspace-shell.sidebar-is-compact { display: block; }.workspace-shell .content { padding: 0 .85rem 2rem; }.workspace-shell .workspace-header { min-height: 4.7rem; margin-bottom: .8rem; }.workspace-shell .sidebar { width: 15rem; }.workspace-header .page-header-actions .brand-lockup { display: none; }.workspace-header .page-heading { gap: .5rem; }.workspace-header h1 { font-size: .97rem; }.workspace-header .theme-toggle { padding: .4rem .5rem; }.ops-intro h2 { font-size: 1.9rem; }.ops-intro { padding: .5rem 0 1.2rem; }.ops-intro p:not(.eyebrow) { font-size: .75rem; }.desktop-break { display: none; }.ops-context { padding: .75rem; }.ops-metrics { gap: .55rem; }.ops-metrics article { padding: .8rem; }.ops-metric-label { font-size: .62rem; }.ops-metric-label svg { display: none; }.ops-metrics article > strong { font-size: 1.7rem; }.ops-viewbar [role=tablist] { gap: 1rem; }.ops-viewbar [role=tab] { font-size: .68rem; }.ops-aside { grid-template-columns: 1fr; gap: 0; }.ops-competitor { grid-template-columns: 1fr; padding-top: .5rem; gap: .5rem; }.ops-donut { width: 10rem; }.ops-breakdown a { padding-block: .75rem; }.ops-panel-heading { align-items: flex-start; }.ops-panel h3 { font-size: .95rem; }.ops-panel-heading > a { font-size: .6rem; }.ops-pipeline { grid-template-columns: repeat(2,minmax(0,1fr)); }.ops-company .company-card-logo { height: 1.5rem; }.ops-company > span:not(.sr-only) { font-size: .55rem; }.workspace-shell .digitalizacao-hero { padding: 1.1rem; }.workspace-shell .digitalizacao-hero h2 { font-size: 1.4rem; }.workspace-shell .digitalizacao-company-cards button { padding: .65rem; }.workspace-tools { flex-wrap: wrap; }.workspace-shell .datasheet-viewer-canvas { min-height: 20rem; } }
-@media (prefers-reduced-motion: reduce) { .workspace-shell * { transition: none !important; scroll-behavior: auto !important; animation: none !important; } }
+@media (min-width: 1600px) { .ops-donut { width: 13rem; }.ops-panel { padding: 1.5rem; }.ops-intro { padding-block: 1.3rem 2rem; }}
+@media (max-width: 1200px) { .ops-layout { grid-template-columns: minmax(0,1fr) 15rem; }.workspace-shell { grid-template-columns: 12.5rem minmax(0,1fr); }.ops-panel { padding: 1rem; }.ops-competitor { gap: .8rem; }.workspace-clock { display: none; }.ops-company { padding: .65rem; }.ops-coverage .ops-panel-heading { flex-wrap: wrap; }}
+@media (max-width: 1000px) { .ops-layout { grid-template-columns: 1fr; }.ops-aside { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }.ops-aside .ops-panel:last-child { grid-column: 1 / -1; }.ops-density { display: none; }.workspace-header .brand-lockup { width: 10rem; flex-basis: 10rem; }}
+@media (max-width: 760px) { .ops-intro-actions { display: none; }.ops-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }.ops-view-note { display: none; }.ops-context { align-items: stretch; flex-wrap: wrap; }.ops-context > div { width: 100%; }.ops-context select { width: 100%; }.ops-search { flex-basis: 100%; }.ops-company strong { font-size: .95rem; }.ops-company[data-ops-company-card=sag] strong { font-size: .7rem; }.ops-companies { gap: .4rem; }}
+@media (max-width: 600px) { .workspace-shell,.workspace-shell.sidebar-is-compact { display: block; }.workspace-shell .content { padding: 0 .85rem 2rem; }.workspace-shell .workspace-header { min-height: 4.7rem; margin-bottom: .8rem; }.workspace-shell .sidebar { width: 15rem; }.workspace-header .page-header-actions .brand-lockup { display: none; }.workspace-header .page-heading { gap: .5rem; }.workspace-header h1 { font-size: .97rem; }.workspace-header .theme-toggle { padding: .4rem .5rem; }.ops-intro h2 { font-size: 1.9rem; }.ops-intro { padding: .5rem 0 1.2rem; }.ops-intro p:not(.eyebrow) { font-size: .75rem; }.desktop-break { display: none; }.ops-context { padding: .75rem; }.ops-metrics { gap: .55rem; }.ops-metrics article { padding: .8rem; }.ops-metric-label { font-size: .62rem; }.ops-metric-label svg { display: none; }.ops-metrics article > strong { font-size: 1.7rem; }.ops-viewbar [role=tablist] { gap: 1rem; }.ops-viewbar [role=tab] { font-size: .68rem; }.ops-aside { grid-template-columns: 1fr; gap: 0; }.ops-competitor { grid-template-columns: 1fr; padding-top: .5rem; gap: .5rem; }.ops-donut { width: 10rem; }.ops-breakdown a { padding-block: .75rem; }.ops-panel-heading { align-items: flex-start; }.ops-panel h3 { font-size: .95rem; }.ops-panel-heading > a { font-size: .6rem; }.ops-pipeline { grid-template-columns: repeat(2,minmax(0,1fr)); }.ops-company .company-card-logo { height: 1.5rem; }.ops-company > span:not(.sr-only) { font-size: .55rem; }}
+@media (prefers-reduced-motion: reduce) { .workspace-shell * { transition: none !important; scroll-behavior: auto !important; animation: none !important; }}
 /* Override the earlier dark theme's generic button rules, keeping state visible. */
 :root[data-theme=dark] .workspace-shell .workspace-header { background: transparent; box-shadow: none; }
 :root[data-theme=dark] .operations .ops-viewbar [role=tab] { background: transparent; color: var(--prm-soft); border-color: transparent; }
@@ -199,12 +176,10 @@
 :root[data-theme=dark] .operations :is(.ops-company,.ops-competitor-switch button,.ops-density):hover,
 :root[data-theme=dark] .operations :is(.ops-company,.ops-competitor-switch button,.ops-density)[aria-pressed=true] { background: var(--ops-accent-soft); border-color: var(--ops-accent); color: var(--ops-accent); }
 :root[data-theme=dark] .operations .ops-search button { background: var(--ops-accent-soft); color: var(--ops-accent); border-color: var(--ops-line); }
-:root[data-theme=dark] .workspace-tools button { background: var(--prm-surface); color: var(--prm-ink); border-color: var(--prm-border); }
-@media (max-width: 600px) { .ops-company .company-card-logo { height: auto; } }
+@media (max-width: 600px) { .ops-company .company-card-logo { height: auto; }}
 @media (min-width: 601px) and (max-width: 1000px) {
   .ops-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .ops-context { flex-wrap: wrap; }
   .ops-context > div,.ops-context select { width: 100%; }
   .ops-search { flex-basis: 100%; }
-  .ops-intro-actions,.ops-view-note { display: none; }
-}
+  .ops-intro-actions,.ops-view-note { display: none; }}

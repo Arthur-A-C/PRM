@@ -20,7 +20,7 @@ from PIL import Image
 from dotenv import load_dotenv
 
 from app.services.datasheet_core import DatasheetResult
-from app.services.datasheet_prompt import REVIEW_PROMPT, TOOL, system_prompt, user_message
+from app.services.datasheet_prompt import REVIEW_PROMPT, TOOL, system_prompt, user_message, datasheet_tool
 from app.services.datasheet_validation import validate_analysis
 
 MAX_EDGE = 1568  # lado máximo enviado à API; as caixas são normalizadas, então o motor usa o original
@@ -83,7 +83,7 @@ class GeracaoDatasheet:
 def gerar_datasheet_com_claude(empresa: str, nome: str, anexos: dict[str, bytes], *, configuracao: str = "",
                                opcionais: str = "", nivel: str = "completo", cadastro: str = "",
                                texto_site: str = "", observacoes: str = "", codigo: str | None = None,
-                               revisoes: int = 2, model: str | None = None, client=None) -> GeracaoDatasheet:
+                               revisoes: int | None = None, model: str | None = None, client=None) -> GeracaoDatasheet:
     """anexos: {nome_arquivo: bytes}. Nomeie as fotos img_01.jpg, img_02.png... na ordem desejada."""
     import anthropic
     load_dotenv()
@@ -91,6 +91,11 @@ def gerar_datasheet_com_claude(empresa: str, nome: str, anexos: dict[str, bytes]
     model = model or os.environ.get("DATASHEET_MODEL")
     if not model:
         raise RuntimeError("Defina DATASHEET_MODEL com o id do modelo Claude a usar.")
+    is_haiku = 'haiku' in model.lower()
+    if nivel not in {'completo', 'resumido'}:
+        raise ValueError('Nível do datasheet inválido.')
+    revision_limit = (1 if is_haiku else 2) if revisoes is None else min(2, max(0, revisoes))
+    tool_schema = datasheet_tool(nivel, nome)
     if not client and not os.environ.get("ANTHROPIC_API_KEY"):
         raise RuntimeError("Defina ANTHROPIC_API_KEY no ambiente do servidor.")
     client = client or anthropic.Anthropic(timeout=120.0, max_retries=1)
@@ -100,23 +105,30 @@ def gerar_datasheet_com_claude(empresa: str, nome: str, anexos: dict[str, bytes]
     content.append({"type": "text", "text": user_message(empresa, nome, configuracao, opcionais, nivel, cadastro,
                                                          texto_site, observacoes, list(anexos))})
     messages: list[dict[str, Any]] = [{"role": "user", "content": content}]
-    system = [{"type": "text", "text": system_prompt(empresa), "cache_control": {"type": "ephemeral"}}]
+    system = [{"type": "text", "text": system_prompt(empresa, model), "cache_control": {"type": "ephemeral"}}]
 
-    def ask() -> tuple[dict[str, Any], Any]:
-        resp = client.messages.create(model=model, max_tokens=32000, output_config={"effort": "medium"}, system=system,
-                                      tools=[TOOL], tool_choice={"type": "auto"},
-                                      messages=messages)
+    def ask(stage: str = "análise inicial") -> tuple[dict[str, Any], Any]:
+        options = {} if is_haiku else {'output_config': {'effort': 'medium'}}
+        resp = client.messages.create(model=model, max_tokens=16000 if is_haiku else 32000, system=system,
+                                      tools=[tool_schema], tool_choice={"type": "auto"},
+                                      messages=messages, **options)
         if getattr(resp, "stop_reason", None) == "max_tokens":
-            raise ValueError("O Claude atingiu o limite de tokens; reduza os anexos ou o nível de detalhe.")
+            raise ValueError(
+                f"O Claude atingiu o limite de saída na {stage}; o JSON ficou incompleto e não foi aceito. "
+                "Use fontes apenas do produto solicitado ou selecione o nível resumido. "
+                "Nenhuma nova tentativa ou troca de modelo foi feita automaticamente."
+            )
         tool = next((b for b in resp.content if b.type == "tool_use" and b.name == TOOL["name"]), None)
         if tool is None or not isinstance(tool.input, dict):
             raise ValueError("O Claude não devolveu o JSON estruturado pela ferramenta entregar_datasheet.")
+        if tool.input.get('nivel') != nivel:
+            raise ValueError('O Claude devolveu um nível diferente do solicitado; análise não aceita.')
         return validate_analysis(dict(tool.input), name=nome, attachments=set(anexos)), resp
 
     dados, resp = ask()
     resultado = gerar(dados, anexos, codigo=codigo)
     ciclos = 1
-    for _ in range(max(0, revisoes)):
+    for _ in range(revision_limit):
         tool_id = next(b for b in resp.content if b.type == "tool_use" and b.name == TOOL["name"]).id
         relatorio = {"avisos": resultado.avisos, "paginas": len(resultado.previews)}
         review: list[dict[str, Any]] = [{"type": "text", "text": "Relatório do motor: " + json.dumps(relatorio, ensure_ascii=False)}]
@@ -126,10 +138,12 @@ def gerar_datasheet_com_claude(empresa: str, nome: str, anexos: dict[str, bytes]
         review.append({"type": "text", "text": REVIEW_PROMPT})
         messages.append({"role": "assistant", "content": resp.content})
         messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_id, "content": review}]})
-        novo, resp = ask()
+        novo, resp = ask("revisão visual")
         ciclos += 1
-        if novo.get("revisao_ok"):
-            break
+        unchanged = {k: v for k, v in novo.items() if k != 'revisao_ok'} == {k: v for k, v in dados.items() if k != 'revisao_ok'}
         dados = novo
-        resultado = gerar(dados, anexos, codigo=codigo)
+        if not unchanged:
+            resultado = gerar(dados, anexos, codigo=codigo)
+        if novo.get('revisao_ok'):
+            break
     return GeracaoDatasheet(resultado, dados, ciclos)

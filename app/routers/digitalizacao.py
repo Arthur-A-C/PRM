@@ -28,12 +28,13 @@ router = APIRouter(
 
 
 def _require_authorized(auth: CurrentAuth, csrf_token: str | None) -> None:
+    _require_manager(auth)
     if not csrf_token or not secrets_match(auth.login_session.csrf_hash, csrf_token):
         raise HTTPException(status_code=403, detail="Token CSRF inválido.")
 
 
 def _require_manager(auth: CurrentAuth) -> None:
-    if auth.user.role != "gestor":
+    if auth.user.role not in {"gestor", "desenvolvedor"}:
         raise HTTPException(status_code=403, detail="Somente gestores podem finalizar digitalizações.")
 
 

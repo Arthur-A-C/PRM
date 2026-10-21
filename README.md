@@ -8,6 +8,15 @@ A [nova base refinada](docs/CATALOGOS_REFINADOS.md), publicada em 09/10/2026, re
 
 ## O que já funciona
 
+- [Níveis de acesso e contas](docs/NIVEIS_DE_ACESSO.md): desenvolvedor e gestor com permissões administrativas equivalentes, vendedor restrito a produtos e reuniões/cards. Criação de contas protegida em Gestão.
+
+- [Cadastro via API — arquivos](docs/CADASTRO_API_STAGING.md): imagens e documentos `_wcda_arquivos` de produtos já existentes, a partir de ZIPs do PRM por SKU (CSV opcional). Dry Run, aprovação, journal, auditoria e releitura; dados comerciais continuam no fluxo CSV. Escrita nas lojas atuais bloqueada.
+- [Documentos `_wcda_arquivos`](docs/WCDA_HOMOLOGACAO.md): estrutura observada nas três lojas, serviço de preparação, Dry Run, preservação de documentos, payload e plano de rollback. Sem escrita real; teste futuro exige autorização específica de loja/SKU.
+
+- [Integrações WooCommerce e WordPress](docs/INTEGRACOES_LOJAS.md): diagnósticos autenticados somente leitura para as três lojas, restritos a gestores/desenvolvedores. Autenticação das seis APIs confirmada em 20/10/2026; escrita e contrato de documentos ainda não homologados. Playwright preservado.
+
+- [Geração de Datasheets em Lote](docs/DATASHEETS_EM_LOTE.md): ZIP por pastas CIGAM/SKU (CSV opcional) ou modo CSV/PDFs anterior, prévia com inventário, fila persistente e exportação de PDFs/análises/fontes por empresa. Acesse `/digitalizacao/lotes`; requer iniciar o worker separado descrito no guia. Sem publicação automática nas lojas.
+
 - Login individual, sessões e páginas protegidas.
 - Importação auditável de planilhas XLSX da Eco Automação, Portwell e Choice Tech, com prévia, validação e proteção contra reimportação idêntica.
 - Tratamento automático conservador de novos produtos (família, modelo e especificações detectáveis) e enriquecimento opcional com as saídas tratadas do `PRM_Pipeline`, sem perder as fontes originais.

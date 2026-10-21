@@ -16,6 +16,7 @@ from app.models.comparison import Comparison, ComparisonItem
 from app.models.identity import Company, LoginSession, Organization, User
 from app.models.matching import CatalogMatch, CatalogMatchRun
 from app.models.refined_catalog import RefinedCatalogRun, RefinedCatalogItem, RefinedCatalogRaw
+from app.models.meetings import Meeting, TranscriptRevision, MeetingRun, MeetingAudio, Activity, ActivityAudit, ActivityAlert
 
 __all__ = [
     "Base",

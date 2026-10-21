@@ -10,6 +10,6 @@ router = APIRouter(prefix="/api/v1/operations", tags=["operações"])
 @router.get("/overview")
 def overview(auth: CurrentAuth) -> dict:
     # Same access rule as reading digitalization runs.
-    if auth.user.role != "gestor":
+    if auth.user.role not in {"gestor", "desenvolvedor"}:
         raise HTTPException(status_code=403, detail="Somente gestores consultam as execuções de digitalização.")
     return operations_overview()

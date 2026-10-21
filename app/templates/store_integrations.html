@@ -1,0 +1,33 @@
+{% import "_brand_logos.html" as logos %}
+{% import "_workspace_icons.html" as ui %}
+{# data-* são contratos de store-integrations.js. Credenciais nunca chegam ao navegador. #}
+<section id="store-integrations" class="prm-stack">
+  <header class="prm-page-head">
+    <div>
+      <p class="eyebrow">Choice · SAG · Portwell</p>
+      <h2>Integrações WooCommerce</h2>
+      <p>Diagnóstico autenticado somente de leitura. Nenhum produto é alterado e nenhum arquivo é enviado. As credenciais permanecem no backend; a automação atual continua disponível.</p>
+    </div>
+  </header>
+  <p id="store-message" class="prm-status is-boxed" role="status" aria-live="polite"></p>
+
+  <div class="integration-grid">
+  {% for company, label in [('choice', 'Choice'), ('sag', 'SAG'), ('portwell', 'Portwell')] %}
+    <article class="panel store-card" data-store="{{ company }}">
+      <header class="store-card-head">
+        <span class="store-card-logo">{{ logos.company(company) }}</span>
+        <h2>{{ label }}</h2>
+        <small data-last-test>Último teste: não realizado</small>
+      </header>
+      <div class="store-checks">
+        <div class="store-check"><span class="store-check-label">{{ ui.icon('cart') }}WooCommerce</span><p data-wc-status>Não testado</p></div>
+        <div class="store-check"><span class="store-check-label">{{ ui.icon('link') }}WordPress</span><p data-wp-status>Não testado</p></div>
+      </div>
+      <dl class="store-permissions" data-permissions></dl>
+      <p class="store-media" data-media></p>
+      <p class="prm-note">{{ ui.icon('info') }}<span>Permissões de escrita e formatos aceitos para upload ainda não homologados.</span></p>
+      <button type="button" class="button-primary store-test" data-test-store="{{ company }}">Testar conexão</button>
+    </article>
+  {% endfor %}
+  </div>
+</section>

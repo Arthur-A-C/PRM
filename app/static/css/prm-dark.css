@@ -75,7 +75,6 @@
 :root[data-theme="dark"] .product-card,
 :root[data-theme="dark"] .comparison-card,
 :root[data-theme="dark"] .company,
-:root[data-theme="dark"] .login-card,
 :root[data-theme="dark"] .page-header { background: var(--prm-surface); border-color: var(--prm-border); color: var(--prm-ink); }
 :root[data-theme="dark"] .panel,
 :root[data-theme="dark"] .metric,
@@ -118,11 +117,7 @@
 :root[data-theme="dark"] select,
 :root[data-theme="dark"] textarea,
 :root[data-theme="dark"] .filters input:not([type="checkbox"]),
-:root[data-theme="dark"] .filters select,
-:root[data-theme="dark"] .digitalizacao-field input,
-:root[data-theme="dark"] .digitalizacao-field select,
-:root[data-theme="dark"] .digitalizacao-field textarea,
-:root[data-theme="dark"] .digitalizacao-specifications textarea { background: var(--prm-input); color: var(--prm-ink); border: 1px solid var(--prm-input-border); box-shadow: none; }
+:root[data-theme="dark"] .filters select { background: var(--prm-input); color: var(--prm-ink); border: 1px solid var(--prm-input-border); box-shadow: none; }
 :root[data-theme="dark"] input::placeholder,
 :root[data-theme="dark"] textarea::placeholder { color: var(--prm-subtle); opacity: 1; }
 :root[data-theme="dark"] input:disabled,
@@ -185,108 +180,15 @@
 :root[data-theme="dark"] .alert-error,
 :root[data-theme="dark"] .catalog-filter-error { background: var(--prm-error-bg); border-color: #80504f; color: #f6c4bf; }
 :root[data-theme="dark"] .alert-success { background: var(--prm-success-bg); border-color: #4b7865; color: #c3ebd5; }
-:root[data-theme="dark"] .price-warning,
-:root[data-theme="dark"] #cadastro-status.price-warning { background: var(--prm-warning-bg); border-color: #78613b; color: #f3d5a0; }
+:root[data-theme="dark"] .price-warning { background: var(--prm-warning-bg); border-color: #78613b; color: #f3d5a0; }
 :root[data-theme="dark"] .empty-state-panel,
 :root[data-theme="dark"] .not-informed { color: var(--prm-soft); }
 
 /* Digitalização: every inner surface is on the same elevation scale. */
-:root[data-theme="dark"] .digitalizacao-page[data-company="portwell"] { --company-accent: #9dc979; }
-:root[data-theme="dark"] .digitalizacao-page[data-company="choice"] { --company-accent: #83c3d7; }
-:root[data-theme="dark"] .digitalizacao-page[data-company="sag"] { --company-accent: #81b1e1; }
-:root[data-theme="dark"] .digitalizacao-hero,
-:root[data-theme="dark"] .digitalizacao-panel,
-:root[data-theme="dark"] .digitalizacao-review,
-:root[data-theme="dark"] .digitalizacao-package,
-:root[data-theme="dark"] .digitalizacao-context-card { background: var(--prm-surface); border-color: var(--prm-border); box-shadow: var(--shadow-sm); }
-:root[data-theme="dark"] .digitalizacao-hero::before { border-color: #334a60; box-shadow: 0 0 0 2.5rem rgba(95, 138, 181, .025); }
-:root[data-theme="dark"] .digitalizacao-hero-badge { background: var(--prm-raised); color: var(--prm-ink); border-color: #43576a; }
-:root[data-theme="dark"] .digitalizacao-step { background: var(--prm-surface); border-color: var(--prm-border); color: var(--prm-ink); box-shadow: none; }
-:root[data-theme="dark"] .digitalizacao-step:hover { background: var(--prm-hover); border-color: #53687c; }
-:root[data-theme="dark"] .digitalizacao-step.is-active { background: #223246; border-color: var(--company-accent); box-shadow: inset 0 -2px var(--company-accent); }
-:root[data-theme="dark"] .digitalizacao-step.is-complete { background: #1b302d; border-color: #385d4d; }
-:root[data-theme="dark"] .digitalizacao-step > span { background: var(--prm-raised); color: var(--prm-ink); }
-:root[data-theme="dark"] .digitalizacao-step.is-active > span { background: var(--company-accent); color: #0e1b29; }
-:root[data-theme="dark"] .digitalizacao-step.is-complete > span { background: #387862; color: #fff; }
-:root[data-theme="dark"] .digitalizacao-section-number { background: var(--prm-raised); color: var(--prm-ink); box-shadow: none; }
-:root[data-theme="dark"] .digitalizacao-section-number.success { background: #387862; color: #fff; }
-:root[data-theme="dark"] .digitalizacao-company-cards button { background: var(--prm-raised); border-color: #3b4a58; color: var(--prm-ink); box-shadow: none; }
-:root[data-theme="dark"] .digitalizacao-company-cards button:hover { background: var(--prm-hover); border-color: #61778b; }
-:root[data-theme="dark"] .digitalizacao-company-cards button[aria-pressed="true"] { background: #25364a; border-color: var(--company-accent); box-shadow: inset 0 -3px var(--company-accent); }
 :root[data-theme="dark"] .company-card-logo,
-:root[data-theme="dark"] .brand-lockup,
-:root[data-theme="dark"] .login-brand-lockup { background: #fff; }
-:root[data-theme="dark"] .digitalizacao-dropzone { background: #1b2733; border-color: #57718b; color: var(--prm-ink); }
-:root[data-theme="dark"] .digitalizacao-dropzone:hover,
-:root[data-theme="dark"] .digitalizacao-dropzone.is-dragging { background: #22364a; border-color: var(--company-accent); }
-:root[data-theme="dark"] .digitalizacao-dropzone strong,
-:root[data-theme="dark"] .digitalizacao-counter strong,
-:root[data-theme="dark"] .digitalizacao-image-meta strong,
-:root[data-theme="dark"] .digitalizacao-upload-content > strong,
-:root[data-theme="dark"] .digitalizacao-spec-header strong,
-:root[data-theme="dark"] .digitalizacao-source-list strong,
-:root[data-theme="dark"] .digitalizacao-settings-title strong,
-:root[data-theme="dark"] .digitalizacao-tree > strong,
-:root[data-theme="dark"] .digitalizacao-package-actions h3 { color: var(--prm-ink); }
-:root[data-theme="dark"] .digitalizacao-dropzone small,
-:root[data-theme="dark"] .digitalizacao-dropzone > span:not(.digitalizacao-dropzone-icon),
-:root[data-theme="dark"] .digitalizacao-upload-content p,
-:root[data-theme="dark"] .digitalizacao-upload-content small,
-:root[data-theme="dark"] .digitalizacao-settings-title small,
-:root[data-theme="dark"] .digitalizacao-source-list small,
-:root[data-theme="dark"] .digitalizacao-tree li small,
-:root[data-theme="dark"] .digitalizacao-package-actions p { color: var(--prm-soft); }
-:root[data-theme="dark"] .digitalizacao-counter,
-:root[data-theme="dark"] .digitalizacao-empty,
-:root[data-theme="dark"] .digitalizacao-image-card,
-:root[data-theme="dark"] .digitalizacao-settings-box,
-:root[data-theme="dark"] .digitalizacao-upload-card,
-:root[data-theme="dark"] .digitalizacao-specifications,
-:root[data-theme="dark"] .digitalizacao-source-list > div,
-:root[data-theme="dark"] .digitalizacao-review-field,
-:root[data-theme="dark"] .digitalizacao-tree,
-:root[data-theme="dark"] .digitalizacao-package-actions { background: var(--prm-raised); border-color: #3b4a5a; color: var(--prm-ink); box-shadow: none; }
-:root[data-theme="dark"] .digitalizacao-upload-card:hover,
-:root[data-theme="dark"] .digitalizacao-image-card:hover { background: var(--prm-hover); border-color: #5d7288; box-shadow: var(--shadow-sm); }
-:root[data-theme="dark"] .digitalizacao-upload-card.has-file { background: var(--prm-success-bg); border-color: #4c8067; }
-:root[data-theme="dark"] .digitalizacao-image-card.is-main { border-color: var(--company-accent); }
-:root[data-theme="dark"] .digitalizacao-image-preview,
-:root[data-theme="dark"] .datasheet-viewer-canvas { background: #313c48; }
-:root[data-theme="dark"] .digitalizacao-image-preview img { background: transparent; }
-:root[data-theme="dark"] .digitalizacao-image-actions button,
-:root[data-theme="dark"] .datasheet-viewer-toolbar button,
-:root[data-theme="dark"] .datasheet-viewer-toolbar a { background: #2b3a4a; border-color: #506276; color: var(--prm-ink); }
-:root[data-theme="dark"] .digitalizacao-image-actions button:hover,
-:root[data-theme="dark"] .datasheet-viewer-toolbar button:hover,
-:root[data-theme="dark"] .datasheet-viewer-toolbar a:hover { background: #3b536b; color: #fff; }
-:root[data-theme="dark"] .digitalizacao-ai-panel { background: #1c3042; border-color: #425d78; box-shadow: none; }
-:root[data-theme="dark"] .digitalizacao-ai-panel .eyebrow { color: #accce6; }
-:root[data-theme="dark"] .digitalizacao-ai-icon { background: #5b648f; }
-:root[data-theme="dark"] .source-state { background: #344353; color: var(--prm-soft); }
-:root[data-theme="dark"] .source-state.is-ready { background: #397962; color: #fff; }
-:root[data-theme="dark"] #digitalizacao-analisar { background: #53688f; color: #fff; }
-:root[data-theme="dark"] #digitalizacao-analisar:hover { background: #667da5; }
-:root[data-theme="dark"] #digitalizacao-json-editor,
-:root[data-theme="dark"] .digitalizacao-registration-preview { background: var(--prm-input); color: var(--prm-ink); border-color: var(--prm-input-border); }
-:root[data-theme="dark"] .digitalizacao-tree li { border-color: #405061; }
-:root[data-theme="dark"] .digitalizacao-ready-label { background: var(--prm-info-bg); color: #c6def1; }
-:root[data-theme="dark"] #digitalizacao-pacote-status,
-:root[data-theme="dark"] #cadastro-status { background: #213144; border-color: #415870; color: #d9e9f6; }
-:root[data-theme="dark"] .datasheet-viewer,
-:root[data-theme="dark"] .datasheet-viewer-toolbar,
-:root[data-theme="dark"] .digitalizacao-image-dialog { background: var(--prm-surface); border-color: var(--prm-border); color: var(--prm-ink); }
-:root[data-theme="dark"] .datasheet-viewer-toolbar { border-bottom-color: var(--prm-border); }
-:root[data-theme="dark"] .digitalizacao-image-dialog::backdrop { background: rgba(5, 11, 17, .82); }
+:root[data-theme="dark"] .brand-lockup { background: #fff; }
 
 /* Login retains the same design language, with a light plate only for the black logos. */
-:root[data-theme="dark"] .login-layout { background: var(--prm-bg); }
-:root[data-theme="dark"] .login-visual { background: #182a3c; border-color: #344b63; box-shadow: var(--shadow-md); }
-:root[data-theme="dark"] .login-visual h2 { color: var(--prm-ink); }
-:root[data-theme="dark"] .login-visual p { color: #bfceda; }
-:root[data-theme="dark"] .login-kicker,
-:root[data-theme="dark"] .login-visual-index { color: #a9c6db; }
-:root[data-theme="dark"] .login-card .brand-mark { background: #304c66; color: #fff; }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-theme="dark"] *, :root[data-theme="dark"] *::before, :root[data-theme="dark"] *::after { scroll-behavior: auto; animation-duration: .01ms; transition-duration: .01ms; }
-}
+  :root[data-theme="dark"] *, :root[data-theme="dark"] *::before, :root[data-theme="dark"] *::after { scroll-behavior: auto; animation-duration: .01ms; transition-duration: .01ms; }}

@@ -31,7 +31,7 @@ class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "users"
     __table_args__ = (
-        CheckConstraint("role IN ('gestor', 'vendedor')", name="role_allowed"),
+        CheckConstraint("role IN ('desenvolvedor', 'gestor', 'vendedor')", name="role_allowed"),
         Index("ix_users_email", "email"),
         Index("ix_users_organization_role", "organization_id", "role"),
     )

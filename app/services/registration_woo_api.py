@@ -2,59 +2,60 @@
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
-from urllib.parse import urlparse
+from dataclasses import dataclass, field
 
 import httpx
 
 from app.schemas.registration import RegistrationProduct
 from app.services.registration_core import fold
+from app.services.store_config import StoreSettings
+from app.services.store_http import http_client, read_json
 
 
 @dataclass(frozen=True)
 class WooCredentials:
     base_url: str
-    key: str
-    secret: str
+    key: str = field(repr=False)
+    secret: str = field(repr=False)
 
 
-def credentials_for(company: str) -> WooCredentials:
-    if company not in {"choice", "sag", "portwell"}:
-        raise ValueError("Empresa WooCommerce inválida.")
-    prefix = "PRM_WOO_" + company.upper() + "_"
-    base_url = os.environ.get(prefix + "URL", "").rstrip("/")
-    key = os.environ.get(prefix + "KEY", "")
-    secret = os.environ.get(prefix + "SECRET", "")
-    parsed = urlparse(base_url)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.path not in {"", "/"}:
-        raise ValueError(f"URL HTTPS da loja {company} não configurada corretamente.")
-    if not key or not secret:
-        raise ValueError(f"Credenciais da loja {company} não configuradas.")
-    return WooCredentials(base_url, key, secret)
+def credentials_for(company: str, settings=None) -> WooCredentials:
+    value = (settings or StoreSettings()).credentials(company, "wc")
+    return WooCredentials(value.base_url, value.username, value.password)
 
 
 class WooClient:
-    def __init__(self, credentials: WooCredentials, *, transport: httpx.BaseTransport | None = None):
+    def __init__(self, credentials: WooCredentials, *, transport: httpx.BaseTransport | None = None, timeout=20):
         self.credentials = credentials
-        self.client = httpx.Client(
-            base_url=credentials.base_url + "/wp-json/wc/v3/",
-            auth=(credentials.key, credentials.secret),
-            timeout=20,
-            follow_redirects=False,
-            transport=transport,
-        )
+        self.client = http_client(credentials.base_url, "wc/v3", auth=(credentials.key, credentials.secret),
+                                  timeout=timeout, transport=transport)
 
     def close(self):
         self.client.close()
 
     def _get(self, path: str, **params):
-        response = self.client.get(path, params=params)
-        response.raise_for_status()
-        return response.json()
+        return read_json(self.client, path, params)
+
+    def products(self, page=1, per_page=20, **params):
+        if not 1 <= page <= 1000 or not 1 <= per_page <= 100:
+            raise ValueError("Paginação inválida.")
+        rows = self._get("products", page=page, per_page=per_page, context="edit", **params)
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise ValueError("Resposta de produtos inválida.")
+        return rows
+
+    def product(self, identifier: int):
+        if type(identifier) is not int or identifier <= 0:
+            raise ValueError("Identificador de produto inválido.")
+        result = self._get(f"products/{identifier}", context="edit")
+        if not isinstance(result, dict) or result.get("id") != identifier:
+            raise ValueError("Resposta de produto inválida.")
+        return result
 
     def find_by_sku(self, sku: str) -> dict | None:
-        rows = self._get("products", sku=sku, per_page=100)
+        rows = self.products(sku=sku, per_page=100)
+        if len(rows) == 100:
+            raise ValueError("Busca de SKU excedeu o limite seguro; revisão necessária.")
         exact = [item for item in rows if item.get("sku") == sku]
         if len(exact) > 1:
             raise ValueError(f"SKU duplicado na loja: {sku}.")
@@ -89,10 +90,14 @@ class WooClient:
                     ids.append(parent)
         return ids
 
-    def preview(self, product: RegistrationProduct) -> dict:
-        previous = self.find_by_sku(product.sku)
-        category_ids = self.resolve_category_ids(product.category_paths, self.categories())
-        global_attributes = self.attributes()
+    def preview(self, product: RegistrationProduct, *, existing_only=False, existing=None) -> dict:
+        previous = existing if existing is not None else self.find_by_sku(product.sku)
+        if existing_only and not previous:
+            raise ValueError("SKU não existe na loja; criação automática proibida.")
+        if previous and previous.get("sku") != product.sku:
+            raise ValueError("SKU da resposta não corresponde ao produto solicitado.")
+        category_ids = self.resolve_category_ids(product.category_paths, self.categories()) if product.category_paths else []
+        global_attributes = self.attributes() if product.attributes else []
         globals_by_name = {}
         for attribute in global_attributes:
             globals_by_name.setdefault(fold(attribute["name"]), []).append(attribute)
@@ -117,6 +122,8 @@ class WooClient:
             category_ids = list(dict.fromkeys(previous_categories + category_ids))
             previous_attributes = previous.get("attributes", [])
             keys = {fold(item.get("name", "")) for item in requested_attributes}
+            if any(item.get("variation") and fold(item.get("name", "")) in keys for item in previous_attributes):
+                raise ValueError("Atributo de variação exige revisão; não substituir automaticamente.")
             requested_attributes = [item for item in previous_attributes if fold(item.get("name", "")) not in keys] + requested_attributes
             if len(requested_attributes) > max(15, len(previous_attributes)):
                 raise ValueError("Atualização excederia 15 atributos; revisão necessária.")

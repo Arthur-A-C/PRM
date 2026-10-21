@@ -44,7 +44,118 @@
     packageTree: $(".digitalizacao-tree"),
 
     gerar: $("#digitalizacao-gerar"),
+
+    specsSection: $("#digitalizacao-especificacoes-etapa"),
+    analysisSection: $("#digitalizacao-analise-etapa"),
+    geracao: $("#digitalizacao-geracao-etapa"),
   };
+
+  // ---- Apresentação: ícones, estados de carregamento e avisos (sem lógica de negócio) ----
+  const ICONS = {
+    star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+    left: '<path d="M15 6l-6 6 6 6"/>',
+    right: '<path d="M9 6l6 6-6 6"/>',
+    rotateLeft: '<path d="M4 4v5h5M4.6 9A8 8 0 1 1 6 17.6"/>',
+    rotateRight: '<path d="M20 4v5h-5M19.4 9A8 8 0 1 0 18 17.6"/>',
+    trash: '<path d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+    zoom: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 8v5M8 10.5h5"/>',
+    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6m-6 4h6"/>',
+    cube: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12 4 7.5"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/>',
+    check: '<path d="m5 12 4 4L19 6"/>',
+    alert: '<path d="M12 3 2.5 20h19zM12 10v4.5m0 3h.01"/>',
+    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5m0-8h.01"/>',
+    external: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  };
+
+  function icon(name) {
+    return `<svg class="prm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+  }
+
+  function buttonLabel(button) {
+    return button?.querySelector("[data-dz-label]") || null;
+  }
+
+  function setBusy(button, label) {
+    if (!button) return;
+    const target = buttonLabel(button);
+    if (!button.dataset.idleLabel) button.dataset.idleLabel = target ? target.textContent : button.textContent;
+    button.setAttribute("aria-busy", "true");
+    button.classList.add("is-busy");
+    if (target) target.textContent = label;
+    else button.textContent = label;
+  }
+
+  function clearBusy(button) {
+    if (!button) return;
+    const target = buttonLabel(button);
+    if (button.dataset.idleLabel) {
+      if (target) target.textContent = button.dataset.idleLabel;
+      else button.textContent = button.dataset.idleLabel;
+      delete button.dataset.idleLabel;
+    }
+    button.removeAttribute("aria-busy");
+    button.classList.remove("is-busy");
+  }
+
+  // Painel de progresso indeterminado: mensagens indicativas + tempo real decorrido.
+  function startProgress(name) {
+    const panel = $(`[data-dz-progress="${name}"]`);
+    if (!panel) return () => {};
+    const message = $("[data-dz-progress-message]", panel);
+    const time = $("[data-dz-progress-time]", panel);
+    const steps = $$(".dz-progress-steps li", panel);
+    const started = Date.now();
+    let index = 0;
+    const paint = () => {
+      steps.forEach((step, position) => {
+        step.classList.toggle("is-done", position < index);
+        step.classList.toggle("is-current", position === index);
+      });
+      if (message && steps[index]) message.textContent = `${steps[index].textContent}…`;
+    };
+    const tick = () => {
+      const seconds = Math.floor((Date.now() - started) / 1000);
+      if (time) time.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    };
+    panel.hidden = false;
+    paint();
+    tick();
+    const clock = window.setInterval(tick, 1000);
+    const rotate = window.setInterval(() => {
+      if (index < steps.length - 1) {
+        index += 1;
+        paint();
+      }
+    }, 3800);
+    return () => {
+      window.clearInterval(clock);
+      window.clearInterval(rotate);
+      panel.hidden = true;
+    };
+  }
+
+  function toast(text, type = "success") {
+    let region = $(".prm-toasts");
+    if (!region) {
+      region = document.createElement("div");
+      region.className = "prm-toasts";
+      region.setAttribute("role", "status");
+      region.setAttribute("aria-live", "polite");
+      document.body.append(region);
+    }
+    const item = document.createElement("div");
+    item.className = `prm-toast is-${type}`;
+    item.innerHTML = icon(type === "success" ? "check" : type === "warning" ? "alert" : "info");
+    const copy = document.createElement("span");
+    copy.textContent = text;
+    item.append(copy);
+    region.append(item);
+    window.setTimeout(() => {
+      item.classList.add("is-leaving");
+      window.setTimeout(() => item.remove(), 220);
+    }, 4200);
+  }
 
   const state = {
     images: [],
@@ -62,6 +173,8 @@
     extractingSpecs: false,
     extractedSpecs: "",
     lastExtractionKey: null,
+    extractionState: "idle",
+    recentImageIds: new Set(),
   };
 
   function currentCode() {
@@ -182,12 +295,15 @@
     }
 
     accepted.forEach((file) => {
-      state.images.push(createImageState(file));
+      const image = createImageState(file);
+      state.recentImageIds.add(image.id);
+      state.images.push(image);
     });
 
     invalidateAnalysis();
     renderImages();
     updatePageState();
+    toast(accepted.length === 1 ? "1 foto adicionada." : `${accepted.length} fotos adicionadas.`);
   }
 
   function setMainImage(id) {
@@ -263,15 +379,15 @@
     updatePageState();
   }
 
-  function actionButton(label, handler, ariaLabel = "") {
+  function actionButton(iconName, handler, ariaLabel, disabled = false) {
     const button = document.createElement("button");
 
     button.type = "button";
-    button.textContent = label;
-
-    if (ariaLabel) {
-      button.setAttribute("aria-label", ariaLabel);
-    }
+    button.className = "prm-btn prm-btn-icon prm-btn-ghost";
+    button.innerHTML = icon(iconName);
+    button.setAttribute("aria-label", ariaLabel);
+    button.title = ariaLabel;
+    button.disabled = disabled;
 
     button.addEventListener("click", handler);
 
@@ -306,7 +422,7 @@
 
       card.className = `digitalizacao-image-card${
         index === 0 ? " is-main" : ""
-      }`;
+      }${state.recentImageIds.has(image.id) ? " is-new" : ""}`;
 
       card.dataset.imageId = image.id;
 
@@ -314,10 +430,16 @@
         const badge = document.createElement("span");
 
         badge.className = "digitalizacao-image-badge";
-        badge.textContent = "Principal";
+        badge.innerHTML = `${icon("star")}<span>Principal</span>`;
 
         card.appendChild(badge);
       }
+
+      const order = document.createElement("span");
+      order.className = "dz-image-order";
+      order.textContent = String(index + 1);
+      order.setAttribute("aria-hidden", "true");
+      card.appendChild(order);
 
       const preview = document.createElement("button");
       preview.type = "button";
@@ -341,7 +463,11 @@
       img.style.transform = image.processedUrl ? "none" : `rotate(${image.rotation}deg)`;
       img.style.transition = "transform .18s ease";
 
-      preview.appendChild(img);
+      const zoom = document.createElement("span");
+      zoom.className = "dz-image-zoom";
+      zoom.innerHTML = icon("zoom");
+
+      preview.append(img, zoom);
 
       const meta = document.createElement("div");
       meta.className = "digitalizacao-image-meta";
@@ -349,74 +475,39 @@
       const title = document.createElement("strong");
       title.textContent = imageOutputName(index);
 
+      const name = document.createElement("small");
+      name.className = "dz-image-name";
+      name.textContent = image.file.name;
+      name.title = image.file.name;
+
       const detail = document.createElement("small");
+      detail.textContent = image.rotation
+        ? `${formatBytes(image.file.size)} · girada ${image.rotation}°`
+        : formatBytes(image.file.size);
 
-      detail.textContent =
-        `${image.file.name} · ` +
-        `${formatBytes(image.file.size)} · ` +
-        `rotação ${image.rotation}°`;
-
-      meta.append(title, detail);
+      meta.append(title, name, detail);
 
       const actions = document.createElement("div");
       actions.className = "digitalizacao-image-actions";
+      const label = image.file.name;
 
-      if (index !== 0) {
-        actions.appendChild(
-          actionButton(
-            "Tornar principal",
-            () => setMainImage(image.id)
-          )
-        );
-      }
-
-      if (index > 0) {
-        actions.appendChild(
-          actionButton(
-            "←",
-            () => moveImage(image.id, -1),
-            "Mover para a esquerda"
-          )
-        );
-      }
-
-      if (index < state.images.length - 1) {
-        actions.appendChild(
-          actionButton(
-            "→",
-            () => moveImage(image.id, 1),
-            "Mover para a direita"
-          )
-        );
-      }
-
-      actions.appendChild(
-        actionButton(
-          "↺",
-          () => rotateImage(image.id, -90),
-          "Girar 90 graus para a esquerda"
-        )
+      actions.append(
+        actionButton("star", () => setMainImage(image.id), index === 0 ? "Esta é a foto principal" : `Tornar ${label} a foto principal`, index === 0),
+        actionButton("left", () => moveImage(image.id, -1), `Mover ${label} para a esquerda`, index === 0),
+        actionButton("right", () => moveImage(image.id, 1), `Mover ${label} para a direita`, index === state.images.length - 1),
+        actionButton("rotateLeft", () => rotateImage(image.id, -90), `Girar ${label} 90° para a esquerda`),
+        actionButton("rotateRight", () => rotateImage(image.id, 90), `Girar ${label} 90° para a direita`)
       );
 
-      actions.appendChild(
-        actionButton(
-          "↻",
-          () => rotateImage(image.id, 90),
-          "Girar 90 graus para a direita"
-        )
-      );
-
-      const remove = actionButton(
-        "Remover",
-        () => removeImage(image.id)
-      );
-
-      remove.classList.add("danger-action");
+      const remove = actionButton("trash", () => removeImage(image.id), `Remover ${label}`);
+      remove.classList.add("danger-action", "prm-btn-danger");
       actions.appendChild(remove);
 
       card.append(preview, meta, actions);
       elements.imagensContainer.appendChild(card);
     });
+
+    state.recentImageIds.clear();
 
     if (elements.imageCount) {
       elements.imageCount.textContent = String(state.images.length);
@@ -476,11 +567,13 @@
     }
 
     state.extractingSpecs = true;
+    state.extractionState = "loading";
     updateButtons();
+    updateExtractionUI();
 
     if (elements.extractionStatus) {
       elements.extractionStatus.textContent =
-        "Extraindo o texto do PDF... Isso pode levar alguns segundos.";
+        "Extraindo dados do datasheet… Isso pode levar alguns segundos.";
     }
 
     try {
@@ -535,6 +628,7 @@
 
       state.extractedSpecs = extractedText;
       state.lastExtractionKey = key;
+      state.extractionState = "done";
 
       if (elements.specs) {
         elements.specs.value = finalText;
@@ -544,14 +638,10 @@
 
       if (elements.extractionStatus) {
         elements.extractionStatus.textContent =
-          "✓ Texto do datasheet extraído. Revise e edite antes de analisar com Claude.";
+          "Especificações prontas para revisão. Revise e edite antes de analisar com Claude.";
       }
 
-      showMessage(
-        "Texto do PDF extraído com sucesso.",
-        "success",
-        elements.specs?.parentElement
-      );
+      toast("Texto do PDF extraído com sucesso.");
 
       updatePageState();
 
@@ -559,6 +649,7 @@
       console.error(error);
 
       state.lastExtractionKey = null;
+      state.extractionState = "error";
 
       if (elements.extractionStatus) {
         elements.extractionStatus.textContent =
@@ -571,13 +662,54 @@
         error.message ||
           "Erro ao extrair texto do PDF.",
         "warning",
-        elements.specs?.parentElement
+        elements.specsSection
       );
 
     } finally {
       state.extractingSpecs = false;
       updateButtons();
+      updateExtractionUI();
     }
+  }
+
+  function updateExtractionUI() {
+    const section = elements.specsSection;
+    const text = elements.specs?.value.trim() || "";
+    const meta = $("[data-dz-spec-meta]");
+    if (meta) {
+      const lines = text ? text.split(/\n/).length : 0;
+      meta.textContent = text
+        ? `${text.length.toLocaleString("pt-BR")} caracteres · ${lines.toLocaleString("pt-BR")} ${lines === 1 ? "linha" : "linhas"}`
+        : "Vazio";
+    }
+    if (!section) return;
+    let mode = state.extractionState;
+    if (mode === "idle" && text) mode = "manual";
+    section.dataset.extraction = mode;
+    const pill = $("[data-dz-extraction-pill]", section);
+    const labels = {
+      idle: ["Aguardando PDF", ""],
+      manual: ["Texto manual", "is-info"],
+      loading: ["Extraindo dados do datasheet…", "is-info is-busy"],
+      done: ["Especificações prontas para revisão", "is-ok"],
+      error: ["Falha na extração", "is-alert"],
+    };
+    if (pill) {
+      const [label, tone] = labels[mode] || labels.idle;
+      pill.className = `prm-pill ${tone}`.trim();
+      pill.textContent = label;
+    }
+    const checks = {
+      pdf: Boolean(state.supplierDatasheet),
+      text: Boolean(state.extractedSpecs),
+      review: Boolean(text) && !state.extractingSpecs,
+    };
+    Object.entries(checks).forEach(([key, done]) => {
+      const item = $(`[data-dz-check="${key}"]`, section);
+      if (!item) return;
+      item.classList.toggle("is-done", done);
+      item.classList.toggle("is-active", key === "text" && state.extractingSpecs);
+    });
   }
 
   async function handleDatasheetChange() {
@@ -587,6 +719,7 @@
     state.supplierDatasheet = file;
     state.extractedSpecs = "";
     state.lastExtractionKey = null;
+    state.extractionState = "idle";
 
     invalidateAnalysis();
 
@@ -633,11 +766,13 @@
     updatePageState();
   }
 
-  function packageItem(icon, name, detail) {
+  function packageItem(glyph, name, detail) {
     const li = document.createElement("li");
 
     const iconSpan = document.createElement("span");
-    iconSpan.textContent = icon;
+    iconSpan.className = "dz-tree-icon";
+    iconSpan.innerHTML = icon({ "📄": "file", "◈": "cube", "▧": "image" }[glyph] || "file");
+    if (/Aguardando/.test(detail)) li.classList.add("is-pending");
 
     const nameSpan = document.createElement("span");
     nameSpan.textContent = name;
@@ -790,35 +925,56 @@
 
     const step3Complete = Boolean(
       state.supplierDatasheet ||
-      elements.specs?.value.trim() ||
       state.datasheetGenerated
     );
 
+    const step4Complete = Boolean(
+      (elements.specs?.value.trim() && !state.extractingSpecs) ||
+      state.datasheetGenerated
+    );
+
+    // Produto, imagens, PDF, especificações, análise, revisão, geração/aprovação, pacote.
     const completion = [
       step1Complete,
       step2Complete,
       step3Complete,
+      step4Complete,
+      state.analyzed,
+      state.analyzed && state.datasheetGenerated,
+      state.approved,
       state.finalized,
     ];
+    // PDF e texto são fontes alternativas: podem ficar para trás sem bloquear o fluxo.
+    const optional = [false, false, true, true, false, false, false, false];
+    const lastDone = completion.lastIndexOf(true);
+    let active = completion.findIndex((done, index) => !done && (index > lastDone || !optional[index]));
+    if (active === -1) active = completion.length;
 
     steps.forEach((step, index) => {
-      step.classList.toggle(
-        "is-complete",
-        Boolean(completion[index])
-      );
+      const done = Boolean(completion[index]);
+      const skipped = !done && optional[index] && index < active;
+      step.classList.toggle("is-complete", done);
+      step.classList.toggle("is-active", index === active);
+      step.classList.toggle("is-skipped", skipped);
+      if (index === active) step.setAttribute("aria-current", "step");
+      else step.removeAttribute("aria-current");
 
-      const previousComplete =
-        index === 0 ||
-        completion
-          .slice(0, index)
-          .every(Boolean);
-
-      step.classList.toggle(
-        "is-active",
-        previousComplete &&
-        !completion[index]
-      );
+      const pill = $(`#${step.dataset.stepTarget} [data-dz-step-state]`);
+      if (pill) {
+        const [label, tone] = done ? ["Concluído", "is-ok"]
+          : index === active ? ["Em andamento", "is-info"]
+            : skipped ? ["Não enviado", ""] : ["Pendente", ""];
+        pill.className = `prm-pill ${tone}`.trim();
+        pill.textContent = label;
+      }
     });
+
+    const doneCount = completion.filter(Boolean).length;
+    $$("[data-dz-progress-fill]").forEach((bar) => {
+      bar.style.width = `${(doneCount / completion.length) * 100}%`;
+    });
+    const label = $("[data-dz-progress-label]");
+    if (label) label.textContent = `${doneCount} de ${completion.length} etapas`;
   }
 
   function updateButtons() {
@@ -850,6 +1006,7 @@
   function updatePageState() {
     updatePackageTree();
     updateSourceStates();
+    updateExtractionUI();
     updateProgress();
     updateButtons();
     updateContext();
@@ -890,6 +1047,10 @@
       div.classList.add("is-wide");
     }
 
+    if (options.full) {
+      div.classList.add("is-full");
+    }
+
     if (!value) {
       div.classList.add("is-missing");
     }
@@ -927,14 +1088,14 @@
       return;
     }
 
-    const originalText =
-      elements.analisar.textContent;
+    let stopProgress = () => {};
 
     try {
       elements.analisar.disabled = true;
 
-      elements.analisar.textContent =
-        "Analisando com Claude...";
+      setBusy(elements.analisar, "Analisando produto…");
+      if (elements.analysisSection) elements.analysisSection.dataset.analysis = "running";
+      stopProgress = startProgress("analysis");
 
       const formData =
         new FormData();
@@ -1000,6 +1161,8 @@
           "Análise concluída. Revise os dados antes de gerar o datasheet.";
       }
 
+      if (elements.analysisSection) elements.analysisSection.dataset.analysis = "done";
+      toast("Análise concluída. Revise os dados estruturados.");
       updatePageState();
 
     } catch (error) {
@@ -1007,25 +1170,274 @@
 
       state.analysisResult = null;
       state.analyzed = false;
+      if (elements.analysisSection) elements.analysisSection.dataset.analysis = "error";
 
       showMessage(
         error.message ||
         "Erro durante a análise com Claude.",
         "warning",
-        elements.analisar?.parentElement
+        elements.analysisSection
       );
 
       updatePageState();
 
     } finally {
-      elements.analisar.textContent =
-        originalText;
+      stopProgress();
+      clearBusy(elements.analisar);
 
       updateButtons();
     }
   }
 
-  function renderClaudeReview(data) {
+  function el(tag, className = "", text = "") {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  const asList = (value) => (Array.isArray(value) ? value.filter((item) => item !== null && item !== undefined && item !== "") : []);
+  const asText = (value) => (typeof value === "string" ? value.trim() : "");
+
+  // Linhas {secao} abrem um grupo; linhas {chave, valor} pertencem ao grupo aberto.
+  function groupRows(rows) {
+    const groups = [];
+    let current = null;
+    asList(rows).forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      if (row.secao && !row.chave && !row.valor) {
+        current = { title: String(row.secao), rows: [] };
+        groups.push(current);
+        return;
+      }
+      if (!current || (row.secao && row.secao !== current.title)) {
+        current = { title: row.secao ? String(row.secao) : "Geral", rows: [] };
+        groups.push(current);
+      }
+      current.rows.push([String(row.chave ?? row.campo ?? ""), String(row.valor ?? "")]);
+    });
+    return groups.filter((group) => group.rows.length);
+  }
+
+  function reviewSection(title, count, options = {}) {
+    const section = el("section", `dz-rsec${options.wide ? " is-wide" : ""}${options.tone ? ` is-${options.tone}` : ""}`);
+    const head = el("header", "dz-rsec-head");
+    head.append(el("h4", "", title));
+    if (count !== undefined && count !== null) head.append(el("span", "dz-rsec-count", String(count)));
+    section.append(head);
+    return section;
+  }
+
+  function pairList(pairs) {
+    const list = el("dl", "dz-pairs");
+    asList(pairs).forEach((pair) => {
+      const [term, description] = Array.isArray(pair) ? pair : [pair?.titulo, pair?.descricao];
+      const row = el("div");
+      row.append(el("dt", "", String(term ?? "")), el("dd", "", String(description ?? "")));
+      list.append(row);
+    });
+    return list;
+  }
+
+  function keyValueTable(rows) {
+    const table = el("table", "dz-kv");
+    const body = el("tbody");
+    rows.forEach(([key, value]) => {
+      const tr = el("tr");
+      tr.append(el("th", "", key), el("td", "", value || "Não informado"));
+      if (!value) tr.classList.add("is-missing");
+      body.append(tr);
+    });
+    table.append(body);
+    return table;
+  }
+
+  function gridTable(header, lines) {
+    const wrap = el("div", "dz-table-wrap");
+    const table = el("table", "dz-grid-table");
+    if (asList(header).length) {
+      const thead = el("thead");
+      const tr = el("tr");
+      header.forEach((cell) => tr.append(el("th", "", String(cell))));
+      thead.append(tr);
+      table.append(thead);
+    }
+    const body = el("tbody");
+    asList(lines).forEach((line) => {
+      const tr = el("tr");
+      asList(line).forEach((cell) => tr.append(el("td", "", String(cell))));
+      body.append(tr);
+    });
+    table.append(body);
+    wrap.append(table);
+    return wrap;
+  }
+
+  function renderStructuredReview(container, data) {
+    container.replaceChildren();
+    const missing = [];
+    const note = (label, present) => { if (!present) missing.push(label); };
+
+    // Identificação
+    const summary = el("div", "dz-review-summary");
+    summary.append(
+      createReviewField("Modelo", asText(data.modelo) || asText(data.model), { wide: true }),
+      createReviewField("Categoria", asText(data.categoria)),
+      createReviewField("Nível", asText(data.nivel)),
+      createReviewField("Subtítulo", asText(data.subtitulo), { full: true })
+    );
+    note("Modelo", asText(data.modelo) || asText(data.model));
+    note("Categoria", asText(data.categoria));
+    note("Subtítulo", asText(data.subtitulo));
+    container.append(summary);
+
+    const grid = el("div", "dz-review-sections");
+
+    const intro = asList(data.descricao).length ? asList(data.descricao) : (asText(data.intro) ? [asText(data.intro)] : []);
+    note("Introdução", intro.length);
+    if (intro.length) {
+      const section = reviewSection("Introdução", null, { wide: true });
+      intro.forEach((paragraph) => section.append(el("p", "dz-rsec-text", String(paragraph))));
+      grid.append(section);
+    }
+
+    const tags = asList(data.tags);
+    note("Destaques", tags.length);
+    if (tags.length) {
+      const section = reviewSection("Destaques", tags.length);
+      const chips = el("div", "dz-chips");
+      tags.forEach((tag) => chips.append(el("span", "dz-chip", String(tag))));
+      section.append(chips);
+      grid.append(section);
+    }
+
+    const features = asList(data.features);
+    note("Características", features.length || asList(data.caracteristicas).length);
+    if (features.length) {
+      const section = reviewSection("Características", features.length);
+      const list = el("ul", "dz-checks");
+      features.forEach((feature) => list.append(el("li", "", String(feature))));
+      section.append(list);
+      grid.append(section);
+    }
+
+    if (asList(data.caracteristicas).length) {
+      const section = reviewSection(asText(data.titulo_caracteristicas) || "Características e benefícios", asList(data.caracteristicas).length, { wide: true });
+      section.append(pairList(data.caracteristicas));
+      grid.append(section);
+    }
+
+    if (asList(data.beneficios).length) {
+      const section = reviewSection("Benefícios", asList(data.beneficios).length, { wide: true });
+      section.append(pairList(data.beneficios));
+      grid.append(section);
+    }
+
+    const specGroups = groupRows(data.especificacoes);
+    asList(data.specs).forEach((group) => {
+      const rows = asList(group?.itens).map((item) => [String(item?.campo ?? ""), String(item?.valor ?? "")]);
+      if (rows.length) specGroups.push({ title: String(group?.secao || "Especificações"), rows });
+    });
+    note("Especificações", specGroups.length);
+    if (specGroups.length) {
+      const total = specGroups.reduce((sum, group) => sum + group.rows.length, 0);
+      const section = reviewSection("Especificações técnicas", total, { wide: true });
+      const groups = el("div", "dz-spec-groups");
+      specGroups.forEach((group) => {
+        const block = el("div", "dz-spec-group");
+        block.append(el("h5", "", group.title), keyValueTable(group.rows));
+        groups.append(block);
+      });
+      section.append(groups);
+      grid.append(section);
+    }
+
+    const dimensions = groupRows(data.dimensoes);
+    if (dimensions.length) {
+      const section = reviewSection("Dimensões", dimensions.reduce((sum, group) => sum + group.rows.length, 0));
+      dimensions.forEach((group) => {
+        if (dimensions.length > 1) section.append(el("h5", "dz-subhead", group.title));
+        section.append(keyValueTable(group.rows));
+      });
+      grid.append(section);
+    }
+
+    asList(data.conectores).forEach((group) => {
+      if (!asList(group?.itens).length) return;
+      const section = reviewSection(asText(group.grupo) || "Conectores", asList(group.itens).length);
+      section.append(pairList(group.itens));
+      grid.append(section);
+    });
+
+    asList(data.tabelas).forEach((table) => {
+      if (!asList(table?.linhas).length) return;
+      const section = reviewSection(asText(table.titulo) || "Tabela", asList(table.linhas).length, { wide: true });
+      section.append(gridTable(table.cabecalho, table.linhas));
+      if (asText(table.nota)) section.append(el("p", "dz-rsec-note", table.nota));
+      grid.append(section);
+    });
+
+    if (asList(data.pedido?.linhas).length) {
+      const section = reviewSection("Informações para pedido", asList(data.pedido.linhas).length, { wide: true });
+      section.append(gridTable(data.pedido.cabecalho, data.pedido.linhas));
+      grid.append(section);
+    }
+
+    const applications = asList(data.aplicacoes);
+    note("Aplicações", applications.length);
+    if (applications.length) {
+      const section = reviewSection("Aplicações", applications.length);
+      section.append(pairList(applications));
+      grid.append(section);
+    }
+
+    [["acessorios", "Acessórios"], ["notas", "Notas"]].forEach(([key, title]) => {
+      if (!asList(data[key]).length) return;
+      const section = reviewSection(title, asList(data[key]).length);
+      section.append(pairList(data[key]));
+      grid.append(section);
+    });
+
+    const images = asList(data.imagens).filter((item) => item && item.papel !== "descartar");
+    if (images.length) {
+      const section = reviewSection("Uso das imagens", images.length);
+      const list = el("ul", "dz-image-roles");
+      images.forEach((item) => {
+        const li = el("li");
+        li.append(el("code", "", String(item.arquivo || "")), el("span", "dz-chip", String(item.papel || "")));
+        if (asText(item.legenda)) li.append(el("small", "", item.legenda));
+        list.append(li);
+      });
+      section.append(list);
+      grid.append(section);
+    }
+
+    if (asText(data.conferencia_fontes) || asList(data.termos_proibidos).length) {
+      const section = reviewSection("Conferência das fontes", null, { wide: true });
+      if (asText(data.conferencia_fontes)) section.append(el("p", "dz-rsec-text", data.conferencia_fontes));
+      if (asList(data.termos_proibidos).length) {
+        section.append(el("h5", "dz-subhead", "Termos que não aparecem no conteúdo comercial"));
+        const chips = el("div", "dz-chips");
+        asList(data.termos_proibidos).forEach((term) => chips.append(el("span", "dz-chip is-muted", String(term))));
+        section.append(chips);
+      }
+      grid.append(section);
+    }
+
+    const notFound = [...missing, ...asList(data.nao_informado).map(String)];
+    if (notFound.length) {
+      const section = reviewSection("Dados não encontrados", notFound.length, { wide: true, tone: "muted" });
+      section.append(el("p", "dz-rsec-note", "Seções que a análise não preencheu. Complete no JSON técnico se a informação existir na fonte."));
+      const chips = el("div", "dz-chips");
+      notFound.forEach((item) => chips.append(el("span", "dz-chip is-muted", item)));
+      section.append(chips);
+      grid.append(section);
+    }
+
+    container.append(grid);
+  }
+
+  function renderClaudeReview(data, options = {}) {
     if (
       !elements.review ||
       !elements.reviewContent
@@ -1034,349 +1446,98 @@
     }
 
     elements.reviewContent.replaceChildren();
-    const summary = document.createElement("p");
-    summary.textContent = `${data.modelo || ""} · ${data.categoria || ""} · ${data.subtitulo || ""}`;
-    elements.reviewContent.append(summary);
-    const pending = [...(data.pendencias || []), ...(state.claudeWarnings || [])];
-    if (pending.length) {
-      const list = document.createElement("ul");
-      pending.forEach((item) => {
-        const li = document.createElement("li");
-        li.textContent = item;
-        list.append(li);
-      });
-      elements.reviewContent.append(list);
+
+    const alerts = [...asList(data.pendencias), ...asList(data.alertas), ...(state.claudeWarnings || [])].map(String);
+    const issues = el("div", `dz-issues${alerts.length ? " is-warn" : " is-ok"}`);
+    const issuesHead = el("div", "dz-issues-head");
+    issuesHead.innerHTML = icon(alerts.length ? "alert" : "check");
+    issuesHead.append(el("strong", "", alerts.length
+      ? `${alerts.length} ${alerts.length === 1 ? "alerta para revisar" : "alertas para revisar"}`
+      : "Nenhum alerta registrado pela análise"));
+    issues.append(issuesHead);
+    if (alerts.length) {
+      const list = el("ul");
+      alerts.forEach((item) => list.append(el("li", "", item)));
+      issues.append(list);
     }
+
+    const tabs = el("div", "dz-tabs");
+    tabs.setAttribute("role", "tablist");
+    tabs.setAttribute("aria-label", "Formato da revisão");
+    const structuredPanel = el("div", "dz-tabpanel");
+    const jsonPanel = el("div", "dz-tabpanel");
+    structuredPanel.id = "dz-review-structured";
+    jsonPanel.id = "dz-review-json";
+    const tabButtons = [["Visão estruturada", structuredPanel], ["JSON técnico (editável)", jsonPanel]].map(([label, panel], index) => {
+      const button = el("button", "dz-tab", label);
+      button.type = "button";
+      button.id = `${panel.id}-tab`;
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-controls", panel.id);
+      button.setAttribute("aria-selected", String(index === 0));
+      button.tabIndex = index === 0 ? 0 : -1;
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", button.id);
+      panel.hidden = index !== 0;
+      return button;
+    });
+    const select = (target) => {
+      tabButtons.forEach((button) => {
+        const active = button === target;
+        button.setAttribute("aria-selected", String(active));
+        button.tabIndex = active ? 0 : -1;
+        document.getElementById(button.getAttribute("aria-controls")).hidden = !active;
+      });
+    };
+    tabButtons.forEach((button, index) => {
+      button.addEventListener("click", () => select(button));
+      button.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+        const next = tabButtons[(index + (event.key === "ArrowRight" ? 1 : -1) + tabButtons.length) % tabButtons.length];
+        select(next);
+        next.focus();
+      });
+    });
+    tabs.append(...tabButtons);
+
+    const validity = el("span", "prm-pill is-ok", "JSON válido");
     const label = document.createElement("label");
-    label.textContent = "Dados técnicos estruturados (revise e edite o JSON antes de gerar o PDF)";
+    label.className = "dz-json-label";
+    label.htmlFor = "digitalizacao-json-editor";
+    label.textContent = "Dados técnicos estruturados — o PDF é gerado a partir deste JSON";
     const editor = document.createElement("textarea");
     editor.id = "digitalizacao-json-editor";
-    editor.rows = 18;
-    editor.style.width = "100%";
+    editor.rows = 22;
+    editor.spellcheck = false;
     editor.value = JSON.stringify(data, null, 2);
+    let rerender = 0;
     editor.addEventListener("input", () => {
       clearGeneratedDatasheet();
       updateButtons();
+      window.clearTimeout(rerender);
+      rerender = window.setTimeout(() => {
+        try {
+          const parsed = JSON.parse(editor.value);
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+          renderStructuredReview(structuredPanel, parsed);
+          validity.className = "prm-pill is-ok";
+          validity.textContent = "JSON válido";
+        } catch (_) {
+          validity.className = "prm-pill is-alert";
+          validity.textContent = "JSON inválido";
+        }
+      }, 350);
     });
-    label.append(editor);
-    elements.reviewContent.append(label);
+    const jsonHead = el("div", "dz-json-head");
+    jsonHead.append(label, validity);
+    jsonPanel.append(jsonHead, editor);
+
+    renderStructuredReview(structuredPanel, data);
+    elements.reviewContent.append(issues, tabs, structuredPanel, jsonPanel);
     elements.review.hidden = false;
-    elements.review.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-
-    elements.reviewContent.innerHTML =
-      "";
-
-    const grid =
-      document.createElement("div");
-
-    grid.className =
-      "digitalizacao-review-grid";
-
-    grid.append(
-      createReviewField(
-        "Modelo",
-        data?.model || ""
-      ),
-
-      createReviewField(
-        "Categoria",
-        data?.categoria || ""
-      ),
-
-      createReviewField(
-        "Subtítulo",
-        data?.subtitulo || "",
-        { wide: true }
-      ),
-
-      createReviewField(
-        "Introdução",
-        data?.intro || "",
-        { wide: true }
-      )
-    );
-
-    elements.reviewContent.appendChild(
-      grid
-    );
-
-    if (
-      Array.isArray(data?.tags) &&
-      data.tags.length
-    ) {
-      const section =
-        document.createElement("div");
-
-      section.className =
-        "digitalizacao-review-section";
-
-      const title =
-        document.createElement("h3");
-
-      title.textContent =
-        "Destaques";
-
-      const list =
-        document.createElement("ul");
-
-      data.tags.forEach((tag) => {
-        const li =
-          document.createElement("li");
-
-        li.textContent = tag;
-
-        list.appendChild(li);
-      });
-
-      section.append(
-        title,
-        list
-      );
-
-      elements.reviewContent.appendChild(
-        section
-      );
+    if (options.scroll !== false) {
+      elements.review.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-
-    if (
-      Array.isArray(data?.features) &&
-      data.features.length
-    ) {
-      const section =
-        document.createElement("div");
-
-      section.className =
-        "digitalizacao-review-section";
-
-      const title =
-        document.createElement("h3");
-
-      title.textContent =
-        "Características";
-
-      const list =
-        document.createElement("ul");
-
-      data.features.forEach(
-        (feature) => {
-          const li =
-            document.createElement("li");
-
-          li.textContent = feature;
-
-          list.appendChild(li);
-        }
-      );
-
-      section.append(
-        title,
-        list
-      );
-
-      elements.reviewContent.appendChild(
-        section
-      );
-    }
-
-    if (
-      Array.isArray(data?.specs) &&
-      data.specs.length
-    ) {
-      const section =
-        document.createElement("div");
-
-      section.className =
-        "digitalizacao-review-section";
-
-      const title =
-        document.createElement("h3");
-
-      title.textContent =
-        "Especificações técnicas";
-
-      section.appendChild(
-        title
-      );
-
-      data.specs.forEach(
-        (specSection) => {
-          const sectionTitle =
-            document.createElement("strong");
-
-          sectionTitle.textContent =
-            specSection?.secao ||
-            "Especificações";
-
-          section.appendChild(
-            sectionTitle
-          );
-
-          const list =
-            document.createElement("ul");
-
-          (
-            specSection?.itens || []
-          ).forEach((item) => {
-            const li =
-              document.createElement("li");
-
-            const campo =
-              item?.campo || "Campo";
-
-            const valor =
-              item?.valor ||
-              "Não informado";
-
-            li.textContent =
-              `${campo}: ${valor}`;
-
-            list.appendChild(li);
-          });
-
-          section.appendChild(
-            list
-          );
-        }
-      );
-
-      elements.reviewContent.appendChild(
-        section
-      );
-    }
-
-    if (
-      Array.isArray(data?.beneficios) &&
-      data.beneficios.length
-    ) {
-      const section =
-        document.createElement("div");
-
-      section.className =
-        "digitalizacao-review-section";
-
-      const title =
-        document.createElement("h3");
-
-      title.textContent =
-        "Benefícios";
-
-      const list =
-        document.createElement("ul");
-
-      data.beneficios.forEach(
-        (item) => {
-          const li =
-            document.createElement("li");
-
-          li.textContent =
-            `${item?.titulo || ""} ${
-              item?.descricao || ""
-            }`.trim();
-
-          list.appendChild(li);
-        }
-      );
-
-      section.append(
-        title,
-        list
-      );
-
-      elements.reviewContent.appendChild(
-        section
-      );
-    }
-
-    if (
-      Array.isArray(data?.aplicacoes) &&
-      data.aplicacoes.length
-    ) {
-      const section =
-        document.createElement("div");
-
-      section.className =
-        "digitalizacao-review-section";
-
-      const title =
-        document.createElement("h3");
-
-      title.textContent =
-        "Aplicações";
-
-      const list =
-        document.createElement("ul");
-
-      data.aplicacoes.forEach(
-        (item) => {
-          const li =
-            document.createElement("li");
-
-          li.textContent =
-            `${item?.titulo || ""} ${
-              item?.descricao || ""
-            }`.trim();
-
-          list.appendChild(li);
-        }
-      );
-
-      section.append(
-        title,
-        list
-      );
-
-      elements.reviewContent.appendChild(
-        section
-      );
-    }
-
-    if (
-      Array.isArray(data?.alertas) &&
-      data.alertas.length
-    ) {
-      const alert =
-        document.createElement("div");
-
-      alert.className =
-        "digitalizacao-message is-warning";
-
-      alert.textContent =
-        `Revisar: ${
-          data.alertas.join(" · ")
-        }`;
-
-      elements.reviewContent.appendChild(
-        alert
-      );
-    }
-
-    if (
-      Array.isArray(data?.nao_informado) &&
-      data.nao_informado.length
-    ) {
-      const missing =
-        document.createElement("div");
-
-      missing.className =
-        "digitalizacao-message is-warning";
-
-      missing.textContent =
-        `Não informado: ${
-          data.nao_informado.join(" · ")
-        }`;
-
-      elements.reviewContent.appendChild(
-        missing
-      );
-    }
-
-    elements.review.hidden = false;
-
-    elements.review.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
   }
 
   function showMessage(
@@ -1407,7 +1568,11 @@
     message.dataset.runtimeMessage =
       "true";
 
-    message.textContent = text;
+    message.setAttribute("role", type === "warning" ? "alert" : "status");
+    message.innerHTML = icon(type === "success" ? "check" : type === "warning" ? "alert" : "info");
+    const copy = document.createElement("span");
+    copy.textContent = text;
+    message.append(copy);
 
     parent.appendChild(message);
 
@@ -1449,16 +1614,15 @@
       }
     }
 
-    const originalText =
-      elements.gerarDatasheet?.textContent ||
-      "Gerar Datasheet";
+    let stopProgress = () => {};
 
     try {
       if (elements.gerarDatasheet) {
         elements.gerarDatasheet.disabled = true;
-        elements.gerarDatasheet.textContent =
-          "Gerando Datasheet...";
+        setBusy(elements.gerarDatasheet, "Gerando datasheet…");
       }
+      if (elements.geracao) elements.geracao.dataset.generation = "running";
+      stopProgress = startProgress("generation");
 
       if (elements.datasheetStatus) {
         elements.datasheetStatus.textContent =
@@ -1552,32 +1716,18 @@
       try {
         await loadDraftPreview();
       } catch (previewError) {
-        showMessage(previewError.message, "warning", elements.review);
+        showMessage(previewError.message, "warning", elements.geracao || elements.review);
       }
 
-      if (elements.datasheetDownload) {
-        elements.datasheetDownload.href =
-          state.datasheetUrl;
-
-        elements.datasheetDownload.download =
-          state.datasheetFilename;
-      }
-
-      if (elements.datasheetResult) {
-        elements.datasheetResult.hidden =
-          false;
-      }
+      showDatasheetResult();
 
       if (elements.datasheetStatus) {
         elements.datasheetStatus.textContent =
           `Datasheet gerado com sucesso: ${state.datasheetFilename}`;
       }
 
-      showMessage(
-        "Datasheet gerado com sucesso. Use o botão para baixar e revisar o PDF.",
-        "success",
-        elements.review
-      );
+      if (elements.geracao) elements.geracao.dataset.generation = "done";
+      toast("Datasheet gerado. Confira as páginas antes de aprovar.");
 
       updatePageState();
 
@@ -1585,6 +1735,7 @@
       console.error(error);
 
       clearGeneratedDatasheet();
+      if (elements.geracao) elements.geracao.dataset.generation = "error";
 
       if (elements.datasheetStatus) {
         elements.datasheetStatus.textContent =
@@ -1595,19 +1746,29 @@
         error.message ||
         "Erro durante a geração do datasheet.",
         "warning",
-        elements.review
+        elements.geracao || elements.review
       );
 
       updatePageState();
 
     } finally {
-      if (elements.gerarDatasheet) {
-        elements.gerarDatasheet.textContent =
-          originalText;
-      }
+      stopProgress();
+      clearBusy(elements.gerarDatasheet);
 
       updateButtons();
     }
+  }
+
+  function showDatasheetResult() {
+    if (elements.datasheetDownload) {
+      elements.datasheetDownload.href = state.datasheetUrl;
+      elements.datasheetDownload.download = state.datasheetFilename;
+    }
+    const open = $("[data-dz-datasheet-open]", elements.datasheetResult || document);
+    if (open) open.href = state.datasheetUrl;
+    const filename = $("[data-dz-datasheet-filename]", elements.datasheetResult || document);
+    if (filename) filename.textContent = state.datasheetFilename || "Rascunho salvo no servidor";
+    if (elements.datasheetResult) elements.datasheetResult.hidden = false;
   }
 
   async function loadDraftPreview(record = null) {
@@ -1627,25 +1788,29 @@
       toolbar.className = "datasheet-viewer-toolbar";
       const previous = document.createElement("button");
       previous.type = "button";
-      previous.textContent = "← Anterior";
+      previous.className = "prm-btn prm-btn-sm";
+      previous.innerHTML = `${icon("left")}<span>Anterior</span>`;
       const counter = document.createElement("strong");
       const next = document.createElement("button");
       next.type = "button";
-      next.textContent = "Próxima →";
+      next.className = "prm-btn prm-btn-sm";
+      next.innerHTML = `<span>Próxima</span>${icon("right")}`;
       const zoom = document.createElement("button");
       zoom.type = "button";
-      zoom.textContent = "Ampliar";
+      zoom.className = "prm-btn prm-btn-sm";
+      zoom.innerHTML = `${icon("zoom")}<span>Ampliar</span>`;
       zoom.setAttribute("aria-pressed", "false");
       zoom.addEventListener("click", () => {
         const active = viewer.classList.toggle("is-zoomed");
-        zoom.textContent = active ? "Ajustar" : "Ampliar";
+        zoom.querySelector("span").textContent = active ? "Ajustar" : "Ampliar";
         zoom.setAttribute("aria-pressed", String(active));
       });
       const open = document.createElement("a");
       open.href = state.datasheetUrl;
       open.target = "_blank";
       open.rel = "noopener";
-      open.textContent = "Abrir PDF ↗";
+      open.className = "prm-btn prm-btn-sm";
+      open.innerHTML = `${icon("external")}<span>Abrir PDF</span>`;
       const page = document.createElement("img");
       page.alt = "Prévia do datasheet";
       const canvas = document.createElement("div");
@@ -1671,9 +1836,18 @@
     }
     const problems = [...(record.pending || []), ...(record.warnings || [])];
     if (problems.length) {
+      const box = document.createElement("div");
+      box.className = "dz-issues is-warn";
+      const head = document.createElement("div");
+      head.className = "dz-issues-head";
+      head.innerHTML = icon("alert");
+      const title = document.createElement("strong");
+      title.textContent = `${problems.length} ${problems.length === 1 ? "pendência do rascunho" : "pendências do rascunho"} para conferir antes de aprovar`;
+      head.append(title);
       const list = document.createElement("ul");
       problems.forEach((text) => { const item = document.createElement("li"); item.textContent = text; list.append(item); });
-      elements.previewPages.append(list);
+      box.append(head, list);
+      elements.previewPages.append(box);
     }
     state.approved = record.status === "approved" || record.status === "validated";
     state.savedImageCount = Number(record.image_count || 0);
@@ -1695,6 +1869,7 @@
     const result = await approval.json();
     if (!approval.ok) throw new Error(result.detail || "Falha ao aprovar datasheet.");
     state.approved = true;
+    toast("Datasheet aprovado.");
     if (elements.datasheetStatus) elements.datasheetStatus.textContent = state.savedImageCount
       ? "Datasheet aprovado. Você pode criar a pasta do produto."
       : "Datasheet aprovado. Adicione uma foto principal e gere o PDF novamente para criar o pacote final.";
@@ -1847,7 +2022,37 @@
       document.getElementById("digitalizacao-image-dialog")?.close();
     });
     document.querySelectorAll("[data-step-target]").forEach((step) => {
-      step.addEventListener("click", () => document.getElementById(step.dataset.stepTarget)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      step.addEventListener("click", () => {
+        let target = document.getElementById(step.dataset.stepTarget);
+        // A revisão só aparece após a análise; até lá, leva à etapa de análise.
+        if (target?.hidden) target = elements.analysisSection;
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+    // Arrastar e soltar nos cartões de PDF e 3D: entrega o arquivo ao input original.
+    $$("[data-dz-drop]").forEach((card) => {
+      const input = document.getElementById(card.dataset.dzDrop);
+      if (!input) return;
+      ["dragenter", "dragover"].forEach((name) => card.addEventListener(name, (event) => {
+        event.preventDefault();
+        card.classList.add("is-dragging");
+      }));
+      ["dragleave", "drop"].forEach((name) => card.addEventListener(name, (event) => {
+        event.preventDefault();
+        card.classList.remove("is-dragging");
+      }));
+      card.addEventListener("drop", (event) => {
+        const file = event.dataTransfer?.files?.[0];
+        if (!file) return;
+        if (input.accept === ".pdf" && !/\.pdf$/i.test(file.name)) {
+          showMessage("Envie o datasheet do fornecedor em PDF.", "warning", card.parentElement);
+          return;
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        input.files = transfer.files;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
     });
     elements.imagensInput?.addEventListener(
       "change",
@@ -1937,7 +2142,7 @@
       handleGenerateDatasheet
     );
     elements.aprovar?.addEventListener("click", () => {
-      approveDatasheet().catch((error) => showMessage(error.message, "warning", elements.review));
+      approveDatasheet().catch((error) => showMessage(error.message, "warning", elements.geracao || elements.review));
     });
 
     elements.gerar?.addEventListener(
@@ -1996,13 +2201,10 @@
       state.datasheetGenerated = true;
       state.datasheetUrl = `/api/v1/digitalizacao/execucoes/${record.run_id}/datasheet`;
       state.datasheetFilename = `${record.sku}_Datasheet.pdf`;
-      if (elements.datasheetDownload) {
-        elements.datasheetDownload.href = state.datasheetUrl;
-        elements.datasheetDownload.download = state.datasheetFilename;
-      }
-      if (elements.datasheetResult) elements.datasheetResult.hidden = false;
+      showDatasheetResult();
+      renderClaudeReview(record.analysis, { scroll: false });
       if (elements.datasheetStatus) elements.datasheetStatus.textContent = "Datasheet salvo no servidor; revise antes de prosseguir.";
-      loadDraftPreview(record).catch((error) => showMessage(error.message, "warning", elements.review));
+      loadDraftPreview(record).catch((error) => showMessage(error.message, "warning", elements.geracao || elements.review));
       updatePageState();
     },
     markFinalized: (value) => { state.finalized = Boolean(value); updatePageState(); },

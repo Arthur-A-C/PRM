@@ -28,6 +28,7 @@ from app.services.refined_catalog_database import database_manifest, list_refine
 from app.services.current_analysis import summarize_current
 from app.services.operations_overview import operations_overview
 from app.services.security import secrets_match
+from app.services.access import MANAGERS, SELLER_PAGES, visible_navigation
 
 
 router = APIRouter(include_in_schema=False)
@@ -38,9 +39,12 @@ NAV_ITEMS = (
     ("Visão geral", "/"),
     ("Catálogos", "/catalogos"),
     ("Digitalização", "/digitalizacao"),
+    ("Integrações WooCommerce", "/integracoes-woocommerce"),
     ("Comparador", "/comparador"),
     ("Aplicações e regiões", "/aplicacoes-regioes"),
     ("Cards", "/cards"),
+    ("Reuniões", "/reunioes"),
+    ("Planner", "/planner"),
     ("Meus alertas", "/alertas"),
     ("Gestão", "/gestao"),
     ("Importações e qualidade", "/importacoes"),
@@ -54,7 +58,7 @@ def require_page_auth(request: Request, db: DbSession, settings: AppSettings):
     return context
 
 
-def render_shell(request: Request, settings: AppSettings, title: str):
+def render_shell(request: Request, settings: AppSettings, title: str, extra_context=None):
     raw_token = request.cookies.get(settings.session_cookie_name)
     if not raw_token:
         return RedirectResponse("/login", status_code=303)
@@ -66,6 +70,15 @@ def render_shell(request: Request, settings: AppSettings, title: str):
         auth = find_auth_context(db, raw_token)
         if auth is None:
             return RedirectResponse("/login", status_code=303)
+        if auth.user.role not in MANAGERS:
+            if auth.user.role == "vendedor" and request.url.path in {"/", "/comparador"}:
+                return RedirectResponse("/catalogos", status_code=303)
+            if auth.user.role != "vendedor" or request.url.path not in SELLER_PAGES:
+                raise HTTPException(403, "Seu nível de acesso não permite esta página.")
+            if request.query_params.get("internal") == "1" or request.query_params.get("group") == "quality_review":
+                raise HTTPException(403, "Detalhes internos de importação são restritos.")
+        if title in {"Integrações WooCommerce", "Cadastro via API"} and auth.user.role not in {"gestor", "desenvolvedor"}:
+            raise HTTPException(403, "Somente gestores podem consultar integrações.")
         companies = db.scalars(
             select(Company)
             .where(Company.organization_id == auth.user.organization_id, Company.active.is_(True))
@@ -74,16 +87,17 @@ def render_shell(request: Request, settings: AppSettings, title: str):
         page_context = {
             "title": title,
             "user": auth.user,
-            "nav_items": NAV_ITEMS,
+            "nav_items": visible_navigation(auth.user.role, NAV_ITEMS),
             "companies": companies,
             "active_path": request.url.path,
             "csrf_token": request.cookies.get(settings.csrf_cookie_name, ""),
         }
+        page_context.update(extra_context or {})
         refined_manifest = database_manifest(db, auth.user.organization_id) if inspect(engine).has_table("refined_catalog_runs") else None
         page_context["refined_analysis"] = refined_manifest if title in {"Visão geral", "Comparador", "Importações e qualidade"} else None
         if title in {"Visão geral", "Comparador", "Importações e qualidade"}:
             page_context["current_analysis"] = summarize_current(refined_manifest)
-            page_context["operations"] = operations_overview() if auth.user.role == "gestor" else {"status": "restricted", "items": []}
+            page_context["operations"] = operations_overview() if auth.user.role in {"gestor", "desenvolvedor"} else {"status": "restricted", "items": []}
             return templates.TemplateResponse(request=request, name="shell.html", context=page_context)
         if title == "Comparação atual":
             try:
@@ -91,7 +105,7 @@ def render_shell(request: Request, settings: AppSettings, title: str):
                 if not 2 <= len(set(ids)) <= 8 or len(ids) != len(set(ids)):
                     raise ValueError("Selecione entre 2 e 8 produtos distintos.")
                 items = current_items(db, auth.user.organization_id, ids,
-                                      run_id=request.query_params.get("run_id"), internal=auth.user.role == "gestor")
+                                      run_id=request.query_params.get("run_id"), internal=auth.user.role in {"gestor", "desenvolvedor"})
                 page_context["current_comparison"] = current_comparison(items)
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -108,13 +122,13 @@ def render_shell(request: Request, settings: AppSettings, title: str):
                 page_context["refined_catalog"] = list_refined_items(
                     db, auth.user.organization_id, source=query.get("source", ""),
                     family=query.get("family", ""), search=query.get("q", ""), page=refined_page,
-                    internal=query.get("internal") == "1" and auth.user.role == "gestor",
+                    internal=query.get("internal") == "1" and auth.user.role in {"gestor", "desenvolvedor"},
                     group=query.get("group", ""),
                 )
                 if query.get("reference"):
                     try:
                         reference = current_items(db, auth.user.organization_id, [uuid.UUID(query["reference"])],
-                                                  run_id=query.get("run_id"), internal=auth.user.role == "gestor")
+                                                  run_id=query.get("run_id"), internal=auth.user.role in {"gestor", "desenvolvedor"})
                         page_context["catalog_reference"] = reference[0]
                     except ValueError as exc:
                         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -188,7 +202,7 @@ def render_shell(request: Request, settings: AppSettings, title: str):
                     Offer.id.in_(offer_ids),
                     Offer.active.is_(True),
                 ]
-                if auth.user.role != "gestor":
+                if auth.user.role not in {"gestor", "desenvolvedor"}:
                     conditions.append(Offer.excluded_from_analytics.is_(False))
                 allowed = set(db.scalars(select(Offer.id).where(*conditions)))
                 if allowed != set(offer_ids):
@@ -296,7 +310,7 @@ def save_comparison_page(
             title=title,
             offer_ids=offer_ids,
             reference_offer_id=reference_offer_id,
-            allow_excluded=auth.user.role == "gestor",
+            allow_excluded=auth.user.role in {"gestor", "desenvolvedor"},
         )
     except (ValueError, LookupError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -311,6 +325,8 @@ def save_comparison_page(
 @router.get("/{page:path}", response_class=HTMLResponse)
 def feature_page(page: str, request: Request, settings: AppSettings):
     route_titles = {path.strip("/"): label for label, path in NAV_ITEMS if path != "/"}
+    route_titles["digitalizacao/lotes"] = "Geração em Lote"
+    route_titles["digitalizacao/cadastro-api"] = "Cadastro via API"
     if page not in route_titles:
         raise HTTPException(status_code=404, detail="Página não encontrada.")
     return render_shell(request, settings, route_titles[page])

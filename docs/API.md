@@ -1,5 +1,112 @@
 # API
 
+## Digitalização em lote por pastas (21/10/2026)
+
+`POST /api/v1/digitalizacao/lotes` mantém `arquivo` (ZIP), `delimitador` e CSRF e acrescenta `identificacao` (`csv`, padrão para clientes antigos; ou `folder`), `empresa` (obrigatória para `folder`: choice/portwell/sag) e `pasta_raiz` (relativa ao ZIP, opcional). CSV dentro do ZIP é opcional em `folder`, obrigatório em `csv`. Não há leitura de caminho local/rede enviado pelo usuário.
+
+Resposta reutiliza a prévia/ID/fila atual. Itens por pasta incluem `identification`, `folder`, `assets` (nome, papel, bytes, indicação `analyze`, caminho interno relativo) e `warnings`. Estado inicial `pending` ou `invalid`; não agenda IA. Nomes inseguros/ZIP estruturalmente inválido/CSV incompatível retornam 422; falhas locais do produto aparecem na prévia. Iniciar, reprocessar, histórico e downloads continuam nos endpoints existentes, com isolamento por dono/organização. Nenhum endpoint de escrita WooCommerce foi habilitado. Ver [operação e limites](DATASHEETS_EM_LOTE.md).
+
+## Documentos WooCommerce: contrato candidato (21/10/2026)
+
+O serviço `app/services/store_document_update.py` prepara `PUT /wp-json/wc/v3/products/{id}` com apenas `meta_data: [{id, key: "_wcda_arquivos", value: lista_original_mais_novos}]`. O ID deve ser o metadado existente observado por GET. Documentos novos reais: `label`, `url`, `filename`, `filesize`; não há ID de arquivo observado nesse contrato.
+
+**Não é um novo endpoint de escrita do PRM nem uma liberação de produção.** A CLI `scripts/preview_wcda_update.py` faz GET e mostra o Dry Run; o fluxo PUT/GET é exercitado somente com mocks. Documentos permanecem bloqueados no cadastro em lote. A futura homologação exige loja/SKU e documento explicitamente autorizados, além de backup/journal e inspeção do frontend. Ver [contrato, payload e rollback](WCDA_HOMOLOGACAO.md).
+
+## Cards: atribuição e alertas operacionais (21/10/2026)
+
+- `GET /api/v1/planner/users`: usuários ativos da organização para gestores/desenvolvedores; vendedor recebe apenas a própria conta. Cada opção retorna `id`, `name`, `role`, sem e-mail/senha.
+- `POST /api/v1/planner/assign`: `{items: [{id, version}], assignee_user_id, reason}`; CSRF obrigatório, lote transacional, usuário ativo da mesma organização e permissões de atribuição. A interface usa o mesmo endpoint para um card ou seleção em lote. Conflito de versão: 409; destinatário inelegível/permissão: 403.
+- `GET /api/v1/planner/alerts`: apenas alertas não resolvidos do destinatário atual em cards reais publicados abertos, com prazo/fuso e classificação atual; GET não agenda avisos. Simulações excluídas. Worker atualiza persistência a cada minuto; atribuição/publicação também sincronizam.
+- `POST /api/v1/planner/alerts/{id}/read`: marca o aviso próprio como lido, com CSRF.
+
+Ver `CARDS_E_ALERTAS.md`. A atribuição de um rascunho não equivale a aprovação/publicação; não gera cobrança até a publicação explícita.
+
+## Níveis de acesso e criação de contas (21/10/2026)
+
+Papéis: `desenvolvedor`, `gestor`, `vendedor`. Desenvolvedor e gestor têm as mesmas permissões; referências antigas a “gestor” neste documento abrangem ambos. Restrições de organização e titularidade permanecem.
+
+`GET /contas/criar/{role}` apresenta formulário administrativo; `POST` recebe `name`, `email`, `password` (6–1024 caracteres) e `csrf_token`. `{role}` aceita somente os três papéis. Sessão de gestor/desenvolvedor obrigatória, organização obtida do usuário autenticado, senha Argon2; sucesso 303, falta de autenticação no POST 401, proibição/CSRF 403, conflito 409, entrada inválida 422. Não é um endpoint público de autoinscrição.
+
+Vendedor acessa APIs de produtos, filtros, comparações e planner com as restrições de titularidade existentes. APIs operacionais (dashboard/execuções, digitalização, lotes e lojas) retornam 403. Procedência dos arquivos importados é retirada das respostas de detalhes/comparações para vendedor. Mais informações em `NIVEIS_DE_ACESSO.md`.
+
+## Cadastro via API — staging
+
+Prefixo `/api/v1/cadastro-api`. Gestor da organização configurada; escopo por dono
+do lote. POSTs exigem CSRF. Escopo: somente imagens e `_wcda_arquivos` de produtos existentes; dados comerciais ficam no fluxo CSV.
+
+- `POST /`: multipart `empresa`, `arquivos` (ZIP), `identificacao` (`csv` padrão ou `folder`),
+  `planilha` (CSV/XLSX/XLSM; obrigatória só em `csv`), `pasta_raiz` opcional.
+  Persiste e enfileira prévia somente leitura.
+- `GET /`: histórico dos últimos 100 lotes do usuário.
+- `GET /{id}`: estados, arquivos identificados, quantidades existentes, Dry Run de arquivos, bloqueios, aprovação, auditoria, avisos/erros.
+- `POST /{id}/aprovar`: JSON opcional `{"skus": [...], "replace_main": [...]}`; sem corpo aprova todos os prontos. Registra o hash do Dry Run, sem enfileirar nem autorizar escrita.
+- `POST /{id}/confirmar`: somente itens aprovados com o mesmo hash, origem/SKU de staging autorizados.
+- `POST /{id}/reprocessar`: refaz prévia dos erros, não repete uploads automaticamente.
+- `GET /{id}/relatorio`: CSV sanitizado com imagens a enviar, documentos a incluir, bloqueios e aprovação.
+- `GET /{id}/dry-run`: JSON do lote, sem caminhos locais nem credenciais.
+
+Worker separado: `scripts/store_registration_worker.py`. As três URLs atuais estão
+bloqueadas para escrita. Procedimento e limitações: [CADASTRO_API_STAGING.md](CADASTRO_API_STAGING.md).
+
+## Integrações WooCommerce / WordPress — somente leitura remota
+
+- `GET /api/v1/integracoes/lojas`: último diagnóstico de Choice, SAG e Portwell.
+- `POST /api/v1/integracoes/lojas/{company}/testar`: executa somente GET nas APIs
+  remotas e registra resultado sanitizado local. `company`: `choice`, `sag`, `portwell`.
+- Exige sessão `gestor` vinculada ao `PRM_STORE_ORGANIZATION_ID`; POST exige CSRF.
+  A prévia WooCommerce existente também respeita esse vínculo.
+- Retorno separa `woocommerce` e `wordpress`, `authenticated`, `attempted`,
+  permissões declaradas, status de mídia e `checked_at`. Nenhuma credencial ou
+  conteúdo de produto é devolvido no diagnóstico.
+- `not_configured` não é tentativa de autenticação; `public_endpoint` não comprova
+  chave válida; identidade WordPress confirmada não comprova upload permitido.
+
+Configuração, resultados reais e investigação de `wcda_arquivos`:
+[INTEGRACOES_LOJAS.md](INTEGRACOES_LOJAS.md).
+
+## Geração de Datasheets em Lote
+
+Prefixo `/api/v1/digitalizacao/lotes`. Sessão obrigatória; lotes privados por
+organização e usuário criador. POSTs exigem `X-CSRF-Token`. Não altera os endpoints
+individuais de Digitalização nem publica produtos.
+
+- `GET /modelo.csv`: modelo UTF-8 com BOM.
+- `POST /`: multipart `arquivo` (ZIP) e `delimitador` (`,`, `;` ou tab); retorna validação por produto, sem IA.
+- `GET /`: últimos 100 lotes do usuário.
+- `GET /{id}`: itens, erros, contagens, modelo e progresso.
+- `POST /{id}/iniciar`: enfileira apenas válidos; geração ocorre no worker.
+- `POST /{id}/reprocessar`: somente itens com erro, preservando concluídos/revisão.
+- `GET /{id}/produtos/{item}/pdf`: PDF individual disponível.
+- `GET /{id}/download`: ZIP por empresa, relatório e erros.
+
+Estados dos itens: `pending`, `invalid`, `queued`, `running`, `done`, `review`,
+`error`. Lotes com arquivos removidos pela retenção: `expired`.
+Contrato operacional, limites e worker em [DATASHEETS_EM_LOTE.md](DATASHEETS_EM_LOTE.md).
+
+## Demonstração READ AI (sem API de IA)
+
+`GET /api/v1/meeting-demo`: sessão de gestor da organização do artefato obrigatório, `Cache-Control: private, no-store`. Retorna `available`, `simulation`, datas, contagem de segmentos e sete cards com citações. Organização diferente recebe `available:false`; vendedor recebe 403. Endpoint independente da migração operacional, sem escrita no banco. Publicação administrativa local via `python -m scripts.publish_meeting_demo --transcript <TXT>`; valida hash exato e nunca substitui outro artefato silenciosamente.
+
+## Reuniões e Planner — 16/10/2026 (staging)
+
+Continuação: `POST /api/v1/planner/review` recebe `{items:[{id,version}],decision:"approved"|"rejected"|"draft",reason}`; até 100 IDs distintos, lote atômico, curador/gestor. `POST /api/v1/planner/activities/{id}/comments` recebe `{request_id:"UUID",text:"..."}`; até 2.000 caracteres, autor deve acessar o card. Retry com mesma chave/autor/card é idempotente; reutilizar chave com outro texto retorna 409. Comentários aparecem no histórico sem modificar a atividade.
+
+Prefixo `/api/v1/planner`. Todas as rotas exigem sessão e escopo da organização; mutações exigem `X-CSRF-Token`. Sem migração, o módulo retorna 503. Contratos completos dos corpos no OpenAPI da aplicação.
+
+- `GET /users`: usuários ativos elegíveis para atribuição (gestor: organização; vendedor: próprio usuário).
+- `GET/POST /meetings`, `GET /meetings/{id}`; `PATCH /meetings/{id}/metadata` e `/participants` com versão esperada.
+- `POST /meetings/{id}/transcripts`, `/txt`, `/audio`, `/transcriptions`, `/analyses`: entrada/revisão e enfileiramento. Análise externa exige consentimento explícito; áudio não é enviado ao provedor.
+- `GET /audio/{id}`: player privado, com autorização da reunião e suporte a ranges.
+- `POST /runs/{id}/cancel`, `/retry`, `/cards/build`: etapas separadas, sem refazer análise para gerar cards.
+- `GET /activities`: paginação `offset/limit` (100 padrão, 200 máximo), filtros `assignee/status/meeting/partner/mine/approval/owner/opportunity/band/bucket/undated`.
+- `GET /activities/overview`: faixas e histograma com denominador explícito. `GET /activities/calendar?start=AAAA-MM-DD&end=AAAA-MM-DD`: fim exclusivo, máximo 62 dias; `include_proposals=true` inclui rascunhos/aprovados datados, sem alterar indicadores.
+- `GET/PATCH /activities/{id}` e `POST /activities/{id}/review`: edição com `version/reason`, aprovação/rejeição; conflito retorna 409.
+- `POST /assign`: `{items:[{id,version}],assignee_user_id,reason}`; até 100 itens, lote atômico e autorização por item. `POST /publish`: `{items:[{id,version}]}`; só cards aprovados com usuário ativo e prazo/aceite sem prazo, eventos exigem data.
+- `POST /export`: `{ids:[...],format:"json"|"csv"}`; acesso validado por card. JSON `card_export_schema_version=1.0`, `exported_at`, `count`, `cards`; evidências/transcrição excluídas. CSV neutraliza fórmulas.
+- `GET /alerts`, `POST /alerts/{id}/read`: somente destinatário, sem geração de alerta no GET.
+
+Os caminhos acima são relativos ao prefixo. Guia, evidências e limitações: [REUNIOES_PLANNER.md](REUNIOES_PLANNER.md).
+
 ## Indicadores de atributos — 14/10/2026
 
 `GET /api/v1/dashboard/summary` mantém schema 2 e acrescenta `attribute_analysis` (null para snapshots anteriores). `sources` informa contagens de interpretação de memória/armazenamento/USB e reconhecimento de SO. `competitors` informa `total`, `with_os`, `missing_os`, `equivalent`, `different`, `inconclusive`, `equivalent_percent_total` e `equivalent_percent_assessed` (null sem comparáveis). O escopo `os_attribute_same_family_own_public` compara somente o conjunto de famílias de SO com produtos próprios visíveis da mesma família de produto. Não representa cobertura técnica integral; `strict_coverage_percent` continua null. Política: `os-families-v2`.
