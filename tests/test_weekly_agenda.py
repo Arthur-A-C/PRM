@@ -651,3 +651,12 @@ def test_migration_chain():
     spec = importlib.util.spec_from_file_location("m0013", path); module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     assert module.down_revision == "20261021_0011"
     assert [t.name for t in module.WEEKLY_AGENDA_TABLES] == ["weekly_agendas", "weekly_agenda_revisions", "weekly_agenda_settings"]
+
+
+def test_alembic_history_has_a_single_head():
+    """Parallel branches (0012 removal, 0013 agenda) are joined by 0014; `alembic upgrade head` stays unambiguous."""
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+    script = ScriptDirectory.from_config(Config(str(Path(__file__).parents[1] / "alembic.ini")))
+    assert script.get_heads() == ["20261023_0014"]
+    assert set(script.get_revision("20261023_0014").down_revision) == {"20261022_0012", "20261023_0013"}
