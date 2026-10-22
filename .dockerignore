@@ -39,6 +39,10 @@ secrets*.json
 *.db
 *.bak
 *.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
 
 # Tooling not needed inside the image
 docs
