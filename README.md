@@ -1,5 +1,9 @@
 # PRM
 
+## Docker e colaboração
+
+Ambiente isolado na porta **8001**, preservando o PRM Windows: [guia Docker](docs/DOCKER.md), [resultados da infraestrutura](docs/INFRA_STATUS.md) e [fluxo de Pull Requests Kaue/Arthur](CONTRIBUTING.md). Sem deploy automático ou migração dos dados atuais.
+
 Product Relationship Manager: aplicação interna para analisar catálogos de produtos do grupo SAG, com foco nas ofertas da Choice Tech e da Portwell e comparação com concorrentes como a Eco Automação.
 
 Este repositório contém o código e a documentação da primeira entrega (`0.1.0`). O [marco da entrega](docs/ENTREGA_0_1.md) resume o que funciona e seus limites; o [estado operacional](docs/STATUS.md) registra as verificações mais recentes.

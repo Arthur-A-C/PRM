@@ -1,5 +1,9 @@
 # Status do projeto
 
+## Docker, GitHub e CI — 22/10/2026
+
+Infraestrutura isolada na porta 8001, sem migração do banco/filas Windows. Build, pytest Linux, quatro workers e persistência verificados; proteção da main depende de plano GitHub compatível. Resultados e limites em [INFRA_STATUS.md](INFRA_STATUS.md); operação em [DOCKER.md](DOCKER.md). Alterações funcionais anteriores preservadas fora dos commits de infraestrutura.
+
 ## Cadastro via API: escopo exclusivo de arquivos — 21/10/2026
 
 - **Escopo corrigido:** o módulo só adiciona imagens e documentos WCDA a produtos existentes. Nome, descrições, categorias, atributos, SKU, preço, estoque, status e demais metadados continuam no fluxo CSV. O mapeamento comercial `prepare_content` foi removido do plano de publicação via API; os serviços de descrição, datasheet e CSV (`registration_description`, `registration_woo_csv` etc.) não foram alterados. Versões anteriores copiadas no scratchpad.
