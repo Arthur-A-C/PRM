@@ -1,0 +1,14 @@
+# Connectivity check only. No workers, migrations, auth writes, or store credentials.
+# Requires Docker Compose >= 2.24.4 (!override/!reset).
+services:
+  api:
+    ports: ["127.0.0.1:${PRM_DOCKER_PORT:-8001}:8000"]
+    depends_on: !reset {}
+    networks: !override [windows-check]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      PRM_DATABASE_URL: ${PRM_DATABASE_URL:?Configure PRM_DATABASE_URL in local .env}
+      PGOPTIONS: "-c default_transaction_read_only=on"
+      PRM_DOCKER_WORKERS_ENABLED: "false"
+networks:
+  windows-check:

@@ -1,0 +1,125 @@
+name: prm-docker
+
+# Safe default: isolated database, empty Docker volumes, no .env credentials.
+x-environment: &environment
+  PRM_DATABASE_URL: postgresql+psycopg://prm:local-test-only@db:5432/prm_docker
+  PRM_ENVIRONMENT: docker-development
+  PRM_SESSION_COOKIE_NAME: prm_docker_session
+  PRM_CSRF_COOKIE_NAME: prm_docker_csrf
+  PRM_PRODUCT_STORAGE_ROOT: /app/data/products
+  PRM_PUBLISH_STORAGE_DIR: /app/data/store_publish
+  PRM_BATCH_STORAGE_DIR: /app/data/datasheet_batches
+  PRM_STORE_STATUS_DIR: /app/data/integrations
+  PRM_MEETING_STORAGE_DIR: /app/data/meetings
+  PRM_IMAGE_TOOL_ROOTS: /mnt/prm-fotos
+  PRM_REGISTRATION_CHOICE_ROOT: /app/data/products
+  PRM_REGISTRATION_SAG_ROOT: /app/data/products
+  PRM_REGISTRATION_PORTWELL_ROOT: /app/data/products
+  PRM_PUBLISH_ENABLED: "false"
+  PRM_DOCKER_WORKERS_ENABLED: "true"
+
+x-app: &app
+  image: prm:local
+  build: .
+  init: true
+  restart: unless-stopped
+  environment: *environment
+  networks: [isolated]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  stop_grace_period: 45s
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "5"}
+  volumes:
+    - store-publish:/app/data/store_publish
+    - datasheet-batches:/app/data/datasheet_batches
+    - integrations:/app/data/integrations
+    - meetings:/app/data/meetings
+    - products:/app/data/products
+    - imports:/app/data/imports
+    - exports:/app/data/exports
+    - analysis:/app/data/analysis
+    - backups:/app/data/backups
+    - tools:/app/data/tools
+    - photos:/mnt/prm-fotos
+  depends_on:
+    db: {condition: service_healthy}
+
+services:
+  gateway:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    ports: ["127.0.0.1:${PRM_DOCKER_PORT:-8001}:8000"]
+    networks: [isolated, ingress]
+    volumes: ["./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro"]
+    depends_on:
+      api: {condition: service_healthy}
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "5"}
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: prm
+      POSTGRES_PASSWORD: local-test-only
+      POSTGRES_DB: prm_docker
+    networks: [isolated]
+    volumes: [postgres:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U prm -d prm_docker"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "5"}
+  api:
+    <<: *app
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+  worker-registration:
+    <<: *app
+    profiles: [workers]
+    command: [python, docker/worker.py, registration]
+  worker-removal:
+    <<: *app
+    profiles: [workers]
+    command: [python, docker/worker.py, removal]
+  worker-datasheets:
+    <<: *app
+    profiles: [workers]
+    command: [python, docker/worker.py, datasheets]
+  worker-alerts:
+    <<: *app
+    profiles: [workers]
+    command: [python, docker/worker.py, alerts]
+  migrate:
+    <<: *app
+    profiles: [tools]
+    restart: "no"
+    command: [python, docker/migrate.py]
+
+networks:
+  ingress:
+  isolated:
+    internal: true
+
+volumes:
+  postgres:
+  store-publish:
+  datasheet-batches:
+  integrations:
+  meetings:
+  products:
+  imports:
+  exports:
+  analysis:
+  backups:
+  tools:
+  photos:

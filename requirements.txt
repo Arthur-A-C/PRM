@@ -40,3 +40,7 @@ numpy>=1.26,<3
 ImageHash==4.3.2
 jsonschema>=4.23,<5
 reportlab>=4,<6
+# Datasheet image cleanup (inpainting/components). Optional in code, but changes the output: keep parity with Windows.
+opencv-python-headless==5.0.0.93
+# PDF reading in tests (and the unused Qwen path).
+pypdf==6.19.0

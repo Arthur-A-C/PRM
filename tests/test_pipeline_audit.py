@@ -8,7 +8,7 @@ import pytest
 CATALOG_DIR = Path(__file__).resolve().parents[1] / "data" / "imports"
 
 
-@pytest.mark.skipif(not CATALOG_DIR.exists(), reason="catálogos locais indisponíveis")
+@pytest.mark.skipif(not any(CATALOG_DIR.glob("*.xlsx")), reason="catálogos privados locais indisponíveis (diretório vazio não é fixture)")
 def test_audit_fixtures_are_present() -> None:
     expected = (
         "produtos-choice.xlsx",

@@ -1,9 +1,24 @@
 """A visualização de staging é separada do catálogo publicado."""
 
 from jinja2 import Environment, FileSystemLoader
+import json
+import pytest
 
 from app.services.dimensional_dashboard import load_dimensional_staging
 from app.services.pipeline_staging import load_staging_audit
+
+
+@pytest.fixture
+def staging_report(tmp_path):
+    """Synthetic audit: UI regression must not depend on private data/analysis."""
+    (tmp_path / "dimensional_audit.json").write_text(json.dumps({
+        "mode": "read_only_staging", "sha256": "synthetic", "metrics": {"records": 77965},
+    }), encoding="utf-8")
+    (tmp_path / "dimensional_simulation.json").write_text(json.dumps({
+        "mode": "dry_run_staging", "source_sha256": "synthetic",
+        "metrics": {"records": 77965}, "published_offers": 0,
+    }), encoding="utf-8")
+    return load_dimensional_staging(tmp_path)
 
 
 def render(role: str, dimensional: dict | None):
@@ -17,8 +32,8 @@ def render(role: str, dimensional: dict | None):
     )
 
 
-def test_staging_panel_is_labeled_and_not_shown_as_published():
-    report = load_dimensional_staging()
+def test_staging_panel_is_labeled_and_not_shown_as_published(staging_report):
+    report = staging_report
     assert report is not None
     assert report["audit"]["metrics"]["records"] == 77_965
     assert report["simulation"]["published_offers"] == 0
@@ -30,8 +45,8 @@ def test_staging_panel_is_labeled_and_not_shown_as_published():
     assert "Dimensional — auditoria do CSV" not in seller_html
 
 
-def test_overview_separates_audited_source_from_live_database():
-    report = load_dimensional_staging()
+def test_overview_separates_audited_source_from_live_database(staging_report):
+    report = staging_report
     assert report is not None
     environment = Environment(loader=FileSystemLoader("app/templates"), autoescape=True)
     html = environment.get_template("shell.html").render(
