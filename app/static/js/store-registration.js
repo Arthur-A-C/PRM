@@ -108,7 +108,8 @@
       const form=new FormData(event.target);
       if(!$("api-registration-sheet").files.length)form.delete("planilha");
       choices.clear();
-      message("Importando arquivos para prévia…");render(await request(api,{method:"POST",headers:headers(),body:form}));message("SKUs identificados; consulta na fila. Nenhuma gravação na loja autorizada.");}
+      const picker=await window.PRMLocalFiles?.applyTo(event.target,form);
+      message("Importando arquivos para prévia…");render(await request(api,{method:"POST",headers:headers(),body:form}));picker?.done();message("SKUs identificados; consulta na fila. Nenhuma gravação na loja autorizada.");}
     catch(e){message(e.message);}finally{busy=false;}
   });
   async function post(action,body,question){

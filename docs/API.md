@@ -1,5 +1,15 @@
 # API
 
+## Envios do computador do usuário (22/10/2026)
+
+Gestores/desenvolvedores; alterações exigem `X-CSRF-Token`; envio visível só ao dono (`404` para os demais).
+
+- `POST /api/v1/envios` `{perfil: "imagens"|"lote", pasta, arquivos: [{caminho, tamanho}]}` → estado com `id`, `arquivos[].recebido`, `bloco_bytes`.
+- `PUT /api/v1/envios/{id}/arquivos/{indice}?inicio=<byte>` (corpo binário, até `PRM_UPLOAD_CHUNK_MIB`) → `{recebido, completo}`; `409 {recebido}` indica onde retomar; `413` para bloco grande demais.
+- `GET /api/v1/envios/{id}`; `POST /api/v1/envios/{id}/concluir`; `DELETE /api/v1/envios/{id}`.
+- `POST /api/v1/digitalizacao/lotes`, `POST /api/v1/publicacao-lote` e `POST /api/v1/cadastro-api` aceitam `envio=<id>` (perfil `lote`) no lugar do arquivo ZIP; o envio é consumido quando o lote é criado.
+- `POST /api/v1/imagens/envios/{id}/previa` e `/processar` `{subpastas, tamanho, confirmar}`; `GET /api/v1/imagens/envios/{id}/resultado.zip?backup=false|true`. `GET /api/v1/imagens/pastas` informa `enabled` (modo de pasta no servidor).
+
 ## Cards de teste (22/10/2026)
 
 `GET /api/v1/planner/activities?include_tests=true` inclui exemplos `simulation=true` e `interactive_test=true`, preservando isolamento organizacional e visibilidade do vendedor. Cards utiliza essa opção; overview/calendário/alertas continuam exclusivamente operacionais. Consulta individual e `/assign` aceitam esses exemplos, mantendo CSRF, versão, auditoria e validação do destinatário. `/review` e `/publish` recusam simulações com 409. Nenhum payload de edição pode retirar as marcas de teste. Prazo serializado como `band: simulation`, sem bucket ou notificação.

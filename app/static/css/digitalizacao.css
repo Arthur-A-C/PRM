@@ -435,3 +435,4 @@
   .digitalizacao-page *, .digitalizacao-page *::before { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .dz-success-icon svg { stroke-dashoffset: 0; }
 }
+:root .prm-ui .dz-folder-button { justify-self: start; margin-top: .5rem; cursor: pointer; }
