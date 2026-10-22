@@ -162,8 +162,16 @@ class Jobs:
             CREATE TABLE IF NOT EXISTS journal(scope TEXT,key TEXT,value TEXT,PRIMARY KEY(scope,key));
             CREATE TABLE IF NOT EXISTS audit(batch TEXT,sku TEXT,at REAL,actor TEXT,event TEXT,detail TEXT);
             """+grants.SCHEMA)
-            if "scope" not in {r[1] for r in db.execute("PRAGMA table_info(grants)")}:
+            columns={r[1] for r in db.execute("PRAGMA table_info(grants)")}
+            if "scope" not in columns:
                 db.execute("ALTER TABLE grants ADD COLUMN scope TEXT DEFAULT ''")
+            # Production removal grants (env) and the approver they were issued against (four-eyes rule).
+            if "env" not in columns:
+                db.execute("ALTER TABLE grants ADD COLUMN env TEXT DEFAULT 'homologation'")
+            if "approver" not in columns:
+                db.execute("ALTER TABLE grants ADD COLUMN approver TEXT DEFAULT ''")
+            from app.services.store_removal_production import ENV_SCHEMA
+            db.executescript(ENV_SCHEMA)
 
     @contextmanager
     def db(self):

@@ -1,5 +1,19 @@
 # API
 
+## Remoção de arquivos em produção (22/10/2026)
+
+Prefixo `/api/v1/remocao-arquivos`. Mutations exigem `X-CSRF-Token`; produção exige HTTPS e permissão da loja; recusas vão para a auditoria.
+
+Desenvolvedores ativos têm autonomia operacional dentro da própria organização e podem aprovar,
+executar e restaurar suas operações com dispensa auditada de quatro olhos. Gestores mantêm
+permissões por loja e exigem outro aprovador. `POST /ambientes/{empresa}/quatro-olhos` rejeita
+`ativar: false` (422); não há desativação global. Os endpoints não aceitam perfil ou flag de
+dispensa do cliente; a identidade é consultada no banco e revalidada pelo worker.
+
+- `GET /ambientes`; `POST /ambientes/{empresa}/teste` (somente leitura); `POST /ambientes/{empresa}/producao` `{ativar, confirmacao: "ATIVAR PRODUCAO <LOJA>"}`; `POST /ambientes/{empresa}/quatro-olhos` `{ativar, confirmacao}`.
+- `GET /permissoes`; `PUT /permissoes` `{usuario, empresa, aprovar, executar, restaurar, administrar}` (administradores).
+- `POST /{lote}/executar` e `/restaurar` `{skus, confirmacao: "EXECUTAR|RESTAURAR <N> <LOJA>"}`; `POST /{lote}/reconferir` (somente leitura); `GET /{lote}/auditoria`; `GET /{lote}/backup/{sku}` (ZIP).
+
 ## Envios do computador do usuário (22/10/2026)
 
 Gestores/desenvolvedores; alterações exigem `X-CSRF-Token`; envio visível só ao dono (`404` para os demais).

@@ -12,6 +12,10 @@ from featured_media: when it is 0, wc/v3 lists the gallery from position 0.
 
 Queue, approval, single-use grants (store/SKU/product/mode/Dry Run hash), staging policy,
 journal, audit and the commercial-field verification are the ones used by Cadastro via API.
+Production (store_removal_production) adds per-store environments, user permissions re-checked by
+the worker, the four-eyes rule and UI-issued grants. Before any write the files to be unlinked are
+backed up and verified (removal_backup); without a verified backup nothing is written. An item is
+"done" only when the read-back (WooCommerce + WordPress) shows exactly the requested state.
 Nothing is ever DELETEd: files stay in the WordPress media library.
 """
 import csv
@@ -20,17 +24,20 @@ import io
 import json
 import time
 import uuid
+from contextlib import nullcontext
 from copy import deepcopy
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 import httpx
 
+from app.services import removal_backup as backups
 from app.services import store_publish_grant as grants
+from app.services import store_removal_production as production
 from app.services.digitalization_storage import validate_sku
 from app.services.store_config import COMPANIES
 from app.services.store_document_update import KEY
-from app.services.store_http import read_json
+from app.services.store_http import StoreAPIError, read_json
 from app.services.store_publish import StagingPublisher, _protected_hash
 from app.services.store_registration_jobs import Journal
 from app.services.store_registration_plan import PROTECTED_FIELDS
@@ -41,8 +48,21 @@ CREATE TABLE IF NOT EXISTS removal_batches(id TEXT PRIMARY KEY,org TEXT,owner TE
 CREATE TABLE IF NOT EXISTS removal_items(batch TEXT,sku TEXT,position INTEGER,state TEXT,error TEXT DEFAULT '',plan TEXT DEFAULT '{}',
   token TEXT DEFAULT '',lease REAL DEFAULT 0,PRIMARY KEY(batch,sku));
 """
-ACTIVE = ("preview_running", "running")
+QUEUED = {"preview_queued": "preview_running", "queued": "running", "restore_queued": "restoring", "reconcile_queued": "reconciling"}
+# A worker that dies mid-item leaves an unknown store state: never "done", always read back first.
+INTERRUPTED = {"preview_running": "uncertain", "running": "uncertain", "restoring": "restore_error", "reconciling": "uncertain"}
+RESTORABLE = {"done", "uncertain", "error", "restore_error"}
 MAX_SKUS = 500
+# Read-back after a write: stores with object cache may answer stale data for a moment.
+VERIFY_DELAYS = (0, 1, 2, 4)
+
+
+class Uncertain(ValueError):
+    """The write may or may not have happened: the read-back does not show the expected state."""
+
+
+class Blocked(ValueError):
+    """Refused before any write (policy, permission, environment, backup)."""
 
 
 # --- SKUs -----------------------------------------------------------------------------------
@@ -179,6 +199,10 @@ def restorable(jobs, record, sku, plan_):
 class RemovalExecutor(StagingPublisher):
     """Same authentication, grant check and permission proof as the file publisher; writes only images/_wcda_arquivos."""
 
+    def __init__(self, company, sku, settings, policy, journal, *, transport=None, grant=None):
+        super().__init__(company, sku, settings, policy, journal, transport=transport, grant=grant)
+        self.transport = transport
+
     def state(self, product_id):
         return read_state(self.woo, self.wp, product_id)
 
@@ -218,7 +242,22 @@ class RemovalExecutor(StagingPublisher):
         return ((state["main"] or {}).get("id") == main and [g["id"] for g in state["gallery"]] == gallery
                 and (state["wcda"]["entries"] if state["wcda"]["mode"] == "list" else None) == wcda and state["protected"] == protected)
 
-    def execute(self, item_plan, *, audit=lambda event, detail=None: None):
+    def confirm(self, product_id, main, gallery, wcda, protected):
+        """Read back (WooCommerce + WordPress) until the expected state shows up; None if it never does."""
+        state = None
+        for delay in VERIFY_DELAYS:
+            if delay:
+                time.sleep(delay)
+            try:
+                state = self.state(product_id)
+            except (ValueError, httpx.HTTPError):
+                continue
+            if self.same(state, main, gallery, wcda, protected):
+                return state
+        return None
+
+    def execute(self, item_plan, *, audit=lambda event, detail=None: None, backup=None, before_write=None):
+        """``backup(state)`` must return a verified backup summary; ``before_write()`` consumes the grant."""
         dry = item_plan["dry_run"]
         if not approved(item_plan): raise ValueError("Dry Run não aprovado ou alterado após a aprovação.")
         if dry["blockers"]: raise ValueError("Dry Run com bloqueios; nada enviado.")
@@ -245,6 +284,14 @@ class RemovalExecutor(StagingPublisher):
         fresh = self.state(product["id"])
         if fresh["signature"] != item_plan["signature"]:
             raise ValueError("Alteração concorrente detectada antes da gravação; nada removido.")
+        if backup is None:
+            raise Blocked("Backup obrigatório não configurado; nada removido.")
+        saved = backup(fresh)
+        audit("backup_verified", {k: saved[k] for k in ("files", "bytes", "images", "documents", "manifest_sha256")})
+        if before_write:
+            before_write()
+        if self.state(product["id"])["signature"] != item_plan["signature"]:
+            raise ValueError("Alteração concorrente detectada durante o backup; nada removido.")
         after_wcda = [] if any("meta_data" in w["payload"] for w in dry["writes"]) else (fresh["wcda"]["entries"] if fresh["wcda"]["mode"] == "list" else None)
         before = {"main": (fresh["main"] or {}).get("id"), "gallery": [g["id"] for g in fresh["gallery"]],
                   "wcda": fresh["wcda"]["entries"] if fresh["wcda"]["mode"] == "list" else None, "wcda_meta_id": fresh["wcda"]["meta_id"]}
@@ -258,15 +305,87 @@ class RemovalExecutor(StagingPublisher):
             if unchanged["signature"] == item_plan["signature"] and unchanged["protected"] == fresh["protected"]:
                 self.journal.put(key, {**self.journal.get(key), "state": "rejected"})
             raise
-        verified = self.state(product["id"])
-        if not self.same(verified, expected["main"], expected["gallery"], after_wcda, fresh["protected"]):
-            raise ValueError("Remoção não confirmada pela releitura (estado ou campos protegidos divergentes); sem retry automático.")
+        if self.confirm(product["id"], expected["main"], expected["gallery"], after_wcda, fresh["protected"]) is None:
+            raise Uncertain("Remoção não confirmada pela releitura (estado ou campos protegidos divergentes); use Reconferir. Sem retry automático.")
         self.journal.put(key, {**self.journal.get(key), "state": "done"})
         audit("removal_verified", {"unlinked_images": len(dry["unlink"]["images"]), "unlinked_documents": len(dry["unlink"]["documents"])})
         return {"status": "done", "verified": True, "unlinked_images": [i["id"] for i in dry["unlink"]["images"]],
-                "unlinked_documents": len(dry["unlink"]["documents"]), "media_deletion": False}
+                "unlinked_documents": len(dry["unlink"]["documents"]), "media_deletion": False, "backup": saved}
 
-    def restore(self, item_plan, *, audit=lambda event, detail=None: None):
+    def reconcile(self, item_plan):
+        """Read-only: decides an uncertain item from the store state alone."""
+        key = journal_key(item_plan)
+        entry = self.journal.get(key)
+        if not entry or "before" not in entry:
+            return {"status": "not_sent", "message": "Nada foi enviado à loja para este item; refaça o Dry Run se necessário."}
+        current = self.state(item_plan["product_id"])
+        after = entry["after"]
+        if self.same(current, after["main"], after["gallery"], entry["after_wcda"], entry["protected"]):
+            self.journal.put(key, {**entry, "state": "done"})
+            return {"status": "done", "verified": True, "reconciled": True, "media_deletion": False}
+        before = entry["before"]
+        if self.same(current, before["main"], before["gallery"], before["wcda"], entry["protected"]):
+            self.journal.put(key, {**entry, "state": "rejected"})
+            return {"status": "unchanged", "message": "A loja não foi alterada; aprove novamente para executar."}
+        return {"status": "diverged", "message": "Estado atual difere do previsto e do anterior; revisão manual na loja."}
+
+    def ensure_media(self, entry_id, backup_path, files, audit):
+        """Original media still in the library → reuse it; deleted → upload the verified backup copy."""
+        try:
+            record = read_json(self.wp, f"media/{int(entry_id)}", {"context": "edit", "_fields": "id,source_url"})
+            if isinstance(record, dict) and record.get("id") == entry_id:
+                return entry_id
+        except StoreAPIError as exc:
+            if exc.status != 404:
+                raise ValueError(f"Mídia #{entry_id} ilegível ({exc}); restauração interrompida.") from None
+        saved = next((f for f in files if f["kind"] == "image" and f.get("media_id") == entry_id), None)
+        if saved is None or backup_path is None:
+            raise ValueError(f"Mídia #{entry_id} não existe mais e não há cópia no backup; restauração interrompida.")
+        media = self.upload_backup(backup_path, saved)
+        audit("media_reuploaded", {"original": entry_id, "new": media["id"]})
+        return media["id"]
+
+    def ensure_document(self, entry, backup_path, files, downloader, audit):
+        """WCDA entry whose file vanished gets a fresh upload of the backup copy (same label)."""
+        url = entry.get("url")
+        if url and downloader.allowed(url):
+            try:
+                response = downloader.client.head(url)
+                if response.status_code in {200, 301, 302, 307, 308}:
+                    return entry
+            except httpx.HTTPError:
+                pass
+        saved = next((f for f in files if f["kind"] == "document" and f.get("entry") == entry), None)
+        if saved is None or backup_path is None:
+            raise ValueError(f"Documento {entry.get('label') or entry.get('filename')} indisponível e sem cópia no backup.")
+        media = self.upload_backup(backup_path, saved)
+        audit("document_reuploaded", {"label": entry.get("label")})
+        return {**entry, "url": media["source_url"], "filename": Path(unquote(urlsplit(media["source_url"]).path)).name}
+
+    def upload_backup(self, backup_path, saved):
+        """Journaled upload of one verified backup file; a lost response is never resent blindly."""
+        key = "restore-upload:" + saved["sha256"]
+        previous = self.journal.get(key)
+        if previous and previous.get("state") == "done":
+            return previous["media"]
+        if previous and previous.get("state") != "rejected":
+            raise ValueError("Envio anterior do arquivo de backup incerto; confira a biblioteca de mídia antes de repetir.")
+        data = backups.file_bytes(backup_path, saved)
+        self.journal.put(key, {"state": "sending"})
+        response = self.wp.post("media", files={"file": (saved["name"], data, saved["mime"])},
+                                data={"title": saved.get("title") or Path(saved["name"]).stem, "alt_text": saved.get("alt_text") or ""})
+        if response.status_code != 201:
+            # Explicit refusal: nothing was created, a later restore may try again.
+            self.journal.put(key, {"state": "rejected"})
+            raise ValueError(f"Loja recusou o reenvio do arquivo de backup (HTTP {response.status_code}).")
+        result = response.json()
+        if type(result.get("id")) is not int or not result.get("source_url"):
+            raise ValueError("Resposta de upload inválida ao restaurar o backup.")
+        media = {"id": result["id"], "source_url": result["source_url"]}
+        self.journal.put(key, {"state": "done", "media": media})
+        return media
+
+    def restore(self, item_plan, *, audit=lambda event, detail=None: None, backup_path=None, before_write=None):
         """Put back the previous links only if the product is exactly in the post-removal state."""
         dry = item_plan["dry_run"]
         if self.grant:
@@ -275,16 +394,37 @@ class RemovalExecutor(StagingPublisher):
         key = journal_key(item_plan)
         entry = self.journal.get(key)
         if not entry or "before" not in entry: raise ValueError("Não há remoção registrada para restaurar.")
-        if (self.journal.get("restore:" + key) or {}).get("state") == "done":
+        done = self.journal.get("restore:" + key) or {}
+        if done.get("state") == "done":
             return {"status": "restored", "reconciled": True}
-        before, after = entry["before"], entry["after"]
+        before, after = deepcopy(entry["before"]), entry["after"]
         current = self.state(item_plan["product_id"])
         if self.same(current, before["main"], before["gallery"], before["wcda"], entry["protected"]):
             self.journal.put("restore:" + key, {"state": "done"})
             return {"status": "nothing_to_restore", "verified": True}
+        if done.get("state") == "sending" and done.get("expected"):
+            expected = done["expected"]
+            if self.same(current, expected["main"], expected["gallery"], expected["wcda"], entry["protected"]):
+                self.journal.put("restore:" + key, {**done, "state": "done"})
+                return {"status": "restored", "verified": True, "reconciled": True, "media_deletion": False}
         if not self.same(current, after["main"], after["gallery"], entry["after_wcda"], entry["protected"]):
             raise ValueError("Restauração bloqueada: produto difere do estado pós-remoção; reconciliar manualmente.")
+        # Media deleted from the library after the removal comes back from the verified backup copy.
+        files = backups.verify(backup_path)["files"] if backup_path else []
         audit("permissions_verified", self.permissions(item_plan["product_id"], True))
+        if before_write:
+            before_write()
+        removed_images = [i for i in [before["main"], *before["gallery"]] if i and i not in [after["main"], *after["gallery"]]]
+        mapping = {i: self.ensure_media(i, backup_path, files, audit) for i in removed_images}
+        before["main"] = mapping.get(before["main"], before["main"])
+        before["gallery"] = [mapping.get(i, i) for i in before["gallery"]]
+        if before["wcda"] is not None and before["wcda"] != entry["after_wcda"]:
+            downloader = backups.Downloader(self.woo.credentials.base_url, backups.BackupSettings(), self.transport)
+            try:
+                before["wcda"] = [self.ensure_document(e, backup_path, files, downloader, audit) if isinstance(e, dict) else e
+                                  for e in before["wcda"]]
+            finally:
+                downloader.close()
         woo, operations = {}, []
         images_changed = (before["main"], before["gallery"]) != (after["main"], after["gallery"])
         if images_changed and dry["mode"] == "main":
@@ -303,15 +443,30 @@ class RemovalExecutor(StagingPublisher):
             operations.insert(0, {"api": "woocommerce", "endpoint": f"products/{item_plan['product_id']}", "payload": woo})
         if images_changed and dry["mode"] != "main" and not before["main"] and before["gallery"]:
             operations.append({"api": "wordpress", "endpoint": f"product/{item_plan['product_id']}", "payload": {"featured_media": 0}})
-        self.journal.put("restore:" + key, {"state": "sending"})
-        audit("restore_sent", {"writes": [o["api"] for o in operations]})
+        self.journal.put("restore:" + key, {"state": "sending", "expected": {"main": before["main"], "gallery": before["gallery"], "wcda": before["wcda"]}})
+        audit("restore_sent", {"writes": [o["api"] for o in operations], "reuploaded": sum(1 for k, v in mapping.items() if k != v)})
         self.apply(operations)
-        verified = self.state(item_plan["product_id"])
-        if not self.same(verified, before["main"], before["gallery"], before["wcda"], entry["protected"]):
-            raise ValueError("Restauração não confirmada pela releitura; reconciliar manualmente.")
+        if self.confirm(item_plan["product_id"], before["main"], before["gallery"], before["wcda"], entry["protected"]) is None:
+            raise Uncertain("Restauração não confirmada pela releitura; use Reconferir ou revise manualmente.")
         self.journal.put("restore:" + key, {"state": "done"})
         audit("restored", {"main": before["main"], "gallery": len(before["gallery"]), "documents": len(before["wcda"] or [])})
-        return {"status": "restored", "verified": True, "media_deletion": False}
+        return {"status": "restored", "verified": True, "media_deletion": False,
+                "reuploaded": sorted(v for k, v in mapping.items() if k != v)}
+
+
+class RemovalReader(RemovalExecutor):
+    """Read-only access for reconciliation: no policy or grant needed because it never writes."""
+
+    def __init__(self, company, sku, settings, journal, *, transport=None):
+        from app.services.registration_woo_api import WooClient, credentials_for
+        from app.services.store_http import http_client
+        self.company, self.sku, self.journal, self.grant, self.transport = company, sku, journal, None, transport
+        wp = settings.credentials(company, "wp")
+        self.woo = WooClient(credentials_for(company, settings), transport=transport, timeout=settings.timeout)
+        self.wp = http_client(wp.base_url, "wp/v2", auth=(wp.username, wp.password), transport=transport, timeout=settings.timeout)
+
+    def write(self, operation):
+        raise ValueError("Reconferência é somente leitura; nada enviado.")
 
 
 # --- Queue --------------------------------------------------------------------------------
@@ -331,32 +486,40 @@ class Removals:
             db.execute("INSERT INTO removal_batches VALUES(?,?,?,?,?,?,?)", (identifier, str(org), str(owner), company, origin, mode, time.time()))
             db.executemany("INSERT INTO removal_items(batch,sku,position,state) VALUES(?,?,?,'preview_queued')",
                            [(identifier, sku, n) for n, sku in enumerate(skus)])
+            self.jobs.audit(identifier, "", owner, "batch_created", {"company": company, "mode": mode, "skus": len(skus)}, db)
         return identifier
 
-    def access(self, db, identifier, org, owner):
-        row = db.execute("SELECT * FROM removal_batches WHERE id=? AND org=? AND owner=?", (identifier, str(org), str(owner))).fetchone()
-        if not row: raise LookupError("Lote não encontrado.")
+    def access(self, db, identifier, org, user, companies=()):
+        """The creator, or anyone holding a removal permission for that store (needed for the four-eyes rule)."""
+        row = db.execute("SELECT * FROM removal_batches WHERE id=? AND org=?", (identifier, str(org))).fetchone()
+        if not row or (row["owner"] != str(user) and row["company"] not in set(companies)): raise LookupError("Lote não encontrado.")
         return dict(row)
 
-    def gate(self, record, sku, plan_, db=None):
+    def record(self, identifier, org, user, companies=()):
+        with self.jobs.db() as db:
+            return self.access(db, identifier, org, user, companies)
+
+    def gate(self, record, sku, plan_, db=None, purpose=None):
         """Staging policy, or a valid single-use grant for this exact store/SKU/product/mode/Dry Run."""
+        purpose = purpose or "remove_" + record["mode"]
         try:
             self.jobs.policy.authorize(record["origin"], sku)
             return None
         except ValueError as exc:
             grant = grants.find(self.jobs, company=record["company"], origin=record["origin"], sku=sku, product_id=plan_.get("product_id"),
-                                dry_run_sha256=(plan_.get("dry_run") or {}).get("dry_run_sha256"), purpose="remove_" + record["mode"],
-                                batch=record["id"], db=db)
+                                dry_run_sha256=(plan_.get("dry_run") or {}).get("dry_run_sha256"), purpose=purpose,
+                                batch=record["id"], db=db, org=record["org"])
             if grant: return grant
             raise ValueError(f"{exc} Sem liberação de homologação válida para este item.") from None
 
-    def detail(self, identifier, org, owner):
+    def detail(self, identifier, org, user, companies=()):
         with self.jobs.db() as db:
-            record = self.access(db, identifier, org, owner)
+            record = self.access(db, identifier, org, user, companies)
             rows = db.execute("SELECT * FROM removal_items WHERE batch=? ORDER BY position", (identifier,)).fetchall()
             audits = {}
-            for a in db.execute("SELECT sku,at,actor,event FROM audit WHERE batch=? ORDER BY at", (identifier,)):
-                audits.setdefault(a["sku"], []).append({"at": a["at"], "actor": a["actor"], "event": a["event"]})
+            for a in db.execute("SELECT sku,at,actor,event,detail FROM audit WHERE batch=? ORDER BY at", (identifier,)):
+                audits.setdefault(a["sku"], []).append({"at": a["at"], "actor": a["actor"], "event": a["event"], "detail": json.loads(a["detail"] or "{}")})
+            environment = production.read_environment(db, record["org"], record["company"])
         items = []
         for row in rows:
             plan_ = json.loads(row["plan"])
@@ -364,104 +527,214 @@ class Removals:
             try:
                 gate = "Liberado" if dry and not dry["blockers"] and (self.gate(record, row["sku"], plan_) or True) else None
             except ValueError as exc:
-                gate = str(exc)
+                gate = ("Produção ativa: executar exige permissão, confirmação digitada" +
+                        "; gestores exigem outro aprovador, desenvolvedores têm dispensa auditada.") if environment["active"] else str(exc)
             items.append({"sku": row["sku"], "state": row["state"], "error": row["error"], "product_id": plan_.get("product_id"),
                           "dry_run": dry, "approval": plan_.get("approval"), "result": plan_.get("result"),
-                          "restore": plan_.get("restore"), "write_gate": gate, "audit": audits.get(row["sku"], [])[-10:]})
+                          "execution": plan_.get("execution"), "backup": plan_.get("backup"),
+                          "restore": plan_.get("restore"), "write_gate": gate, "audit": audits.get(row["sku"], [])[-15:],
+                          "restorable": row["state"] in RESTORABLE and bool(dry) and restorable(self.jobs, record, row["sku"], plan_)})
         counts = {}
         for item in items: counts[item["state"]] = counts.get(item["state"], 0) + 1
-        finished = sum(1 for i in items if i["state"] not in {"preview_queued", "preview_running", "queued", "running"})
+        finished = sum(1 for i in items if i["state"] not in set(QUEUED) | set(QUEUED.values()))
         return {"id": identifier, "company": record["company"], "mode": record["mode"], "mode_label": MODES[record["mode"]],
-                "created": record["created"], "items": items, "counts": counts, "total": len(items),
+                "owner": record["owner"], "created": record["created"], "items": items, "counts": counts, "total": len(items),
+                "environment": environment, "batch_audit": audits.get("", [])[-30:],
                 "progress": round(100 * finished / len(items)) if items else 100,
-                "done": counts.get("done", 0), "skipped": counts.get("nothing", 0) + counts.get("not_found", 0) + counts.get("cancelled", 0),
-                "failed": counts.get("error", 0) + counts.get("blocked", 0) + counts.get("uncertain", 0)}
+                "done": counts.get("done", 0) + counts.get("restored", 0),
+                "skipped": counts.get("nothing", 0) + counts.get("not_found", 0) + counts.get("cancelled", 0),
+                "failed": counts.get("error", 0) + counts.get("blocked", 0) + counts.get("uncertain", 0) + counts.get("restore_error", 0)}
 
-    def history(self, org, owner):
+    def history(self, org, user, companies=()):
+        companies = list(companies)
+        marks = ",".join("?" * len(companies))
+        query = ("SELECT id,company,mode,created,owner FROM removal_batches WHERE org=? AND (owner=?"
+                 + (f" OR company IN ({marks})" if companies else "") + ") ORDER BY created DESC LIMIT 100")
         with self.jobs.db() as db:
-            return [dict(r) for r in db.execute("SELECT id,company,mode,created FROM removal_batches WHERE org=? AND owner=? ORDER BY created DESC LIMIT 100",
-                                                (str(org), str(owner)))]
+            return [dict(r) for r in db.execute(query, (str(org), str(user), *companies))]
 
-    def approve(self, identifier, org, owner, skus=None):
+    def approve(self, identifier, org, user, skus=None, *, companies=()):
         with self.jobs.db() as db:
             db.execute("BEGIN IMMEDIATE")
-            self.access(db, identifier, org, owner)
+            self.access(db, identifier, org, user, companies)
             rows = [r for r in db.execute("SELECT * FROM removal_items WHERE batch=? AND state='review'", (identifier,)).fetchall()
                     if skus is None or r["sku"] in skus]
             if skus is not None and len(rows) != len(set(skus)): raise ValueError("SKU fora do lote ou sem Dry Run apto.")
             if not rows: raise ValueError("Nenhum Dry Run pronto para aprovação.")
             for row in rows:
                 plan_ = json.loads(row["plan"])
-                plan_["approval"] = {"by": str(owner), "at": time.time(), "dry_run_sha256": plan_["dry_run"]["dry_run_sha256"], "writes_authorized": False}
+                plan_["approval"] = {"by": str(user), "at": time.time(), "dry_run_sha256": plan_["dry_run"]["dry_run_sha256"], "writes_authorized": False}
                 db.execute("UPDATE removal_items SET plan=? WHERE batch=? AND sku=?", (json.dumps(plan_), identifier, row["sku"]))
-                self.jobs.audit(identifier, row["sku"], owner, "approved", {"dry_run_sha256": plan_["approval"]["dry_run_sha256"]}, db)
+                self.jobs.audit(identifier, row["sku"], user, "approved", {"dry_run_sha256": plan_["approval"]["dry_run_sha256"]}, db)
             return [r["sku"] for r in rows]
 
-    def confirm(self, identifier, org, owner, settings, skus=None):
+    def check_production_approval(self, db, record, row, plan_, user, action, authorization_session):
+        with (nullcontext(authorization_session) if authorization_session is not None else production.session()) as auth_db:
+            exempt = production.check_approval(auth_db, user, record["org"], record["company"],
+                                               (plan_.get("approval") or {}).get("by"), action)
+        if exempt:
+            self.jobs.audit(record["id"], row["sku"], user, "four_eyes_exempted",
+                            {"role": "desenvolvedor", "action": action, "reason": "developer_self_approval",
+                             "company": record["company"], "dry_run_sha256": plan_["dry_run"]["dry_run_sha256"]}, db)
+
+    def confirm(self, identifier, org, user, settings, skus=None, *, companies=(), production_confirmed=False, authorization_session=None):
+        """Queue approved items. Items without staging policy or homologation grant get a production grant when the
+        store's production environment is active and the caller (the router) verified HTTPS, permission and the typed
+        confirmation (``production_confirmed``). All grants of the request are issued in one transaction."""
         with self.jobs.db() as db:
             db.execute("BEGIN IMMEDIATE")
-            record = self.access(db, identifier, org, owner)
+            record = self.access(db, identifier, org, user, companies)
             if settings.credentials(record["company"], "wc").base_url != record["origin"]:
                 raise ValueError("Destino alterado; crie um novo lote.")
             rows = [r for r in db.execute("SELECT * FROM removal_items WHERE batch=? AND state='review'", (identifier,)).fetchall()
                     if approved(json.loads(r["plan"])) and (skus is None or r["sku"] in skus)]
             if not rows: raise ValueError("Nenhum item aprovado apto.")
+            environment = production.read_environment(db, record["org"], record["company"])
+            pending = []
             for row in rows:
-                self.gate(record, row["sku"], json.loads(row["plan"]), db)
+                plan_ = json.loads(row["plan"])
+                if environment["active"]:
+                    if not production_confirmed:
+                        raise ValueError("Produção exige confirmação explícita.")
+                    self.check_production_approval(db, record, row, plan_, user, "execute", authorization_session)
+                try:
+                    self.gate(record, row["sku"], plan_, db)
+                except ValueError:
+                    if not (environment["active"] and production_confirmed):
+                        raise
+                    pending.append((row, plan_))
+            for row, plan_ in pending:
+                grants.issue_removal(self.jobs, batch=identifier, sku=row["sku"], minutes=production.GRANT_MINUTES, actor=user,
+                                     env="production", approver=plan_["approval"]["by"], db=db)
+            production_skus = {row["sku"] for row, _ in pending}
             for row in rows:
-                db.execute("UPDATE removal_items SET state='queued' WHERE batch=? AND sku=? AND state='review'", (identifier, row["sku"]))
-                self.jobs.audit(identifier, row["sku"], owner, "queued", {"mode": record["mode"]}, db)
+                plan_ = json.loads(row["plan"])
+                plan_["execution"] = {"by": str(user), "at": time.time(), "env": "production" if row["sku"] in production_skus else "homologation"}
+                db.execute("UPDATE removal_items SET state='queued',plan=? WHERE batch=? AND sku=? AND state='review'",
+                           (json.dumps(plan_), identifier, row["sku"]))
+                self.jobs.audit(identifier, row["sku"], user, "queued", {"mode": record["mode"], "env": plan_["execution"]["env"]}, db)
             return [r["sku"] for r in rows]
 
-    def pause(self, identifier, org, owner):
+    def request_restore(self, identifier, org, user, skus=None, *, companies=(), production_confirmed=False, authorization_session=None):
+        """Queue restores: staging policy, a homologation restore grant (CLI) or a production grant for this user."""
+        with self.jobs.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            record = self.access(db, identifier, org, user, companies)
+            rows = [r for r in db.execute("SELECT * FROM removal_items WHERE batch=? ORDER BY position", (identifier,)).fetchall()
+                    if r["state"] in RESTORABLE and (skus is None or r["sku"] in skus)]
+            rows = [r for r in rows if restorable(self.jobs, record, r["sku"], json.loads(r["plan"]))]
+            if skus is not None and len(rows) != len(set(skus)): raise ValueError("SKU sem remoção registrada para restaurar.")
+            if not rows: raise ValueError("Nenhum item com remoção registrada para restaurar.")
+            environment = production.read_environment(db, record["org"], record["company"])
+            purpose = "restore_" + record["mode"]
+            pending = []
+            for row in rows:
+                plan_ = json.loads(row["plan"])
+                if environment["active"]:
+                    if not production_confirmed:
+                        raise ValueError("Produção exige confirmação explícita.")
+                    self.check_production_approval(db, record, row, plan_, user, "restore", authorization_session)
+                try:
+                    self.gate(record, row["sku"], plan_, db, purpose=purpose)
+                except ValueError:
+                    if not (environment["active"] and production_confirmed):
+                        raise ValueError("Restauração bloqueada: sem liberação válida (produção desativada ou não confirmada).") from None
+                    pending.append(row)
+            for row in pending:
+                grants.issue_removal(self.jobs, batch=identifier, sku=row["sku"], minutes=production.GRANT_MINUTES, actor=user,
+                                     env="production", restore=True, approver=json.loads(row["plan"])["approval"]["by"], db=db)
+            for row in rows:
+                db.execute("UPDATE removal_items SET state='restore_queued',error='' WHERE batch=? AND sku=?", (identifier, row["sku"]))
+                self.jobs.audit(identifier, row["sku"], user, "restore_queued", {"env": "production" if row in pending else "homologation"}, db)
+            return [r["sku"] for r in rows]
+
+    def request_reconcile(self, identifier, org, user, skus=None, *, companies=()):
+        """Read-only re-check of uncertain/error items against the store; no grant needed, nothing is written."""
+        with self.jobs.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            self.access(db, identifier, org, user, companies)
+            rows = [r for r in db.execute("SELECT * FROM removal_items WHERE batch=? AND state IN ('uncertain','error','restore_error')",
+                                          (identifier,)).fetchall() if skus is None or r["sku"] in skus]
+            if not rows: raise ValueError("Nenhum item incerto ou com erro para reconferir.")
+            for row in rows:
+                db.execute("UPDATE removal_items SET state='reconcile_queued' WHERE batch=? AND sku=?", (identifier, row["sku"]))
+                self.jobs.audit(identifier, row["sku"], user, "reconcile_queued", {"previous": row["state"]}, db)
+            return [r["sku"] for r in rows]
+
+    def pause(self, identifier, org, user, *, companies=()):
         """Between products: queued items go back to review (approval kept); the running one finishes."""
         with self.jobs.db() as db:
-            self.access(db, identifier, org, owner)
-            return db.execute("UPDATE removal_items SET state='review' WHERE batch=? AND state='queued'", (identifier,)).rowcount
+            self.access(db, identifier, org, user, companies)
+            count = db.execute("UPDATE removal_items SET state='review' WHERE batch=? AND state='queued'", (identifier,)).rowcount
+            # Unused production grants of paused items are revoked: resuming needs a new confirmation.
+            db.execute("UPDATE grants SET state='revoked' WHERE batch=? AND state='issued' AND env='production' AND purpose LIKE 'remove_%'", (identifier,))
+            self.jobs.audit(identifier, "", user, "paused", {"items": count}, db)
+            return count
 
-    def cancel(self, identifier, org, owner):
+    def cancel(self, identifier, org, user, *, companies=()):
         with self.jobs.db() as db:
-            self.access(db, identifier, org, owner)
-            return db.execute("UPDATE removal_items SET state='cancelled',error='Cancelado antes da execução.' WHERE batch=? AND state IN ('queued','preview_queued')",
-                              (identifier,)).rowcount
+            self.access(db, identifier, org, user, companies)
+            count = db.execute("UPDATE removal_items SET state='cancelled',error='Cancelado antes da execução.' WHERE batch=? AND state IN ('queued','preview_queued')",
+                               (identifier,)).rowcount
+            db.execute("UPDATE grants SET state='revoked' WHERE batch=? AND state='issued' AND env='production'", (identifier,))
+            self.jobs.audit(identifier, "", user, "cancelled", {"items": count}, db)
+            return count
 
-    def reprocess(self, identifier, org, owner):
+    def reprocess(self, identifier, org, user, *, companies=()):
         """Fresh Dry Run for failed/blocked/not found/cancelled items. Done items are never repeated."""
         with self.jobs.db() as db:
-            self.access(db, identifier, org, owner)
-            return db.execute("UPDATE removal_items SET state='preview_queued',error='',plan='{}' WHERE batch=? AND state IN ('error','blocked','not_found','cancelled')",
-                              (identifier,)).rowcount
+            record = self.access(db, identifier, org, user, companies)
+            # An item whose writes may have happened (journal "sending") must be reconciled, not re-planned.
+            rows = db.execute("SELECT * FROM removal_items WHERE batch=? AND state IN ('error','blocked','not_found','cancelled')", (identifier,)).fetchall()
+            safe = [r["sku"] for r in rows if not self._sent(record, r)]
+            for sku in safe:
+                db.execute("UPDATE removal_items SET state='preview_queued',error='',plan='{}' WHERE batch=? AND sku=?", (identifier, sku))
+            return len(safe)
 
-    def report(self, identifier, org, owner):
-        data = self.detail(identifier, org, owner)
+    def _sent(self, record, row):
+        plan_ = json.loads(row["plan"] or "{}")
+        if not plan_.get("dry_run"): return False
+        entry = Journal(self.jobs, record["org"] + "|" + record["origin"] + "|" + row["sku"]).get(journal_key(plan_))
+        return bool(entry and entry.get("state") in {"sending", "done"})
+
+    def report(self, identifier, org, user, *, companies=(), people=None):
+        data = self.detail(identifier, org, user, companies)
+        name = lambda value: (people or {}).get(value, value or "")
         output = io.StringIO(newline="")
         writer = csv.writer(output)
         writer.writerow(["sku", "modo", "estado", "produto_id", "principal_antes", "galeria_antes", "documentos_antes",
-                         "imagens_desvinculadas", "documentos_desvinculados", "aprovado", "erro"])
+                         "imagens_desvinculadas", "documentos_desvinculados", "aprovado", "aprovado_por", "executado_por",
+                         "ambiente", "backup_arquivos", "restaurado", "erro"])
         for item in data["items"]:
             dry = item["dry_run"] or {}
             current = dry.get("current") or {}
             row = [item["sku"], data["mode_label"], item["state"], str(item["product_id"] or ""),
                    str((current.get("main") or {}).get("id") or ""), str(len(current.get("gallery") or [])), str(len(current.get("documents") or [])),
                    " ".join(str(i["id"]) for i in (dry.get("unlink") or {}).get("images", [])), str(len((dry.get("unlink") or {}).get("documents", []))),
-                   "sim" if item["approval"] else "não", item["error"]]
+                   "sim" if item["approval"] else "não", name((item["approval"] or {}).get("by")), name((item["execution"] or {}).get("by")),
+                   (item["execution"] or {}).get("env", ""), str((item["backup"] or {}).get("files", "")),
+                   "sim" if item["state"] == "restored" else "não", item["error"]]
             writer.writerow([("'" + v if v.startswith(("=", "+", "-", "@", "\t", "\r")) else v) for v in row])
         return output.getvalue().encode("utf-8-sig")
 
     def claim(self, batch=None, sku=None):
         with self.jobs.db() as db:
             db.execute("BEGIN IMMEDIATE")
-            db.execute("UPDATE removal_items SET state='uncertain',error='Worker interrompido; reconciliar pela releitura.',token='' "
-                       "WHERE state IN ('preview_running','running') AND lease<?", (time.time(),))
-            if db.execute("SELECT 1 FROM removal_items WHERE state IN ('preview_running','running')").fetchone(): return None
+            for running, interrupted in INTERRUPTED.items():
+                db.execute("UPDATE removal_items SET state=?,error='Worker interrompido; reconferir pela releitura.',token='' "
+                           "WHERE state=? AND lease<?", (interrupted, running, time.time()))
+            marks = ",".join("?" * len(QUEUED))
+            if db.execute(f"SELECT 1 FROM removal_items WHERE state IN ({marks})", tuple(QUEUED.values())).fetchone(): return None
             where = "".join([" AND i.batch=?" if batch else "", " AND i.sku=?" if sku else ""])
             row = db.execute("SELECT i.*,b.company,b.origin,b.org,b.mode FROM removal_items i JOIN removal_batches b ON b.id=i.batch "
-                             "WHERE i.state IN ('preview_queued','queued')" + where + " ORDER BY b.created,i.position LIMIT 1",
-                             tuple(v for v in (batch, sku) if v)).fetchone()
+                             f"WHERE i.state IN ({marks})" + where + " ORDER BY b.created,i.position LIMIT 1",
+                             tuple(QUEUED) + tuple(v for v in (batch, sku) if v)).fetchone()
             if not row: return None
             job = dict(row); job["token"] = uuid.uuid4().hex
+            # The returned job carries its running state (preview_running, running, restoring, reconciling).
+            job["state"] = QUEUED[job["state"]]
             db.execute("UPDATE removal_items SET state=?,token=?,lease=? WHERE batch=? AND sku=?",
-                       ("preview_running" if job["state"] == "preview_queued" else "running", job["token"], time.time() + 900, job["batch"], job["sku"]))
+                       (job["state"], job["token"], time.time() + 900, job["batch"], job["sku"]))
             return job
 
     def finish(self, job, state, plan_=None, error=""):
@@ -470,19 +743,68 @@ class Removals:
                        (state, json.dumps(plan_ if plan_ is not None else json.loads(job["plan"])), error, job["batch"], job["sku"], job["token"]))
 
 
-def process_one(jobs, settings, transport=None, *, batch=None, sku=None):
-    """Dry Run or execution of one product. A failure never stops the rest of the batch."""
+# --- Worker -------------------------------------------------------------------------------
+
+def production_recheck(jobs, grant, job, item_plan, action, session_factory):
+    """Worker-side authorization of a production grant: master switch, store environment, the user's current
+    permission in PostgreSQL and the four-eyes rule. Raises Blocked with a readable reason."""
+    if grant.get("env", "homologation") != "production":
+        return
+    if not production.master_switch():
+        raise Blocked(f"Produção bloqueada no servidor ({production.MASTER_SWITCH} ausente ou falsa); nada alterado.")
+    with jobs.db() as db:
+        environment = production.read_environment(db, job["org"], job["company"])
+    if not environment["active"]:
+        raise Blocked("Produção desativada para esta loja depois da liberação; nada alterado.")
+    with (session_factory or production.session)() as session:
+        if not production.user_may(session, grant["actor"], job["org"], job["company"], action):
+            raise Blocked(f"O usuário que liberou a operação não tem mais permissão para {production.ACTION_LABELS[action]}; nada alterado.")
+        approver = (item_plan.get("approval") or {}).get("by")
+        if approver != grant.get("approver"):
+            raise Blocked("Aprovação alterada depois da liberação; nada alterado.")
+        try:
+            exempt = production.check_approval(session, grant["actor"], job["org"], job["company"], approver, action)
+        except ValueError as exc:
+            raise Blocked(str(exc)) from None
+    if exempt:
+        jobs.audit(job["batch"], job["sku"], grant["actor"], "four_eyes_exemption_verified",
+                   {"role": "desenvolvedor", "action": action, "reason": "developer_self_approval"})
+
+
+def worker_gate(removals, record, sku, item_plan, purpose=None):
+    """The grant that authorizes this write; a missing one becomes a readable "blocked" reason."""
+    try:
+        return removals.gate(record, sku, item_plan, purpose=purpose)
+    except ValueError as exc:
+        purpose = purpose or "remove_" + record["mode"]
+        with removals.jobs.db() as db:
+            issued = db.execute("SELECT 1 FROM grants WHERE batch=? AND sku=? AND purpose=? AND env='production' AND state='issued'",
+                                (record["id"], sku, purpose)).fetchone()
+        if issued and not production.master_switch():
+            raise Blocked(f"Produção bloqueada no servidor ({production.MASTER_SWITCH} ausente ou falsa); nada alterado.") from None
+        if issued:
+            raise Blocked("Produção desativada para esta loja depois da liberação; nada alterado.") from None
+        raise Blocked(str(exc)) from None
+
+
+def _error_text(exc):
+    return str(exc) if isinstance(exc, ValueError) and len(str(exc)) < 300 else "Falha " + type(exc).__name__ + "; confira configuração e permissões."
+
+
+def process_one(jobs, settings, transport=None, *, batch=None, sku=None, session_factory=None, backup_settings=None):
+    """Dry Run, execution, restore or read-only reconciliation of one product. A failure never stops the rest of the batch."""
     removals = Removals(jobs)
     job = removals.claim(batch, sku)
     if not job: return False
     executor = None
     record = {"id": job["batch"], "company": job["company"], "origin": job["origin"], "org": job["org"], "mode": job["mode"]}
     audit = lambda event, detail=None: jobs.audit(job["batch"], job["sku"], "worker", event, detail)
+    item_plan = json.loads(job["plan"])
     try:
         if settings.organization_id != job["org"] or settings.credentials(job["company"], "wc").base_url != job["origin"]:
-            raise ValueError("Organização ou destino mudaram; crie um novo lote.")
+            raise Blocked("Organização ou destino mudaram; crie um novo lote.")
         journal = Journal(jobs, job["org"] + "|" + job["origin"] + "|" + job["sku"])
-        if job["state"] == "preview_queued":
+        if job["state"] == "preview_running":
             from app.services.registration_woo_api import WooClient, credentials_for
             from app.services.store_http import http_client
             wp_credentials = settings.credentials(job["company"], "wp")
@@ -509,28 +831,74 @@ def process_one(jobs, settings, transport=None, *, batch=None, sku=None):
             new_state = "blocked" if dry["blockers"] else "nothing" if dry["nothing_to_do"] else "review"
             removals.finish(job, new_state, item_plan, "; ".join(dry["blockers"]) or ("Nada a remover neste modo." if new_state == "nothing" else ""))
             audit("preview_" + new_state, {"dry_run_sha256": dry["dry_run_sha256"]})
-        else:
-            item_plan = json.loads(job["plan"])
-            grant = removals.gate(record, job["sku"], item_plan)
-            # Single use: consumed before the first write, so a retry always needs a new grant.
-            if grant and not grants.consume(jobs, grant):
-                raise ValueError("Liberação expirada ou já utilizada; nada removido.")
+        elif job["state"] == "running":
+            grant = worker_gate(removals, record, job["sku"], item_plan)
+            if grant:
+                production_recheck(jobs, grant, job, item_plan, "execute", session_factory)
+
+            def consume():
+                # Single use, consumed right before the first write (after the backup was verified).
+                if grant:
+                    production_recheck(jobs, grant, job, item_plan, "execute", session_factory)
+                    if not grants.consume(jobs, grant):
+                        raise Blocked("Liberação expirada ou já utilizada; nada removido.")
+
             executor = RemovalExecutor(job["company"], job["sku"], settings, jobs.policy, journal, transport=transport, grant=grant)
-            result = executor.execute(item_plan, audit=audit)
-            removals.finish(job, "done", {**item_plan, "result": result})
+            backup = lambda state: backups.capture(jobs, org=job["org"], company=job["company"], sku=job["sku"], item_plan=item_plan,
+                                                   state=state, wp=executor.wp, origin=job["origin"], transport=transport,
+                                                   settings=backup_settings)
+            result = executor.execute(item_plan, audit=audit, backup=backup, before_write=consume)
+            removals.finish(job, "done", {**item_plan, "result": result, "backup": result.get("backup") or item_plan.get("backup")})
             audit("done", {"verified": result.get("verified")})
+        elif job["state"] == "restoring":
+            grant = worker_gate(removals, record, job["sku"], item_plan, purpose="restore_" + job["mode"])
+            if grant:
+                production_recheck(jobs, grant, job, item_plan, "restore", session_factory)
+
+            def consume():
+                if grant:
+                    production_recheck(jobs, grant, job, item_plan, "restore", session_factory)
+                    if not grants.consume(jobs, grant, grant["actor"]):
+                        raise Blocked("Liberação de restauração expirada ou já utilizada; nada alterado.")
+
+            executor = RemovalExecutor(job["company"], job["sku"], settings, jobs.policy, journal, transport=transport, grant=grant)
+            path = backups.folder(jobs, job["org"], job["company"], job["sku"], item_plan["dry_run"]["dry_run_sha256"])
+            result = executor.restore(item_plan, audit=audit, backup_path=path if (path / "manifest.json").is_file() else None,
+                                      before_write=consume)
+            removals.finish(job, "restored", {**item_plan, "restore": result})
+            audit("restore_done", {"status": result["status"]})
+        else:  # reconciling: read-only
+            executor = RemovalReader(job["company"], job["sku"], settings, journal, transport=transport)
+            result = executor.reconcile(item_plan)
+            if result["status"] == "done":
+                removals.finish(job, "done", {**item_plan, "result": result})
+            elif result["status"] == "unchanged":
+                # Nothing changed in the store: back to review, approval cleared (a new approval and confirmation are needed).
+                removals.finish(job, "review", {k: v for k, v in item_plan.items() if k not in {"approval", "execution"}}, "")
+            else:
+                removals.finish(job, "uncertain", None, result["message"])
+            audit("reconciled", {"status": result["status"]})
+    except (Blocked, backups.BackupError) as exc:
+        # Policy, permission, environment or backup refusal before any write: blocked, never "error".
+        error = _error_text(exc)
+        state = "restore_error" if job["state"] == "restoring" else "blocked" if job["state"] == "running" else "error"
+        removals.finish(job, state, None, error)
+        audit("blocked_worker", {"error": error})
+    except Uncertain as exc:
+        removals.finish(job, "uncertain" if job["state"] == "running" else "restore_error", None, _error_text(exc))
+        audit("uncertain", {"error": _error_text(exc)})
     except Exception as exc:
-        error = str(exc) if type(exc) is ValueError and len(str(exc)) < 300 else "Falha " + type(exc).__name__ + "; confira configuração e permissões."
-        removals.finish(job, "error", None, error)
+        error = _error_text(exc)
+        removals.finish(job, "restore_error" if job["state"] == "restoring" else "error", None, error)
         audit("error", {"error": error})
     finally:
-        if executor: executor.close()
+        if executor is not None:
+            executor.close()
     return True
 
 
-def restore_one(jobs, settings, batch, sku, *, actor, transport=None):
-    """Rollback of one executed removal: staging policy or a single-use 'restore_<mode>' grant."""
-    removals = Removals(jobs)
+def restore_one(jobs, settings, batch, sku, *, actor, transport=None, backup_settings=None):
+    """CLI rollback of one executed removal (homologation): staging policy or a single-use 'restore_<mode>' grant."""
     with jobs.db() as db:
         record = dict(db.execute("SELECT * FROM removal_batches WHERE id=?", (batch,)).fetchone() or {})
         row = db.execute("SELECT * FROM removal_items WHERE batch=? AND sku=?", (batch, sku)).fetchone()
@@ -541,19 +909,23 @@ def restore_one(jobs, settings, batch, sku, *, actor, transport=None):
         jobs.policy.authorize(record["origin"], sku)
     except ValueError:
         grant = grants.find(jobs, company=record["company"], origin=record["origin"], sku=sku, product_id=item_plan.get("product_id"),
-                            dry_run_sha256=item_plan["dry_run"]["dry_run_sha256"], purpose="restore_" + record["mode"], batch=batch)
+                            dry_run_sha256=item_plan["dry_run"]["dry_run_sha256"], purpose="restore_" + record["mode"], batch=batch,
+                            org=record["org"])
         if not grant: raise ValueError("Restauração bloqueada: sem liberação de restauração válida para este item.") from None
+        if grant.get("env") == "production":
+            raise ValueError("Liberações de produção são executadas pelo worker a partir da interface.")
         if not grants.consume(jobs, grant, actor): raise ValueError("Liberação de restauração expirada ou já utilizada.")
     journal = Journal(jobs, record["org"] + "|" + record["origin"] + "|" + sku)
     executor = RemovalExecutor(record["company"], sku, settings, jobs.policy, journal, transport=transport, grant=grant)
     audit = lambda event, detail=None: jobs.audit(batch, sku, actor, event, detail)
+    path = backups.folder(jobs, record["org"], record["company"], sku, item_plan["dry_run"]["dry_run_sha256"])
     try:
-        result = executor.restore(item_plan, audit=audit)
+        result = executor.restore(item_plan, audit=audit, backup_path=path if (path / "manifest.json").is_file() else None)
     except Exception as exc:
-        audit("restore_error", {"error": str(exc) if type(exc) is ValueError else type(exc).__name__})
+        audit("restore_error", {"error": str(exc) if isinstance(exc, ValueError) else type(exc).__name__})
         raise
     finally:
         executor.close()
     with jobs.db() as db:
-        db.execute("UPDATE removal_items SET plan=? WHERE batch=? AND sku=?", (json.dumps({**item_plan, "restore": result}), batch, sku))
+        db.execute("UPDATE removal_items SET state='restored',plan=? WHERE batch=? AND sku=?", (json.dumps({**item_plan, "restore": result}), batch, sku))
     return result

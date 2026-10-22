@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-22 — Teste de deduplicação de publicação em lote determinístico
+
+- Corrigida fixture ZIP 3D que variava com o relógio e causava 10 uploads em vez de 9 no CI. Metadados fixos e regressões com avanço de tempo; expectativa de 9 preservada, sem alteração da deduplicação ou dos serviços de produção.
+
+## 2026-10-22 — Autonomia operacional do Desenvolvedor na remoção (PR #4)
+
+- Desenvolvedor ativo pode aprovar, executar e restaurar suas próprias operações, com dispensa automática auditada de quatro olhos; gestores continuam exigindo outro aprovador autorizado e vendedores não podem operar.
+- Permissões operacionais do desenvolvedor independem de concessão por loja; administração de ambientes continua explícita. Removida a desativação global de quatro olhos, inclusive para configurações antigas.
+- API e worker revalidam identidade, organização e permissões; Dry Run, confirmação, backup verificado, liberações de uso único, releitura e auditoria preservados. Sem comandos por SKU na operação pela interface em produção habilitada.
+- Conflitos com a main/PR #3 resolvidos preservando a seleção de pastas e o módulo de remoção.
+
+## 2026-10-22 — Remoção de arquivos em produção
+
+- Ambientes por loja (homologação inalterada; produção ligada pela interface por administrador desenvolvedor), trava mestra `PRM_REMOVAL_PRODUCTION_ALLOWED`, HTTPS obrigatório e teste de loja somente leitura antes de ativar.
+- Permissões por usuário e loja (aprovar, executar, restaurar, administrar) em PostgreSQL (migração `20261022_0012`), aplicadas na API e de novo no worker; regra de quatro olhos ligada por padrão; confirmações digitadas; liberações de uso único de 30 minutos emitidas pela interface.
+- Backup verificado (arquivos + metadados + SHA-256) antes de cada remoção, bloqueando-a se falhar; restauração pela interface com reenvio do backup quando a mídia foi apagada; "concluído" só após releitura WooCommerce + WordPress, senão "incerto" com Reconferir; auditoria de aprovações, execuções, restaurações e tentativas bloqueadas.
+
 ## 2026-10-22 — Seleção de pastas do computador do usuário
 
 - Novo envio pelo navegador (`/api/v1/envios`): **Selecionar pasta do computador** ou **Selecionar arquivos**, com estrutura relativa preservada, resumo, prévia, ignorados, progresso, cancelamento e retomada em blocos. Funciona em qualquer computador da rede (Chrome/Edge), sem caminhos `C:\` no servidor.

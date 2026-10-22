@@ -5,15 +5,26 @@
     <div>
       <p class="eyebrow">Digitalização / Arquivos de produtos</p>
       <h2>Remoção de arquivos de produtos</h2>
-      <p>Desvincula imagens e documentos de produtos WooCommerce existentes, localizados por SKU exato. Os arquivos permanecem na biblioteca de mídia; nome, descrições, categorias, atributos, preço, estoque, SKU e status nunca são alterados. Dry Run e aprovação são obrigatórios.</p>
+      <p>Desvincula imagens e documentos de produtos WooCommerce existentes, localizados por SKU exato. Antes de qualquer alteração o PRM guarda uma cópia verificada dos arquivos; eles também permanecem na biblioteca de mídia. Nome, descrições, categorias, atributos, preço, estoque, SKU e status nunca são alterados. Dry Run, aprovação e confirmação são obrigatórios.</p>
     </div>
     <div class="prm-page-actions">
       <a href="/digitalizacao/cadastro-api" class="prm-btn">{{ ui.icon('package') }}<span>Cadastro via API</span></a>
     </div>
   </header>
 
+  <section class="panel" id="rm-environments" aria-labelledby="rm-env-title">
+    <div class="prm-section-title"><div><h2 id="rm-env-title">Lojas e ambiente</h2><p id="rm-env-summary">Carregando…</p></div></div>
+    <div class="rm-env-grid" id="rm-env-grid"></div>
+  </section>
+
+  <section class="panel" id="rm-permissions" hidden aria-labelledby="rm-perm-title">
+    <div class="prm-section-title"><div><h2 id="rm-perm-title">Permissões de remoção</h2><p>Desenvolvedores podem aprovar, executar e restaurar suas operações com dispensa auditada de quatro olhos. Gestores precisam de permissões por loja e outro aprovador. Administração de ambientes e permissões exige desenvolvedor autorizado.</p></div>
+      <div class="prm-field rm-perm-company"><label for="rm-perm-company">Loja</label><select id="rm-perm-company"></select></div></div>
+    <div class="table-scroll"><table class="rm-table"><thead><tr><th>Usuário</th><th>Papel</th><th>Aprovar</th><th>Executar</th><th>Restaurar</th><th>Administrar</th><th></th></tr></thead><tbody id="rm-perm-rows"></tbody></table></div>
+  </section>
+
   <section class="panel">
-    <div class="prm-section-title"><div><h2>1. Produtos e modo de remoção</h2><p>Cole os SKUs (um por linha, ou separados por vírgula/ponto e vírgula) e/ou importe CSV/XLSX com coluna SKU. Zeros à esquerda são preservados; SKUs repetidos são unificados.</p></div></div>
+    <div class="prm-section-title"><div><h2>1. Produtos e modo de remoção</h2><p>Cole os SKUs (um por linha, ou separados por vírgula/ponto e vírgula) e/ou importe CSV/XLSX com coluna SKU. Zeros à esquerda são preservados; SKUs repetidos são unificados. Até 500 SKUs por lote.</p></div></div>
     <form id="rm-form" class="prm-form">
       <div class="prm-field"><label for="rm-company">Empresa</label><select id="rm-company" name="empresa" required><option value="">Selecione</option><option value="choice">Choice</option><option value="sag">SAG</option><option value="portwell">Portwell</option></select></div>
       <fieldset class="rm-modes"><legend>Modo de remoção</legend>
@@ -26,14 +37,15 @@
       <div class="prm-field"><label for="rm-sheet">CSV/XLSX de SKUs (opcional)</label><input id="rm-sheet" name="planilha" type="file" accept=".csv,.xlsx,.xlsm"></div>
       <div class="prm-form-actions"><button type="submit" class="button-primary">{{ ui.icon('search') }}<span>Gerar Dry Run</span></button></div>
     </form>
-    <p class="prm-note">{{ ui.icon('info') }}<span>Requer o worker <code>scripts/store_removal_worker.py</code>. A prévia só lê a loja. Nas lojas atuais, a execução exige liberação de uso único por loja, SKU, modo e hash do Dry Run.</span></p>
+    <p class="prm-note">{{ ui.icon('info') }}<span>O Dry Run só lê a loja. Execução e restauração exigem aprovação e confirmação digitada. Gestores exigem outro aprovador; Desenvolvedor / Modo Deus pode conduzir sua própria operação, com exceção auditada. Backup, verificação e demais proteções continuam obrigatórios.</span></p>
     <p id="rm-message" class="prm-status" role="status" aria-live="polite"></p>
   </section>
 
   <section class="panel" id="rm-current" hidden>
     <div class="prm-section-title">
-      <div><h2 id="rm-title">Lote</h2><p id="rm-summary" aria-live="polite"></p></div>
-      <div class="prm-page-actions"><a id="rm-report" class="prm-btn">{{ ui.icon('sheet') }}<span>Relatório CSV</span></a><a id="rm-json" class="prm-btn">{{ ui.icon('download') }}<span>Dry Run JSON</span></a></div>
+      <div><h2 id="rm-title">Lote</h2><p id="rm-summary" aria-live="polite"></p><p id="rm-batch-env" class="prm-status"></p></div>
+      <div class="prm-page-actions"><a id="rm-report" class="prm-btn">{{ ui.icon('sheet') }}<span>Relatório CSV</span></a><a id="rm-json" class="prm-btn">{{ ui.icon('download') }}<span>Dry Run JSON</span></a>
+        <button type="button" class="prm-btn" id="rm-audit-toggle" aria-expanded="false">{{ ui.icon('shield') }}<span>Auditoria</span></button></div>
     </div>
     <progress id="rm-progress" max="100" value="0" aria-label="Progresso do lote"></progress>
     <div class="rm-counts"><span class="prm-pill is-ok" id="rm-done">0 concluídos</span><span class="prm-pill" id="rm-skipped">0 ignorados</span><span class="prm-pill is-alert" id="rm-failed">0 com erro</span></div>
@@ -42,15 +54,28 @@
       <div><span class="eyebrow">Execução</span><button type="button" class="button-primary" data-action="executar">{{ ui.icon('shield') }}<span>Executar aprovados</span></button>
         <button type="button" class="button-secondary" data-action="pausar">{{ ui.icon('clock') }}<span>Pausar</span></button>
         <button type="button" class="button-secondary prm-btn-danger" data-action="cancelar"><span>Cancelar fila</span></button></div>
-      <div><span class="eyebrow">Retomada</span><button type="button" class="button-secondary" data-action="reprocessar">{{ ui.icon('refresh') }}<span>Refazer Dry Run de erros</span></button></div>
+      <div><span class="eyebrow">Conferência</span><button type="button" class="button-secondary" data-action="reconferir">{{ ui.icon('search') }}<span>Reconferir na loja</span></button>
+        <button type="button" class="button-secondary" data-action="reprocessar">{{ ui.icon('refresh') }}<span>Refazer Dry Run de erros</span></button></div>
+      <div><span class="eyebrow">Recuperação</span><button type="button" class="button-secondary" data-action="restaurar">{{ ui.icon('refresh') }}<span>Restaurar</span></button></div>
     </div>
-    <p class="prm-note">{{ ui.icon('info') }}<span>Sem seleção, a ação vale para todos os aptos. Pausar e cancelar valem entre produtos: o produto em execução termina e é verificado.</span></p>
-    <div class="rm-filters"><div class="prm-field"><label for="rm-filter">Status</label><select id="rm-filter"><option value="">Todos</option><option value="review">Prontos para aprovação</option><option value="done">Concluídos</option><option value="error">Com erro</option><option value="nothing">Nada a remover</option><option value="not_found">SKU inexistente</option><option value="blocked">Bloqueados</option></select></div></div>
+    <p class="prm-note">{{ ui.icon('info') }}<span>Sem seleção, a ação vale para todos os aptos. Pausar e cancelar valem entre produtos: o produto em execução termina e é verificado. "Reconferir" só lê a loja e resolve itens incertos.</span></p>
+    <div class="rm-filters"><div class="prm-field"><label for="rm-filter">Status</label><select id="rm-filter"><option value="">Todos</option><option value="review">Prontos para aprovação</option><option value="done">Concluídos</option><option value="error">Com erro</option><option value="uncertain">Incertos</option><option value="restored">Restaurados</option><option value="nothing">Nada a remover</option><option value="not_found">SKU inexistente</option><option value="blocked">Bloqueados</option></select></div></div>
     <div class="table-scroll"><table class="rm-table"><thead><tr><th><input type="checkbox" id="rm-select-all" aria-label="Selecionar todos visíveis"></th><th>SKU</th><th>Produto</th><th>Principal</th><th>Galeria</th><th>Documentos</th><th>Desvincular</th><th>Preservar</th><th>Status</th><th>Erros e avisos</th></tr></thead><tbody id="rm-items"></tbody></table></div>
+    <div id="rm-audit" class="table-scroll" hidden><table class="rm-table"><thead><tr><th>Quando</th><th>SKU</th><th>Quem</th><th>Evento</th><th>Detalhe</th></tr></thead><tbody id="rm-audit-rows"></tbody></table></div>
   </section>
 
   <section class="panel">
-    <div class="prm-section-title"><div><h3>Meus lotes de remoção</h3><p>Abra um lote para acompanhar ou retomar. Restauração: <code>scripts/store_removal_restore.py</code>.</p></div></div>
+    <div class="prm-section-title"><div><h3>Lotes de remoção</h3><p>Seus lotes e os das lojas em que você tem permissão. Abra um lote para acompanhar, aprovar, executar, reconferir ou restaurar.</p></div></div>
     <div id="rm-history" class="rm-history"></div>
   </section>
+
+  <dialog id="rm-confirm" aria-labelledby="rm-confirm-title">
+    <form method="dialog" class="rm-confirm">
+      <h2 id="rm-confirm-title">Confirmar</h2>
+      <p id="rm-confirm-text"></p>
+      <p class="prm-note">{{ ui.icon('info') }}<span>Para continuar, digite exatamente: <strong id="rm-confirm-phrase"></strong></span></p>
+      <div class="prm-field"><label for="rm-confirm-input">Confirmação</label><input id="rm-confirm-input" autocomplete="off" spellcheck="false"></div>
+      <footer><button type="button" class="button-secondary" id="rm-confirm-cancel">Cancelar</button><button type="submit" class="button-primary prm-btn-danger" id="rm-confirm-ok" disabled>Confirmar</button></footer>
+    </form>
+  </dialog>
 </div>

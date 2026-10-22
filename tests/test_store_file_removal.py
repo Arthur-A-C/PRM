@@ -1,10 +1,12 @@
 """Remoção de arquivos: four modes, preservation, concurrency, rollback and batch. Mocks only."""
+import io
 import json
 import threading
 from copy import deepcopy
 
 import httpx
 import pytest
+from PIL import Image
 
 from app.services import store_file_removal as removal
 from app.services import store_publish_grant as grants
@@ -20,13 +22,36 @@ COMMERCIAL = {"name": "Botoeira M1212P", "description": "<p>Texto do CSV</p>", "
               "regular_price": "199.90", "sale_price": "", "stock_quantity": 7, "stock_status": "instock", "status": "publish"}
 
 
+def jpeg(seed):
+    stream = io.BytesIO()
+    Image.new("RGB", (40 + seed % 50, 30), (seed * 7 % 255, 90, 160)).save(stream, "JPEG")
+    return stream.getvalue()
+
+
+FILES = {"d.pdf": b"%PDF-1.4 datasheet", "3d.zip": b"PK\x03\x04 desenho 3d"}
+
+
 class Shop:
-    """WooCommerce + WordPress double with the real image semantics (images[0] = main; featured_media = main only)."""
-    def __init__(self, products=None):
+    """WooCommerce + WordPress double with the real image semantics (images[0] = main; featured_media = main only).
+
+    Also serves the media files and wp/v2/media records the backup downloads, and accepts media uploads
+    (restore from backup). ``deleted_media``/``missing_files`` simulate files removed from the library.
+    """
+    def __init__(self, products=None, origin=None):
         self.products = products or {"000123": self.product(101, featured=11, gallery=[12, 13], docs=DOCS)}
+        self.origin = origin or ORIGIN
         self.methods, self.writes = [], []
         self.fail_on = None
         self.on_get = None
+        self.deleted_media, self.missing_files, self.uploads, self.uploaded_ids = set(), set(), {}, set()
+        self.corrupt_files = set()
+
+    def media_file(self, name):
+        if name in self.missing_files: return None
+        if name in self.uploads: return self.uploads[name]
+        if name.startswith("img-"): data = jpeg(int(name[4:].split(".")[0]))
+        else: data = FILES.get(name)
+        return b"<html>erro</html>" if data and name in self.corrupt_files else data
 
     @staticmethod
     def product(identifier, *, featured=0, gallery=(), docs=None, meta=True):
@@ -41,18 +66,41 @@ class Shop:
     def wc_view(self, sku, p):
         images = ([p["featured"]] if p["featured"] else []) + p["gallery"]
         return {"id": p["id"], "sku": sku, **{k: deepcopy(p[k]) for k in COMMERCIAL},
-                "images": [{"id": i, "src": f"{ORIGIN}/up/img-{i}.jpg", "position": n} for n, i in enumerate(images)],
+                "images": [{"id": i, "src": f"{self.origin}/up/img-{i}.jpg", "position": n} for n, i in enumerate(images)],
                 "meta_data": deepcopy(p["meta_data"])}
 
     def handle(self, request):
         path, method = request.url.path, request.method
         self.methods.append(method)
         assert method != "DELETE", "media or product must never be deleted"
+        if path.startswith("/up/") and method in {"GET", "HEAD"}:
+            data = self.media_file(path[4:])
+            if data is None: return httpx.Response(404)
+            return httpx.Response(200, content=b"" if method == "HEAD" else data, headers={"Content-Length": str(len(data))})
+        if "/wp/v2/media/" in path and method == "GET":
+            identifier = int(path.rsplit("/", 1)[1])
+            if identifier in self.deleted_media or (identifier >= 900000 and identifier not in self.uploaded_ids):
+                return httpx.Response(404, json={"code": "rest_post_invalid_id"})
+            name = f"new-{identifier}.jpg" if identifier in self.uploaded_ids else f"img-{identifier}.jpg"
+            return httpx.Response(200, json={"id": identifier, "source_url": f"{self.origin}/up/{name}", "mime_type": "image/jpeg",
+                                             "title": {"raw": f"foto {identifier}"}, "alt_text": ""})
+        if path.endswith("/wp/v2/media") and method == "POST":
+            identifier = 900000 + len(self.uploads)
+            self.uploaded_ids.add(identifier)
+            content = request.content
+            start = content.index(b"\r\n\r\n", content.index(b'filename="')) + 4  # the file part, not the form fields
+            body = content[start:content.index(b"\r\n--", start)]
+            name = f"new-{identifier}.jpg" if body.startswith(b"\xff\xd8") else f"new-{identifier}.bin"
+            self.uploads[name] = body
+            self.writes.append(("wp/v2/media", {"uploaded": name}))
+            return httpx.Response(201, json={"id": identifier, "source_url": f"{self.origin}/up/{name}"})
         if method == "OPTIONS":
             return httpx.Response(200, headers={"Allow": "GET, POST" if path.endswith("/media") else "GET, POST, PUT, PATCH"})
         if path.endswith("/users/me"):
             return httpx.Response(200, json={"id": 7, "capabilities": {c: True for c in ("upload_files", "edit_products", "edit_published_products", "edit_others_products")}})
         if path.endswith("/products"):
+            if "sku" not in request.url.params:  # listing (connection test)
+                return httpx.Response(200, json=[{"id": p["id"]} for p in self.products.values()][:1])
             sku = request.url.params["sku"]
             return httpx.Response(200, json=[self.wc_view(sku, self.products[sku])] if sku in self.products else [])
         identifier = int(path.rsplit("/", 1)[1])
@@ -93,6 +141,12 @@ class OpenStaging(PublishSettings):
 @pytest.fixture
 def jobs(tmp_path):
     return Jobs(OpenStaging(_env_file=None, storage_dir=str(tmp_path / "queue")))
+
+
+@pytest.fixture(autouse=True)
+def quick_read_back(monkeypatch):
+    # Read-back retries wait for store caches in production; tests decide immediately.
+    monkeypatch.setattr(removal, "VERIFY_DELAYS", (0, 0))
 
 
 def drain(jobs, settings, shop):
@@ -271,7 +325,7 @@ def test_grant_scoped_to_store_sku_product_mode_and_hash(tmp_path):
                              CHOICE_WP_USER="u", CHOICE_WP_APP_PASSWORD="p", PRM_STORE_ORGANIZATION_ID="org")
     jobs = Jobs(PublishSettings(_env_file=None, storage_dir=str(tmp_path / "q")))
     shop = Shop({"119002000072": Shop.product(16321, featured=11, gallery=[12], docs=DOCS),
-                 "000123": Shop.product(101, featured=21, gallery=[22], docs=[])})
+                 "000123": Shop.product(101, featured=21, gallery=[22], docs=[])}, origin="https://choicetech.com.br")
     before = commercial(shop, "119002000072")
     removals, identifier, _ = dry(jobs, settings, shop, "gallery", ("119002000072", "000123"))
     removals.approve(identifier, "org", "owner")
@@ -315,7 +369,8 @@ def test_commercial_field_changed_during_write_is_detected(jobs, settings):
     removals, identifier, _ = dry(jobs, settings, shop, "all")
     shop.fail_on = lambda path, payload: shop.products["000123"].update(regular_price="1.00") and False
     item = execute(removals, identifier, jobs, settings, shop)["items"][0]
-    assert item["state"] == "error" and "não confirmada" in item["error"]
+    # Never "done": the read-back does not match, so the item is uncertain and waits for Reconferir.
+    assert item["state"] == "uncertain" and "não confirmada" in item["error"]
 
 
 # --- Rollback ---------------------------------------------------------------------------------
@@ -436,9 +491,14 @@ def test_api_flow_and_page(jobs, settings, monkeypatch):
     from app.dependencies import get_current_auth
     from app.routers import store_file_removal as router, store_integrations
     from app.services.security import hash_secret
+    from app.db import get_db_session
     app = FastAPI(); app.include_router(router.router)
     auth = SimpleNamespace(user=SimpleNamespace(role="gestor", id="owner", organization_id="org"), login_session=SimpleNamespace(csrf_hash=hash_secret("csrf")))
     app.dependency_overrides[get_current_auth] = lambda: auth
+    app.dependency_overrides[get_db_session] = lambda: None  # homologation flow: no store permissions involved
+    monkeypatch.setattr(router.production, "summary", lambda db, user: {c: dict.fromkeys(("approve", "execute", "restore", "admin"), False)
+                                                                         for c in ("choice", "sag", "portwell")})
+    monkeypatch.setattr(router.production, "people", lambda db, org: {})
     monkeypatch.setattr(store_integrations, "StoreSettings", lambda: settings)
     monkeypatch.setattr(router, "Jobs", lambda: jobs)
     shop = Shop()
