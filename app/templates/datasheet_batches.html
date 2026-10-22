@@ -22,8 +22,9 @@
       <div class="prm-field" id="batch-company-field"><label for="batch-company">Empresa das pastas</label>
         <select id="batch-company" name="empresa" required><option value="">Selecione</option><option value="choice">Choice</option><option value="portwell">Portwell</option><option value="sag">SAG</option></select>
       </div>
-      <div class="prm-field" id="batch-root-field"><label for="batch-root">Pasta raiz dentro do ZIP (opcional)</label><input id="batch-root" name="pasta_raiz" placeholder="Ex.: Meu lote/Produtos"><small>Vazio: SKUs na raiz ou dentro de Produtos/. Não informe caminho de disco.</small></div>
+      <div class="prm-field" id="batch-root-field"><label for="batch-root">Pasta raiz dentro do ZIP ou da pasta selecionada (opcional)</label><input id="batch-root" name="pasta_raiz" placeholder="Ex.: Meu lote/Produtos"><small>Vazio: SKUs na raiz ou dentro de Produtos/. Não informe caminho de disco.</small></div>
       <div class="prm-field"><label for="batch-file">Arquivo ZIP</label><input id="batch-file" type="file" name="arquivo" accept=".zip" required></div>
+      <div class="prm-field lf-field"><span class="lf-label">Ou selecione no seu computador</span><div data-local-files="lote" data-zip-input="batch-file"></div><small>Sem compactar: a estrutura de subpastas é preservada e o envio pode ser retomado.</small></div>
       <div class="prm-field"><label for="batch-delimiter">Delimitador do CSV</label>
         <select id="batch-delimiter" name="delimitador"><option value=",">Vírgula</option><option value=";">Ponto e vírgula</option><option value="&#9;">Tabulação</option></select>
       </div>

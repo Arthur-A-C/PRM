@@ -98,8 +98,9 @@
   ["pub-filter-stage","pub-filter-issue","pub-filter-text"].forEach(id=>$(id).addEventListener("input",render));
   $("pub-history-company").addEventListener("change",renderHistory);
   $("pub-upload").addEventListener("submit",async event=>{
-    event.preventDefault();if(busy)return;busy=true;message("Importando e validando…");
-    try{data=await request(api,{method:"POST",headers:{"X-CSRF-Token":csrf()},body:new FormData(event.target)});current=data.id;selected.clear();render();
+    event.preventDefault();if(busy)return;busy=true;
+    try{const form=new FormData(event.target),picker=await window.PRMLocalFiles?.applyTo(event.target,form);message("Importando e validando…");
+      data=await request(api,{method:"POST",headers:{"X-CSRF-Token":csrf()},body:form});picker?.done();current=data.id;selected.clear();render();
       message("Produtos identificados. Confira a prévia e clique em Processar.");refresh();}
     catch(e){message(e.message);}finally{busy=false;}
   });

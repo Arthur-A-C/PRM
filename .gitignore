@@ -13,6 +13,7 @@ data/meetings/
 .venv-asr/
 trabalho/
 data/datasheet_batches/
+data/uploads/
 .pytest_cache/
 pytest-cache-files-*/
 tests/.generated-*.xlsx

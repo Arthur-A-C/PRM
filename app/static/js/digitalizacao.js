@@ -11,6 +11,7 @@
     produto: $("#digitalizacao-produto"),
 
     imagensInput: $("#digitalizacao-imagens"),
+    imagensPastaInput: $("#digitalizacao-imagens-pasta"),
     imagensContainer: $("#digitalizacao-images"),
     imageCount: $("#image-count"),
     imageFormat: $("#image-format"),
@@ -2053,6 +2054,11 @@
         input.files = transfer.files;
         input.dispatchEvent(new Event("change", { bubbles: true }));
       });
+    });
+    // Pasta do computador do usuário: só as fotos JPG/PNG entram; outros arquivos da pasta são ignorados.
+    elements.imagensPastaInput?.addEventListener("change", (event) => {
+      addImages(Array.from(event.target.files || []).filter((file) => !/(^|\/)\./.test(file.webkitRelativePath || file.name)));
+      event.target.value = "";
     });
     elements.imagensInput?.addEventListener(
       "change",

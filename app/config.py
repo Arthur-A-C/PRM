@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     batch_timeout_seconds: int = Field(default=900, ge=30, le=7200)
     batch_max_attempts: int = Field(default=3, ge=1, le=5)
     batch_retention_days: int = Field(default=90, ge=1, le=3650)
+    upload_storage_dir: str = "data/uploads"
+    upload_max_mib: int = Field(default=2048, ge=1, le=20480)
+    upload_max_file_mib: int = Field(default=200, ge=1, le=4096)
+    upload_max_files: int = Field(default=5000, ge=1, le=20000)
+    upload_chunk_mib: int = Field(default=8, ge=1, le=64)
+    upload_retention_hours: int = Field(default=24, ge=1, le=720)
+    upload_max_open: int = Field(default=10, ge=1, le=100)
 
 
 @lru_cache

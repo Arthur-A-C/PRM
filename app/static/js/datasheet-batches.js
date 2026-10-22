@@ -109,9 +109,12 @@
   $("batch-upload").addEventListener("submit", async event => {
     event.preventDefault(); if (busy) return; busy = true;
     const button = event.target.querySelector("button"); button.disabled = true;
-    message("Validando arquivos… nenhuma chamada de IA nesta etapa.");
     try {
-      render(await request(api,{method:"POST",headers:headers(),body:new FormData(event.target)}));
+      const form = new FormData(event.target);
+      const picker = await window.PRMLocalFiles?.applyTo(event.target, form);
+      message("Validando arquivos… nenhuma chamada de IA nesta etapa.");
+      render(await request(api,{method:"POST",headers:headers(),body:form}));
+      picker?.done();
       message("Validação concluída. Confira os itens antes de iniciar."); await loadHistory();
     } catch (e) { message(e.message); }
     finally { busy = false; button.disabled = false; if (selected) request(`${api}/${selected}`).then(render).catch(e=>message(e.message)); }
