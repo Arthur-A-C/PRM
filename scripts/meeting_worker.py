@@ -1,13 +1,26 @@
-"""Durable meeting worker. ASR is serialized by a PostgreSQL advisory lock."""
+"""Durable meeting worker. ASR is serialized by a PostgreSQL advisory lock.
+
+The alerts stage also prepares the Pauta Semanal draft on the configured weekday/time (once per day).
+"""
 import argparse
 import time
-from sqlalchemy import text, select
+from sqlalchemy import inspect, text, select
 from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import get_engine
 from app.models.meetings import Activity
 from app.services.meeting_worker import process_next
 from app.services.meeting_activities import sync_alerts
+
+
+def weekly_agenda_drafts(engine, settings):
+    """Never lets the agenda (GitHub/AI outage, missing migration) stop the alerts loop."""
+    try:
+        if inspect(engine).has_table("weekly_agendas"):
+            from app.services.weekly_agenda import scheduled_drafts
+            scheduled_drafts(engine, settings)
+    except Exception as exc:
+        print(f"Pauta semanal: {type(exc).__name__}", flush=True)
 
 
 def main():
@@ -25,6 +38,7 @@ def main():
                     with Session(engine) as db, db.begin():
                         for activity in db.scalars(select(Activity).where(Activity.approval == "published").with_for_update()).yield_per(100):
                             sync_alerts(db, activity)
+                    weekly_agenda_drafts(engine, settings)
                 else:
                     for stage in (["analysis", "cards"] if args.stage == "text" else [args.stage]):
                         process_next(engine, settings, stage)

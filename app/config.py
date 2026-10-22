@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     batch_timeout_seconds: int = Field(default=900, ge=30, le=7200)
     batch_max_attempts: int = Field(default=3, ge=1, le=5)
     batch_retention_days: int = Field(default=90, ge=1, le=3650)
+    # Pauta Semanal: read-only GitHub metadata (token stays in the backend; fine-grained, read-only scopes).
+    github_token: SecretStr = Field(default=SecretStr(""), repr=False)
+    github_repository: str = "Arthur-A-C/PRM"
+    github_api_url: str = "https://api.github.com"
+    github_timeout_seconds: int = Field(default=20, ge=5, le=120)
+    # Commit running in production, set at deployment. Only this proves "implantado".
+    deployed_commit: str = ""
 
 
 @lru_cache
