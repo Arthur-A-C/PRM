@@ -6,7 +6,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 import json
 from starlette.concurrency import run_in_threadpool
-from app.dependencies import CurrentAuth
+from app.dependencies import AppSettings, CurrentAuth
+from app.routers.local_uploads import batch_source, consume
 from app.routers.registration import require_manager
 from app.routers.store_integrations import authorized_settings
 from app.services.store_registration_jobs import Jobs, parse_skus
@@ -22,8 +23,8 @@ def execute(action):
 
 
 @router.post("")
-async def upload(auth: CurrentAuth, empresa: Annotated[Literal["choice","sag","portwell"],Form()],
-                 arquivos: Annotated[UploadFile,File()], planilha: Annotated[UploadFile|None,File()]=None,
+async def upload(auth: CurrentAuth, app_settings: AppSettings, empresa: Annotated[Literal["choice","sag","portwell"],Form()],
+                 arquivos: Annotated[UploadFile|None,File()]=None, envio: Annotated[str,Form()]="", planilha: Annotated[UploadFile|None,File()]=None,
                  identificacao: Annotated[Literal["csv","folder"],Form()]="csv",
                  pasta_raiz: Annotated[str,Form()]="",
                  csrf_token: Annotated[str|None,Header(alias="X-CSRF-Token")]=None):
@@ -33,15 +34,16 @@ async def upload(auth: CurrentAuth, empresa: Annotated[Literal["choice","sag","p
         if planilha and planilha.filename:
             sheet=await planilha.read(5*1024**2+1)
             records=execute(lambda:parse_skus(sheet,planilha.filename or "",details=True,strict=identificacao=="folder"))
-        archive=await arquivos.read(100*1024**2+1)
+        archive,archive_name=await batch_source(auth,app_settings,arquivos,envio,100)
         skus=list(records) if records else None
         jobs=Jobs()
         identifier=await run_in_threadpool(lambda:execute(lambda:jobs.create(empresa,auth.user.organization_id,auth.user.id,skus,archive,settings,
-            identification=identificacao,archive_name=arquivos.filename or "",root=pasta_raiz,complements=records)))
+            identification=identificacao,archive_name=archive_name,root=pasta_raiz,complements=records)))
+        consume(auth,app_settings,envio)
         return jobs.detail(identifier,auth.user.organization_id,auth.user.id)
     finally:
         if planilha: await planilha.close()
-        await arquivos.close()
+        if arquivos: await arquivos.close()
 
 
 @router.get("")

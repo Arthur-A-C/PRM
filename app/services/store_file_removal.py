@@ -528,7 +528,7 @@ class Removals:
                 gate = "Liberado" if dry and not dry["blockers"] and (self.gate(record, row["sku"], plan_) or True) else None
             except ValueError as exc:
                 gate = ("Produção ativa: executar exige permissão, confirmação digitada" +
-                        (" e outro usuário além de quem aprovou." if environment["four_eyes"] else ".")) if environment["active"] else str(exc)
+                        "; gestores exigem outro aprovador, desenvolvedores têm dispensa auditada.") if environment["active"] else str(exc)
             items.append({"sku": row["sku"], "state": row["state"], "error": row["error"], "product_id": plan_.get("product_id"),
                           "dry_run": dry, "approval": plan_.get("approval"), "result": plan_.get("result"),
                           "execution": plan_.get("execution"), "backup": plan_.get("backup"),
@@ -568,7 +568,16 @@ class Removals:
                 self.jobs.audit(identifier, row["sku"], user, "approved", {"dry_run_sha256": plan_["approval"]["dry_run_sha256"]}, db)
             return [r["sku"] for r in rows]
 
-    def confirm(self, identifier, org, user, settings, skus=None, *, companies=(), production_confirmed=False):
+    def check_production_approval(self, db, record, row, plan_, user, action, authorization_session):
+        with (nullcontext(authorization_session) if authorization_session is not None else production.session()) as auth_db:
+            exempt = production.check_approval(auth_db, user, record["org"], record["company"],
+                                               (plan_.get("approval") or {}).get("by"), action)
+        if exempt:
+            self.jobs.audit(record["id"], row["sku"], user, "four_eyes_exempted",
+                            {"role": "desenvolvedor", "action": action, "reason": "developer_self_approval",
+                             "company": record["company"], "dry_run_sha256": plan_["dry_run"]["dry_run_sha256"]}, db)
+
+    def confirm(self, identifier, org, user, settings, skus=None, *, companies=(), production_confirmed=False, authorization_session=None):
         """Queue approved items. Items without staging policy or homologation grant get a production grant when the
         store's production environment is active and the caller (the router) verified HTTPS, permission and the typed
         confirmation (``production_confirmed``). All grants of the request are issued in one transaction."""
@@ -584,13 +593,15 @@ class Removals:
             pending = []
             for row in rows:
                 plan_ = json.loads(row["plan"])
+                if environment["active"]:
+                    if not production_confirmed:
+                        raise ValueError("Produção exige confirmação explícita.")
+                    self.check_production_approval(db, record, row, plan_, user, "execute", authorization_session)
                 try:
                     self.gate(record, row["sku"], plan_, db)
                 except ValueError:
                     if not (environment["active"] and production_confirmed):
                         raise
-                    if environment["four_eyes"] and plan_["approval"]["by"] == str(user):
-                        raise ValueError(f"Regra de quatro olhos: o SKU {row['sku']} foi aprovado por você; outro usuário autorizado deve executar.") from None
                     pending.append((row, plan_))
             for row, plan_ in pending:
                 grants.issue_removal(self.jobs, batch=identifier, sku=row["sku"], minutes=production.GRANT_MINUTES, actor=user,
@@ -604,7 +615,7 @@ class Removals:
                 self.jobs.audit(identifier, row["sku"], user, "queued", {"mode": record["mode"], "env": plan_["execution"]["env"]}, db)
             return [r["sku"] for r in rows]
 
-    def request_restore(self, identifier, org, user, skus=None, *, companies=(), production_confirmed=False):
+    def request_restore(self, identifier, org, user, skus=None, *, companies=(), production_confirmed=False, authorization_session=None):
         """Queue restores: staging policy, a homologation restore grant (CLI) or a production grant for this user."""
         with self.jobs.db() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -619,6 +630,10 @@ class Removals:
             pending = []
             for row in rows:
                 plan_ = json.loads(row["plan"])
+                if environment["active"]:
+                    if not production_confirmed:
+                        raise ValueError("Produção exige confirmação explícita.")
+                    self.check_production_approval(db, record, row, plan_, user, "restore", authorization_session)
                 try:
                     self.gate(record, row["sku"], plan_, db, purpose=purpose)
                 except ValueError:
@@ -627,7 +642,7 @@ class Removals:
                     pending.append(row)
             for row in pending:
                 grants.issue_removal(self.jobs, batch=identifier, sku=row["sku"], minutes=production.GRANT_MINUTES, actor=user,
-                                     env="production", restore=True, db=db)
+                                     env="production", restore=True, approver=json.loads(row["plan"])["approval"]["by"], db=db)
             for row in rows:
                 db.execute("UPDATE removal_items SET state='restore_queued',error='' WHERE batch=? AND sku=?", (identifier, row["sku"]))
                 self.jobs.audit(identifier, row["sku"], user, "restore_queued", {"env": "production" if row in pending else "homologation"}, db)
@@ -744,12 +759,16 @@ def production_recheck(jobs, grant, job, item_plan, action, session_factory):
     with (session_factory or production.session)() as session:
         if not production.user_may(session, grant["actor"], job["org"], job["company"], action):
             raise Blocked(f"O usuário que liberou a operação não tem mais permissão para {production.ACTION_LABELS[action]}; nada alterado.")
-    if action == "execute":
         approver = (item_plan.get("approval") or {}).get("by")
         if approver != grant.get("approver"):
             raise Blocked("Aprovação alterada depois da liberação; nada alterado.")
-        if environment["four_eyes"] and approver == grant["actor"]:
-            raise Blocked("Regra de quatro olhos: quem aprovou não pode executar o mesmo item; nada alterado.")
+        try:
+            exempt = production.check_approval(session, grant["actor"], job["org"], job["company"], approver, action)
+        except ValueError as exc:
+            raise Blocked(str(exc)) from None
+    if exempt:
+        jobs.audit(job["batch"], job["sku"], grant["actor"], "four_eyes_exemption_verified",
+                   {"role": "desenvolvedor", "action": action, "reason": "developer_self_approval"})
 
 
 def worker_gate(removals, record, sku, item_plan, purpose=None):

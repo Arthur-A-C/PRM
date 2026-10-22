@@ -1,27 +1,35 @@
 {% import "_workspace_icons.html" as ui %}
-{# IDs são contratos de image-resolution.js e de /api/v1/imagens. #}
+{# IDs são contratos de image-resolution.js, local-files.js e de /api/v1/imagens + /api/v1/envios. #}
 <div id="res-page" class="prm-stack">
   <header class="prm-page-head">
     <div>
       <p class="eyebrow">Digitalização / Imagens</p>
       <h2>Resolução de imagens em pasta</h2>
-      <p>Converte todas as fotos de uma pasta e das subpastas para um quadrado exato com fundo branco, sem deformar, mantendo nome e formato. Os originais são movidos para <code>Backup-fotos</code> antes de qualquer substituição e podem ser restaurados.</p>
+      <p>Converte as fotos de uma pasta do seu computador, e das subpastas, para um quadrado exato com fundo branco, sem deformar, mantendo nome e formato. O PRM trabalha numa cópia no servidor, guarda os originais recebidos em <code>Backup-fotos</code> e devolve um ZIP com a mesma estrutura de pastas. Nada é alterado no seu computador.</p>
     </div>
     <div class="prm-page-actions"><a href="/digitalizacao" class="prm-btn">{{ ui.icon('scan') }}<span>Digitalização</span></a></div>
   </header>
 
   <section class="panel">
-    <div class="prm-section-title"><div><h2>1. Pasta e opções</h2><p>Somente JPG, JPEG, PNG e WEBP. PDFs, ZIPs, desenhos 3D e outros documentos não são alterados. Links para fora da pasta não são seguidos.</p></div></div>
+    <div class="prm-section-title"><div><h2>1. Imagens e opções</h2><p>Somente JPG, JPEG, PNG e WEBP são enviados e convertidos. PDFs, ZIPs, desenhos 3D e outros arquivos da pasta são ignorados.</p></div></div>
     <form id="res-form" class="prm-form">
-      <div class="prm-field res-path"><label for="res-path">Pasta principal</label>
-        <div class="res-path-row"><input id="res-path" name="caminho" placeholder="Ex.: C:\Users\PW\Documents\Produtos" required autocomplete="off">
-          <button type="button" class="button-secondary" id="res-browse">{{ ui.icon('layers') }}<span>Selecionar pasta</span></button></div>
-        <small>A pasta é acessada pelo servidor do PRM e precisa estar nas raízes permitidas.</small></div>
+      <div class="prm-field res-path"><span>Pasta ou fotos do seu computador</span><div id="res-picker" data-local-files="imagens"></div></div>
       <div class="prm-field"><label for="res-size">Resolução</label><select id="res-size" name="tamanho"><option value="1000">1000 × 1000 px</option><option value="1200">1200 × 1200 px</option><option value="1500" selected>1500 × 1500 px (padrão)</option><option value="1600">1600 × 1600 px</option><option value="2000">2000 × 2000 px</option></select></div>
       <label class="res-check"><input type="checkbox" id="res-recursive" name="subpastas" checked> <span>Incluir subpastas</span></label>
-      <label class="res-check"><input type="checkbox" id="res-backup" checked disabled> <span>Mover imagens antigas para <code>Backup-fotos</code> (obrigatório para substituir)</span></label>
-      <div class="prm-form-actions"><button type="submit" class="button-primary">{{ ui.icon('search') }}<span>Ver prévia</span></button></div>
+      <label class="res-check"><input type="checkbox" id="res-backup" checked disabled> <span>Guardar as imagens originais em <code>Backup-fotos</code> (obrigatório para substituir)</span></label>
+      <div class="prm-form-actions"><button type="submit" class="button-primary" id="res-send">{{ ui.icon('upload') }}<span>Enviar e ver prévia</span></button></div>
     </form>
+
+    <details id="res-server" class="res-server" hidden>
+      <summary>Pasta no servidor do PRM (avançado)</summary>
+      <p class="prm-status">Para pastas já disponíveis no servidor (raízes em <code>PRM_IMAGE_TOOL_ROOTS</code>). Neste modo as imagens são substituídas na própria pasta do servidor.</p>
+      <div class="prm-field"><label for="res-path">Pasta do servidor</label>
+        <div class="res-path-row"><input id="res-path" name="caminho" placeholder="Ex.: /mnt/prm-fotos/Produtos" autocomplete="off">
+          <button type="button" class="button-secondary" id="res-browse">{{ ui.icon('layers') }}<span>Procurar</span></button>
+          <button type="button" class="button-secondary" id="res-server-preview">{{ ui.icon('search') }}<span>Ver prévia</span></button></div></div>
+      <div class="res-restore-row"><p>Restaurar devolve cada original do <code>Backup-fotos</code> da pasta do servidor para o seu lugar. Imagens alteradas depois da conversão não são sobrescritas.</p>
+        <button type="button" class="button-secondary" id="res-restore">{{ ui.icon('refresh') }}<span>Restaurar backups</span></button></div>
+    </details>
     <p id="res-message" class="prm-status" role="status" aria-live="polite"></p>
   </section>
 
@@ -36,7 +44,7 @@
     </div>
     <p class="prm-status" id="res-extensions"></p>
     <details><summary>Primeiras imagens a converter</summary><ul id="res-sample" class="res-sample"></ul></details>
-    <label class="res-check res-confirm"><input type="checkbox" id="res-confirm"> <span>Confirmo a substituição das imagens listadas. Os originais serão movidos para <code>Backup-fotos</code>, preservando as subpastas.</span></label>
+    <label class="res-check res-confirm"><input type="checkbox" id="res-confirm"> <span>Confirmo a conversão das imagens listadas. Os originais ficam em <code>Backup-fotos</code>, preservando as subpastas.</span></label>
     <div class="prm-form-actions"><button type="button" class="button-primary" id="res-start" disabled>{{ ui.icon('image') }}<span>Converter imagens</span></button></div>
   </section>
 
@@ -53,14 +61,18 @@
     <div class="table-scroll" id="res-errors-wrap" hidden><table><thead><tr><th>Arquivo</th><th>Erro</th></tr></thead><tbody id="res-errors"></tbody></table></div>
   </section>
 
-  <section class="panel">
-    <div class="prm-section-title"><div><h2>Restaurar originais</h2><p>Devolve cada imagem original do <code>Backup-fotos</code> para o seu lugar. Imagens alteradas depois da conversão não são sobrescritas.</p></div>
-      <button type="button" class="button-secondary" id="res-restore">{{ ui.icon('refresh') }}<span>Restaurar backups</span></button></div>
+  <section class="panel" id="res-result" hidden>
+    <div class="prm-section-title"><div><h2>4. Resultado</h2><p>Baixe as imagens convertidas com a mesma estrutura de pastas. Os arquivos ficam no servidor até você descartá-los ou até expirarem sem uso (padrão: 24 horas).</p></div></div>
+    <div class="prm-form-actions res-result-actions">
+      <a class="prm-btn button-primary" id="res-download">{{ ui.icon('download') }}<span>Baixar imagens convertidas (ZIP)</span></a>
+      <a class="prm-btn" id="res-download-backup">{{ ui.icon('download') }}<span>Baixar com Backup-fotos</span></a>
+      <button type="button" class="button-secondary" id="res-discard">Descartar arquivos do servidor</button>
+    </div>
   </section>
 
   <dialog id="res-dialog" aria-labelledby="res-dialog-title">
     <div class="res-dialog">
-      <header><h2 id="res-dialog-title">Selecionar pasta</h2><p id="res-dialog-path" class="prm-status"></p></header>
+      <header><h2 id="res-dialog-title">Selecionar pasta do servidor</h2><p id="res-dialog-path" class="prm-status"></p></header>
       <div class="res-dialog-actions"><button type="button" class="button-secondary" id="res-up">↑ <span>Pasta acima</span></button><button type="button" class="button-secondary" id="res-roots"><span>Raízes</span></button></div>
       <ul id="res-folders" class="res-folders"></ul>
       <footer><button type="button" class="button-secondary" id="res-cancel">Cancelar</button><button type="button" class="button-primary" id="res-choose" disabled>Usar esta pasta</button></footer>

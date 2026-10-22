@@ -63,23 +63,37 @@ Produção só pode existir com **todas** estas condições:
 ## Permissões
 
 Por usuário e por loja, em PostgreSQL (`store_operation_permissions`, migração `20261022_0012`):
-**aprovar**, **executar**, **restaurar** e **administrar** (ambiente, quatro olhos e permissões;
+**aprovar**, **executar**, **restaurar** e **administrar** (ambiente e permissões;
 só para o papel desenvolvedor). Vendedores nunca recebem permissões de remoção. Lotes ficam visíveis
 para quem os criou e para quem tem alguma permissão na loja, o que permite a outra pessoa executar.
 
 As permissões são aplicadas na API e de novo no worker, imediatamente antes de gravar: liberação
 emitida para alguém que perdeu a permissão, foi desativado ou mudou de organização é recusada.
 
-**Quatro olhos** (ligado por padrão em cada loja): em produção, quem aprovou um item não pode executá-lo.
-Só um administrador pode desligar, com a confirmação `DESATIVAR QUATRO OLHOS <LOJA>`. Tudo fica na auditoria.
+**Desenvolvedor / Modo Deus** (papel persistido `desenvolvedor`, usuário ativo): tem permissões
+operacionais de aprovar, executar e restaurar em sua organização, mesmo sem uma linha de permissões
+por loja. Pode conduzir a própria operação; a dispensa de quatro olhos é automática e auditada.
+A permissão **administrar** continua explícita por loja; esta mudança não libera ambientes por si só.
+
+**Gestor**: continua dependendo das permissões por loja e de outro usuário autorizado para aprovar
+sua execução ou restauração. A aprovação usada é a do Dry Run original. Não existe mais um botão
+para desligar quatro olhos globalmente: o endpoint rejeita `ativar: false` com HTTP 422 e registros
+antigos de `four_eyes=0` não dispensam gestores. Vendedores e demais perfis não podem operar.
+
+API e worker consultam identidade, organização, perfil ativo e permissão do aprovador. Mudança de
+perfil, revogação ou desativação antes da gravação bloqueia a operação. A exceção gera os eventos
+`four_eyes_exempted` ao enfileirar (ação, perfil, loja, SKU/hash do Dry Run) e
+`four_eyes_exemption_verified` nas verificações do worker. Nenhuma destas regras elimina Dry Run,
+aprovação explícita, CSRF, HTTPS, confirmação digitada, backup, verificação ou auditoria.
 
 ## Fluxo em produção
 
 1. Criar o lote (empresa, modo e até 500 SKUs) e aguardar o **Dry Run** (somente leitura).
 2. **Aprovar** (permissão aprovar): registra o hash exato do Dry Run e quem aprovou.
-3. **Executar aprovados** (permissão executar, outra pessoa): confirmação `EXECUTAR <N> <LOJA>`. A API
+3. **Executar aprovados** (gestor: outra pessoa aprova; desenvolvedor: pode aprovar sua operação): confirmação `EXECUTAR <N> <LOJA>`. A API
    emite, numa única transação, uma liberação de uso único por item (loja, SKU, produto, modo, hash do
-   Dry Run, executor, aprovador), válida por **30 minutos**.
+   Dry Run, executor, aprovador), válida por **30 minutos**. Não exige comando no terminal por SKU
+   em produção habilitada. As regras restritas de homologação por CLI continuam inalteradas.
 4. O worker, um produto por vez, com pausa entre produtos:
    - confere trava mestra, ambiente, permissão atual do executor e quatro olhos;
    - relê o produto (mudou desde o Dry Run → nada é gravado);

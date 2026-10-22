@@ -1,5 +1,13 @@
 # Status do projeto
 
+## PR #4 — autonomia operacional na remoção — 22/10/2026
+
+- Branch isolada `feature/remocao-producao` atualizada com `origin/main` (PR #3); conflitos nos templates e documentação resolvidos preservando ambos os módulos. Nenhuma alteração no worktree original nem no módulo de reuniões.
+- Desenvolvedor ativo pode aprovar, executar e restaurar suas operações, com dispensa de quatro olhos registrada na auditoria. Gestores exigem outro aprovador autorizado; vendedores continuam bloqueados. Desativação global de quatro olhos removida; registros antigos desligados não dispensam gestores.
+- Revalidação de identidade/permissões pelo worker; preservados HTTPS, CSRF, Dry Run, confirmação digitada, backup, releitura, isolamento de organizações e auditoria. Administração de ambientes permanece uma permissão explícita. A interface emite liberações de uso único, sem terminal por SKU em produção habilitada.
+- Build isolado `prm:removal-review`; suíte completa em container descartável `--network none`: **628 aprovados, 26 ignorados, 1 aviso de depreciação**. Ignorados dependem de fixtures privadas/controle Compose excluídos da imagem. Uma primeira execução focada identificou um teste de revogação que precisava revogar **após** enfileirar; ajustado para preservar a checagem independente do worker.
+- Nenhuma chamada real às lojas, alteração de banco/volumes, deploy ou reinício do servidor. GitHub informa repositório público; usuário confirmou autorização para publicar código/testes nessa condição. Detalhes da política em [REMOCAO_ARQUIVOS.md](REMOCAO_ARQUIVOS.md).
+
 ## Docker, GitHub e CI — 22/10/2026
 
 Infraestrutura isolada na porta 8001, sem migração do banco/filas Windows. Build, pytest Linux, quatro workers e persistência verificados; proteção da main depende de plano GitHub compatível. Resultados e limites em [INFRA_STATUS.md](INFRA_STATUS.md); operação em [DOCKER.md](DOCKER.md). Alterações funcionais anteriores preservadas fora dos commits de infraestrutura.

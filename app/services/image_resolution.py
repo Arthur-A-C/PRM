@@ -5,6 +5,10 @@ original into Backup-fotos (exclusive create, never overwritten) → atomic os.r
 original. A journal in Backup-fotos records every step, so an interruption is resumed without
 losing originals, duplicating backups or converting the same image twice. Restore reverses it.
 Only JPG/JPEG/PNG/WEBP are touched; symlinks/junctions and Backup-fotos are never followed.
+
+Two sources share this code: a server folder inside PRM_IMAGE_TOOL_ROOTS (opt-in) and, by default,
+a workspace with copies the user sent from their own computer (app.services.local_uploads), which is
+returned as a ZIP. The user's computer itself is never written to.
 """
 from __future__ import annotations
 
@@ -16,6 +20,7 @@ import shutil
 import threading
 import time
 import uuid
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -32,9 +37,9 @@ MAX_FILES = 20000
 
 
 def allowed_roots():
-    """Folders the server process may work in. PRM_IMAGE_TOOL_ROOTS (separated by ';') or the user's home."""
+    """Server folders the process may work in: only PRM_IMAGE_TOOL_ROOTS (separated by ';'). Unset = server-folder mode off."""
     raw = os.environ.get("PRM_IMAGE_TOOL_ROOTS", "")
-    roots = [Path(p.strip()) for p in raw.split(";") if p.strip()] or [Path.home()]
+    roots = [Path(p.strip()) for p in raw.split(";") if p.strip()]
     return [r.resolve() for r in roots if r.is_dir()]
 
 
@@ -63,7 +68,8 @@ def resolve_root(value):
 def list_folders(value=None):
     """Directory picker: allowed roots, or the subfolders of one of them (names only, no files)."""
     if not value:
-        return {"path": None, "parent": None, "folders": [{"name": str(r), "path": str(r)} for r in allowed_roots()]}
+        roots = allowed_roots()
+        return {"path": None, "parent": None, "enabled": bool(roots), "folders": [{"name": str(r), "path": str(r)} for r in roots]}
     root = resolve_root(value)
     folders = []
     with os.scandir(root) as entries:
@@ -72,7 +78,7 @@ def list_folders(value=None):
                 continue
             folders.append({"name": entry.name, "path": str(root / entry.name)})
     parent = root.parent if any(root.parent == r or root.parent.is_relative_to(r) for r in allowed_roots()) and root.parent != root else None
-    return {"path": str(root), "parent": str(parent) if parent else None,
+    return {"path": str(root), "parent": str(parent) if parent else None, "enabled": True,
             "folders": sorted(folders, key=lambda f: f["name"].casefold())[:500]}
 
 
@@ -150,9 +156,12 @@ def converted(root, rel, journal):
 
 
 def preview(value, recursive=True, size=1500):
+    return summarize(resolve_root(value), recursive, size)
+
+
+def summarize(root, recursive=True, size=1500):
     if size not in SIZES:
         raise ValueError("Resolução não suportada.")
-    root = resolve_root(value)
     images = scan(root, recursive)
     journal = Journal(root)
     done = [rel for rel in images if converted(root, rel, journal)]
@@ -302,6 +311,8 @@ class Task:
     id: str
     kind: str
     root: str
+    owner: tuple | None = None
+    label: str = ""
     total: int = 0
     done: int = 0
     skipped: int = 0
@@ -314,7 +325,7 @@ class Task:
     stop: threading.Event = field(default_factory=threading.Event, repr=False)
 
     def public(self):
-        return {"id": self.id, "kind": self.kind, "root": self.root, "total": self.total, "done": self.done,
+        return {"id": self.id, "kind": self.kind, "root": self.label or self.root, "total": self.total, "done": self.done,
                 "skipped": self.skipped, "failed": self.failed, "current": self.current, "status": self.status,
                 "errors": self.errors[-200:], "progress": round(100 * (self.done + self.skipped + self.failed) / self.total) if self.total else 100,
                 "started": self.started, "finished": self.finished}
@@ -336,11 +347,15 @@ def _run(task, worker):
         task.finished = time.time()
 
 
-def _start(kind, root, worker, *, background=True):
+def running(root):
+    return any(t.root == str(root) and t.status == "running" for t in _tasks.values())
+
+
+def _start(kind, root, worker, *, background=True, owner=None, label=""):
     with _lock:
-        if any(t.root == str(root) and t.status == "running" for t in _tasks.values()):
+        if running(root):
             raise ValueError("Já existe um processamento em andamento para esta pasta.")
-        task = Task(uuid.uuid4().hex, kind, str(root))
+        task = Task(uuid.uuid4().hex, kind, str(root), owner, label)
         _tasks[task.id] = task
     if background:
         threading.Thread(target=_run, args=(task, worker), daemon=True, name="prm-image-" + kind).start()
@@ -349,15 +364,19 @@ def _start(kind, root, worker, *, background=True):
     return task
 
 
-def start_conversion(value, *, recursive=True, size=1500, backup=True, confirmed=False, background=True):
+def start_conversion(value, *, recursive=True, size=1500, backup=True, confirmed=False, background=True, owner=None):
+    return convert_root(resolve_root(value), recursive=recursive, size=size, backup=backup, confirmed=confirmed,
+                        background=background, owner=owner)
+
+
+def convert_root(root, *, recursive=True, size=1500, backup=True, confirmed=False, background=True, owner=None, label=""):
     if not backup:
         raise ValueError("A substituição exige mover as imagens antigas para Backup-fotos.")
     if not confirmed:
         raise ValueError("Confirme a substituição das imagens.")
-    summary = preview(value, recursive, size)
+    summary = summarize(root, recursive, size)
     if not summary["space_ok"]:
         raise ValueError("Espaço livre insuficiente para backup e processamento.")
-    root = Path(summary["root"])
 
     def worker(task):
         images = scan(root, recursive)
@@ -377,10 +396,10 @@ def start_conversion(value, *, recursive=True, size=1500, backup=True, confirmed
                 task.failed += 1
                 task.errors.append({"file": rel, "error": str(exc)})
                 journal.set(rel, error=str(exc), **({} if journal.entries.get(rel, {}).get("state") else {"state": "error"}))
-    return _start("convert", root, worker, background=background)
+    return _start("convert", root, worker, background=background, owner=owner, label=label)
 
 
-def start_restore(value, *, confirmed=False, background=True):
+def start_restore(value, *, confirmed=False, background=True, owner=None):
     if not confirmed:
         raise ValueError("Confirme a restauração das imagens originais.")
     root = resolve_root(value)
@@ -399,18 +418,36 @@ def start_restore(value, *, confirmed=False, background=True):
             except ValueError as exc:
                 task.failed += 1
                 task.errors.append({"file": rel, "error": str(exc)})
-    return _start("restore", root, worker, background=background)
+    return _start("restore", root, worker, background=background, owner=owner)
 
 
-def task(identifier):
+def task(identifier, owner=None):
+    """A task started for one user is invisible to the others (same 404 as a missing one)."""
     found = _tasks.get(identifier)
-    if not found:
+    if not found or (owner is not None and found.owner is not None and found.owner != owner):
         raise LookupError("Processamento não encontrado.")
     return found
 
 
-def stop(identifier):
+def stop(identifier, owner=None):
     """Graceful: the current image finishes or is rolled back; resume skips what is done."""
-    found = task(identifier)
+    found = task(identifier, owner)
     found.stop.set()
     return found
+
+
+def result_archive(root, target, include_backup=False):
+    """ZIP of a workspace with the converted images in their original subfolders (journal/temporaries excluded)."""
+    if running(root):
+        raise ValueError("Aguarde o fim do processamento para baixar o resultado.")
+    temporary = target.with_name(target.name + "." + uuid.uuid4().hex + TEMP)
+    with zipfile.ZipFile(temporary, "w") as archive:
+        for path in sorted(root.rglob("*"), key=lambda p: p.as_posix().casefold()):
+            rel = path.relative_to(root)
+            if not path.is_file() or path.is_symlink() or TEMP in path.name or path.name == JOURNAL:
+                continue
+            if rel.parts[0].casefold() == BACKUP.casefold() and not include_backup:
+                continue
+            archive.write(path, rel.as_posix())
+    os.replace(temporary, target)
+    return target

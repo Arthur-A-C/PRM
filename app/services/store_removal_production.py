@@ -57,7 +57,7 @@ def read_environment(db, org, company):
         raise ValueError("Empresa inválida.")
     row = db.execute("SELECT * FROM removal_environments WHERE org=? AND company=?", (str(org), company)).fetchone()
     row = dict(row) if row else {"production": 0, "four_eyes": 1, "changed_by": "", "changed_at": 0, "preflight": "{}"}
-    return {"company": company, "production": bool(row["production"]), "four_eyes": bool(row["four_eyes"]),
+    return {"company": company, "production": bool(row["production"]), "four_eyes": True,
             "changed_by": row["changed_by"], "changed_at": row["changed_at"], "preflight": json.loads(row["preflight"] or "{}"),
             "master_switch": master_switch(), "active": bool(row["production"]) and master_switch()}
 
@@ -99,6 +99,8 @@ class Environments:
                     {"preflight_ok": bool((preflight or {}).get("ok"))} if enabled else {}, **values)
 
     def set_four_eyes(self, org, company, enabled, actor):
+        if not enabled:
+            raise ValueError("A regra de quatro olhos é obrigatória para gestores; somente desenvolvedores têm dispensa automática auditada.")
         self._write(org, company, actor, "four_eyes_enabled" if enabled else "four_eyes_disabled", {}, four_eyes=int(bool(enabled)))
 
     def record_preflight(self, org, company, result, actor):
@@ -117,9 +119,11 @@ def _uuid(value):
 
 def flags(row, user):
     """Effective permissions; administration additionally requires the "desenvolvedor" role."""
-    if row is None or not user.active or user.role not in MANAGERS:
+    if not user.active or user.role not in MANAGERS:
         return {action: False for action in ACTIONS}
-    result = {action: bool(getattr(row, column)) for action, column in ACTIONS.items()}
+    result = {action: bool(getattr(row, column, False)) for action, column in ACTIONS.items()}
+    if user.role == "desenvolvedor":
+        result.update(approve=True, execute=True, restore=True)
     result["admin"] = result["admin"] and user.role == "desenvolvedor"
     return result
 
@@ -152,6 +156,20 @@ def user_may(db: Session, user_id, organization_id, company, action):
     if user is None or str(user.organization_id) != str(organization_id):
         return False
     return permissions_for(db, user, company)[action]
+
+
+def check_approval(db, actor, org, company, approver, action):
+    """Use persisted identity, never a browser-supplied role or an old grant's role."""
+    if not user_may(db, actor, org, company, action):
+        raise ValueError("Usuário sem permissão para esta operação.")
+    if not user_may(db, approver, org, company, "approve"):
+        raise ValueError("Aprovação sem usuário autorizado ativo; aprove novamente.")
+    if str(actor) != str(approver):
+        return False
+    user = db.get(User, _uuid(actor))
+    if user.role != "desenvolvedor":
+        raise ValueError("Regra de quatro olhos: outro usuário autorizado deve aprovar a operação do gestor.")
+    return True
 
 
 def people(db: Session, organization_id):

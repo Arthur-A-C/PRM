@@ -56,7 +56,7 @@
       card.append(el("h3",COMPANY[c.company]));
       const badges=el("div",null,"rm-env-badges");
       badges.append(pill(c.active?"Produção ativa":c.production?"Produção ligada, trava do servidor bloqueando":"Homologação",c.active?"is-alert":"is-info"),
-        pill(c.four_eyes?"Quatro olhos: ativo":"Quatro olhos: desativado",c.four_eyes?"is-ok":"is-warn"));
+        pill(envs.role==="desenvolvedor"?"Desenvolvedor: dispensa auditada":"Gestor: outro aprovador obrigatório","is-info"));
       card.append(badges);
       card.append(el("p",`Suas permissões: ${mine.length?mine.join(", "):"nenhuma"}.`,"prm-status"));
       if(c.changed_at)card.append(el("p",`Última alteração: ${when(c.changed_at)}.`,"prm-status"));
@@ -67,9 +67,7 @@
       if(Object.values(p).some(Boolean))button("Testar conexão",async()=>{message(`Testando ${COMPANY[c.company]} (somente leitura)…`);const r=await post(`${api}/ambientes/${c.company}/teste`);message(r.ok?"Conexão, credenciais e permissões da loja confirmadas.":"Teste com falhas: "+r.checks.filter(x=>!x.ok).map(x=>x.detail).join("; "));await loadEnvs();});
       if(p.admin){
         if(c.production)button("Desativar produção",async()=>{if(!confirm(`Desativar a produção da ${COMPANY[c.company]}? Liberações ainda não usadas deixam de valer.`))return;await post(`${api}/ambientes/${c.company}/producao`,{ativar:false});message("Produção desativada.");await loadEnvs();},"button-secondary prm-btn-danger");
-        else button("Ativar produção",async()=>{const phrase=`ATIVAR PRODUCAO ${c.company.toUpperCase()}`;const v=await typed(`Ativar produção · ${COMPANY[c.company]}`,"Ativar a produção NÃO remove nada: cada lote continua exigindo Dry Run, aprovação, confirmação e, com quatro olhos, outra pessoa para executar. O PRM testa a loja antes de ativar.",phrase);if(!v)return;await post(`${api}/ambientes/${c.company}/producao`,{ativar:true,confirmacao:v});message("Produção ativada para "+COMPANY[c.company]+".");await loadEnvs();});
-        if(c.four_eyes)button("Desativar quatro olhos",async()=>{const phrase=`DESATIVAR QUATRO OLHOS ${c.company.toUpperCase()}`;const v=await typed("Desativar quatro olhos","Sem quatro olhos, quem aprova também poderá executar o mesmo lote.",phrase);if(!v)return;await post(`${api}/ambientes/${c.company}/quatro-olhos`,{ativar:false,confirmacao:v});await loadEnvs();});
-        else button("Ativar quatro olhos",async()=>{await post(`${api}/ambientes/${c.company}/quatro-olhos`,{ativar:true});await loadEnvs();});
+        else button("Ativar produção",async()=>{const phrase=`ATIVAR PRODUCAO ${c.company.toUpperCase()}`;const v=await typed(`Ativar produção · ${COMPANY[c.company]}`,"Cada lote exige Dry Run, aprovação e confirmação. Gestores precisam de outro aprovador; desenvolvedores têm dispensa auditada. O PRM testa a loja antes de ativar.",phrase);if(!v)return;await post(`${api}/ambientes/${c.company}/producao`,{ativar:true,confirmacao:v});message("Produção ativada para "+COMPANY[c.company]+".");await loadEnvs();});
       }
       card.append(actions);grid.append(card);
     });
@@ -89,7 +87,7 @@
       const boxes={};
       [["approve","aprovar"],["execute","executar"],["restore","restaurar"],["admin","administrar"]].forEach(([k,label])=>{
         const td=el("td"),box=el("input");box.type="checkbox";box.checked=flags[k];box.setAttribute("aria-label",`${label} · ${u.name}`);
-        if(k==="admin"&&u.role!=="desenvolvedor")box.disabled=true;boxes[k]=box;td.append(box);tr.append(td);});
+        if((k==="admin"&&u.role!=="desenvolvedor")||(k!=="admin"&&u.role==="desenvolvedor"))box.disabled=true;boxes[k]=box;td.append(box);tr.append(td);});
       const td=el("td"),save=el("button","Salvar","button-secondary");save.type="button";
       save.addEventListener("click",async()=>{try{await post(`${api}/permissoes`,{usuario:u.id,empresa:company,aprovar:boxes.approve.checked,executar:boxes.execute.checked,restaurar:boxes.restore.checked,administrar:boxes.admin.checked},"PUT");message(`Permissões de ${u.name} na ${COMPANY[company]} salvas.`);await loadEnvs();}catch(e){message(e.message);}});
       td.append(save);tr.append(td);body.append(tr);

@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.dependencies import CurrentAuth, AppSettings
 from app.routers.digitalizacao import _require_authorized
+from app.routers.local_uploads import batch_source, consume
 from app.services.datasheet_batches import BatchStore, PROJECT
 
 router = APIRouter(prefix="/api/v1/digitalizacao/lotes", tags=["digitalizacao-lotes"])
@@ -40,7 +41,8 @@ def template(auth: CurrentAuth):
 
 @router.post("")
 async def upload(auth: CurrentAuth, settings: AppSettings,
-                 arquivo: Annotated[UploadFile, File()],
+                 arquivo: Annotated[UploadFile | None, File()] = None,
+                 envio: Annotated[str, Form()] = "",
                  delimitador: Annotated[str, Form()] = ",",
                  identificacao: Annotated[str, Form()] = "csv",
                  empresa: Annotated[str, Form()] = "",
@@ -48,13 +50,15 @@ async def upload(auth: CurrentAuth, settings: AppSettings,
                  csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
     _require_authorized(auth, csrf_token)
     try:
-        raw = await arquivo.read(settings.batch_upload_mib * 1024**2 + 1)
+        raw, _ = await batch_source(auth, settings, arquivo, envio, settings.batch_upload_mib)
         store = BatchStore(settings)
         identifier = await run_in_threadpool(lambda: translate(lambda: store.create(
             raw, *scope(auth), delimitador, identification=identificacao, company=empresa, root=pasta_raiz)))
+        consume(auth, settings, envio)
         return store.detail(identifier, *scope(auth))
     finally:
-        await arquivo.close()
+        if arquivo:
+            await arquivo.close()
 
 
 @router.get("")

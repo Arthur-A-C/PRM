@@ -135,13 +135,15 @@ class Flow:
         return self.removals.approve(self.batch, self.org, self.uid(key), skus, companies=self.companies(key))
 
     def execute(self, key="bia", skus=None, drain=True):
-        queued = self.removals.confirm(self.batch, self.org, self.uid(key), self.settings, skus, companies=self.companies(key), production_confirmed=True)
+        with self.people.session() as db:
+            queued = self.removals.confirm(self.batch, self.org, self.uid(key), self.settings, skus, companies=self.companies(key), production_confirmed=True, authorization_session=db)
         if drain: self.drain()
         return queued
 
-    def restore(self, key="bia", skus=None):
-        queued = self.removals.request_restore(self.batch, self.org, self.uid(key), skus, companies=self.companies(key), production_confirmed=True)
-        self.drain()
+    def restore(self, key="bia", skus=None, drain=True):
+        with self.people.session() as db:
+            queued = self.removals.request_restore(self.batch, self.org, self.uid(key), skus, companies=self.companies(key), production_confirmed=True, authorization_session=db)
+        if drain: self.drain()
         return queued
 
     def view(self, key="ana"):
@@ -234,17 +236,42 @@ def test_portwell_main_image_removal_with_backup_and_restore(jobs, store_setting
 
 # --- Quatro olhos e permissões (API e worker) --------------------------------------------------
 
-def test_four_eyes_blocks_the_approver_from_executing(jobs, store_settings, people, switch):
+def test_developer_self_approval_execute_restore_is_audited(jobs, store_settings, people, switch):
     flow = portwell(jobs, store_settings, people)
     flow.enable(); flow.approve("dev")
-    with pytest.raises(ValueError, match="quatro olhos"):
-        flow.execute("dev")
-    assert not flow.shop.writes
-    flow.envs.set_four_eyes(flow.org, "portwell", False, flow.uid("dev"))
+    # Operational autonomy does not depend on per-store rows or terminal SKU grants.
+    with people.session() as db:
+        db.query(StoreOperationPermission).filter_by(user_id=people.users["dev"].id).delete()
+        db.commit()
     flow.execute("dev")
-    assert flow.item()["state"] == "done"
+    assert flow.item()["state"] == "done" and flow.item()["backup"]["verified"]
+    flow.restore("dev")
+    assert flow.item()["state"] == "restored"
     with jobs.db() as db:
-        assert db.execute("SELECT event FROM audit WHERE batch='ambiente:portwell' ORDER BY at DESC").fetchone()["event"] == "four_eyes_disabled"
+        events = [json.loads(r["detail"]) for r in db.execute("SELECT detail FROM audit WHERE event='four_eyes_exempted'")]
+    assert {e["action"] for e in events} == {"execute", "restore"}
+    assert all(e["role"] == "desenvolvedor" for e in events)
+    assert "four_eyes_exemption_verified" in flow.events()
+
+
+def test_manager_cannot_self_execute_or_restore_even_with_legacy_switch_off(jobs, store_settings, people, switch):
+    flow = portwell(jobs, store_settings, people)
+    flow.enable(); flow.approve("ana")
+    with people.session() as db:
+        row = db.query(StoreOperationPermission).filter_by(user_id=people.users["ana"].id, company="portwell").one()
+        row.can_execute = row.can_restore = True
+        db.commit()
+    with jobs.db() as db:
+        db.execute("UPDATE removal_environments SET four_eyes=0")
+    with pytest.raises(ValueError, match="quatro olhos"):
+        flow.execute("ana")
+    assert not flow.shop.writes
+    flow.execute("bia")
+    with pytest.raises(ValueError, match="quatro olhos"):
+        flow.restore("ana")
+    with pytest.raises(ValueError, match="obrigatória"):
+        flow.envs.set_four_eyes(flow.org, "portwell", False, flow.uid("dev"))
+    assert flow.envs.get(flow.org, "portwell")["four_eyes"]
 
 
 def test_worker_rechecks_permission_revoked_after_the_grant(jobs, store_settings, people, switch):
@@ -271,6 +298,10 @@ def test_worker_rechecks_deactivated_user_and_environment(jobs, store_settings, 
 def test_four_eyes_rechecked_in_the_worker_with_forged_grant(jobs, store_settings, people, switch):
     flow = portwell(jobs, store_settings, people)
     flow.enable(); flow.approve("dev")
+    # A former developer must not keep the exemption after demotion.
+    with people.session() as db:
+        db.get(User, people.users["dev"].id).role = "gestor"
+        db.commit()
     # A grant issued directly (bypassing confirm) for the approver must still be refused by the worker.
     with jobs.db() as db:
         db.execute("BEGIN IMMEDIATE")
@@ -383,10 +414,11 @@ def test_restore_needs_permission_and_production(jobs, store_settings, people, s
     with pytest.raises(ValueError, match="Restauração bloqueada"):
         flow.restore()
     flow.enable()
+    flow.restore("bia", drain=False)
     with people.session() as db:
         db.query(StoreOperationPermission).filter_by(user_id=people.users["bia"].id, company="portwell").one().can_restore = False
         db.commit()
-    flow.restore("bia")  # queued with the grant, refused by the worker
+    flow.drain()  # permission revoked after queueing: refused by the worker
     assert flow.item()["state"] == "restore_error" and "não tem mais permissão" in flow.item()["error"]
     assert flow.shop.products[PORTWELL_SKU]["featured"] == 0
 
@@ -604,6 +636,60 @@ def test_api_full_production_flow_over_https(api, switch):
         assert "secret" not in text and "app_portwell" not in text
 
 
+def test_api_developer_owns_full_flow_without_manual_grant(api, switch):
+    c = api.https
+    api.state.user = api.users["dev"]
+    assert c.post("/api/v1/remocao-arquivos/ambientes/portwell/producao", json={"ativar": True, "confirmacao": "ATIVAR PRODUCAO PORTWELL"}, headers=H).status_code == 200
+    batch = c.post("/api/v1/remocao-arquivos", data={"empresa": "portwell", "modo": "main", "skus": PORTWELL_SKU}, headers=H).json()["id"]
+    url = f"/api/v1/remocao-arquivos/{batch}"
+    api.drain()
+    assert c.post(url + "/executar", json={"confirmacao": "EXECUTAR 1 PORTWELL"}, headers=H).status_code == 422
+    assert c.post(url + "/aprovar", json={}, headers=H).status_code == 200
+    assert c.post(url + "/executar", json={}, headers=H).status_code == 422
+    assert c.post(url + "/executar", json={"confirmacao": "EXECUTAR 1 PORTWELL"}).status_code == 403
+    assert c.post(url + "/executar", json={"confirmacao": "EXECUTAR 1 PORTWELL"}, headers=H).status_code == 200
+    api.drain()
+    item = c.get(url).json()["items"][0]
+    assert item["state"] == "done" and item["backup"]["verified"] and item["result"]["verified"]
+    assert c.post(url + "/restaurar", json={}, headers=H).status_code == 422
+    assert c.post(url + "/restaurar", json={"confirmacao": "RESTAURAR 1 PORTWELL"}, headers=H).status_code == 200
+    api.drain()
+    assert c.get(url).json()["items"][0]["state"] == "restored"
+    audit = c.get(url + "/auditoria").json()["items"]
+    assert {"execute", "restore"} == {e["detail"]["action"] for e in audit if e["event"] == "four_eyes_exempted"}
+    api.state.user = api.users["vera"]
+    for action in ("aprovar", "executar", "restaurar"):
+        assert c.post(url + "/" + action, json={}, headers=H).status_code == 403
+
+
+@pytest.mark.parametrize("change", ["inactive", "other_org", "manager"])
+def test_developer_restore_rechecks_current_identity(jobs, store_settings, people, switch, change):
+    flow = portwell(jobs, store_settings, people)
+    flow.enable(); flow.approve("dev"); flow.execute("dev")
+    flow.restore("dev", drain=False)
+    writes = len(flow.shop.writes)
+    with people.session() as db:
+        user = db.get(User, people.users["dev"].id)
+        if change == "inactive": user.active = False
+        elif change == "other_org": user.organization_id = people.users["fora"].organization_id
+        else: user.role = "gestor"
+        db.commit()
+    flow.drain()
+    assert flow.item()["state"] == "restore_error"
+    assert len(flow.shop.writes) == writes
+
+
+def test_worker_rejects_revoked_approver(jobs, store_settings, people, switch):
+    flow = portwell(jobs, store_settings, people)
+    flow.enable(); flow.approve(); flow.execute(drain=False)
+    with people.session() as db:
+        db.query(StoreOperationPermission).filter_by(user_id=people.users["ana"].id, company="portwell").one().can_approve = False
+        db.commit()
+    flow.drain()
+    assert flow.item()["state"] == "blocked" and not flow.shop.writes
+    assert "Aprovação" in flow.item()["error"]
+
+
 def test_api_requires_https_for_production_and_audits_refusals(api, switch):
     flow_user = api.users["dev"]
     api.state.user = flow_user
@@ -639,10 +725,11 @@ def test_api_environment_and_permission_administration(api, switch, monkeypatch)
     assert c.put("/api/v1/remocao-arquivos/permissoes", json=change).status_code == 403  # CSRF
     off = c.post("/api/v1/remocao-arquivos/ambientes/sag/quatro-olhos", json={"ativar": False, "confirmacao": "x"}, headers=H)
     assert off.status_code == 422
-    assert not c.post("/api/v1/remocao-arquivos/ambientes/sag/quatro-olhos", json={"ativar": False, "confirmacao": "DESATIVAR QUATRO OLHOS SAG"}, headers=H).json()["four_eyes"]
+    assert c.post("/api/v1/remocao-arquivos/ambientes/sag/quatro-olhos", json={"ativar": False, "confirmacao": "DESATIVAR QUATRO OLHOS SAG"}, headers=H).status_code == 422
     with api.jobs.db() as db:
         events = {r["event"] for r in db.execute("SELECT event FROM audit WHERE batch IN ('permissoes:sag','ambiente:sag','ambiente:choice')")}
-    assert {"permission_changed", "four_eyes_disabled", "blocked_attempt"} <= events
+    assert {"permission_changed", "blocked_attempt"} <= events
+    assert "four_eyes_disabled" not in events
 
 
 def test_api_visibility_between_users_and_organizations(api):

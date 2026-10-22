@@ -18,7 +18,7 @@
   </section>
 
   <section class="panel" id="rm-permissions" hidden aria-labelledby="rm-perm-title">
-    <div class="prm-section-title"><div><h2 id="rm-perm-title">Permissões de remoção</h2><p>Quem pode aprovar, executar e restaurar em cada loja. Administração (ambiente, quatro olhos e permissões) só para desenvolvedores. Toda alteração fica na auditoria.</p></div>
+    <div class="prm-section-title"><div><h2 id="rm-perm-title">Permissões de remoção</h2><p>Desenvolvedores podem aprovar, executar e restaurar suas operações com dispensa auditada de quatro olhos. Gestores precisam de permissões por loja e outro aprovador. Administração de ambientes e permissões exige desenvolvedor autorizado.</p></div>
       <div class="prm-field rm-perm-company"><label for="rm-perm-company">Loja</label><select id="rm-perm-company"></select></div></div>
     <div class="table-scroll"><table class="rm-table"><thead><tr><th>Usuário</th><th>Papel</th><th>Aprovar</th><th>Executar</th><th>Restaurar</th><th>Administrar</th><th></th></tr></thead><tbody id="rm-perm-rows"></tbody></table></div>
   </section>
@@ -37,7 +37,7 @@
       <div class="prm-field"><label for="rm-sheet">CSV/XLSX de SKUs (opcional)</label><input id="rm-sheet" name="planilha" type="file" accept=".csv,.xlsx,.xlsm"></div>
       <div class="prm-form-actions"><button type="submit" class="button-primary">{{ ui.icon('search') }}<span>Gerar Dry Run</span></button></div>
     </form>
-    <p class="prm-note">{{ ui.icon('info') }}<span>O Dry Run só lê a loja. Em produção, executar exige aprovação, a sua permissão, confirmação digitada e (com quatro olhos) outra pessoa além de quem aprovou. Ativar a produção de uma loja não remove nada sozinho.</span></p>
+    <p class="prm-note">{{ ui.icon('info') }}<span>O Dry Run só lê a loja. Execução e restauração exigem aprovação e confirmação digitada. Gestores exigem outro aprovador; Desenvolvedor / Modo Deus pode conduzir sua própria operação, com exceção auditada. Backup, verificação e demais proteções continuam obrigatórios.</span></p>
     <p id="rm-message" class="prm-status" role="status" aria-live="polite"></p>
   </section>
 

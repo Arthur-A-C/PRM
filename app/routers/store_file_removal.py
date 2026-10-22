@@ -294,7 +294,7 @@ def confirm(identifier: str, request: Request, auth: CurrentAuth, db: DbSession,
         if confirmed:
             count = target_count(removals, identifier, auth, companies, body.skus, {"review"}, approved_only=True)
             confirmation(body.confirmacao, phrase("executar", count, record["company"]))
-        return removals.confirm(identifier, *scope(auth), settings, body.skus, companies=companies, production_confirmed=confirmed)
+        return removals.confirm(identifier, *scope(auth), settings, body.skus, companies=companies, production_confirmed=confirmed, authorization_session=db)
     return batch_action(identifier, auth, db, csrf_token, "executar", action)
 
 
@@ -309,7 +309,7 @@ def restore(identifier: str, request: Request, auth: CurrentAuth, db: DbSession,
             count = sum(1 for i in removals.detail(identifier, *scope(auth), companies)["items"]
                         if i["restorable"] and (body.skus is None or i["sku"] in body.skus))
             confirmation(body.confirmacao, phrase("restaurar", count, record["company"]))
-        return removals.request_restore(identifier, *scope(auth), body.skus, companies=companies, production_confirmed=confirmed)
+        return removals.request_restore(identifier, *scope(auth), body.skus, companies=companies, production_confirmed=confirmed, authorization_session=db)
     return batch_action(identifier, auth, db, csrf_token, "restaurar", action)
 
 
