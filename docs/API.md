@@ -1,5 +1,13 @@
 # API
 
+## Remoção de arquivos em produção (22/10/2026)
+
+Prefixo `/api/v1/remocao-arquivos`. Mutations exigem `X-CSRF-Token`; produção exige HTTPS e permissão da loja; recusas vão para a auditoria.
+
+- `GET /ambientes`; `POST /ambientes/{empresa}/teste` (somente leitura); `POST /ambientes/{empresa}/producao` `{ativar, confirmacao: "ATIVAR PRODUCAO <LOJA>"}`; `POST /ambientes/{empresa}/quatro-olhos` `{ativar, confirmacao}`.
+- `GET /permissoes`; `PUT /permissoes` `{usuario, empresa, aprovar, executar, restaurar, administrar}` (administradores).
+- `POST /{lote}/executar` e `/restaurar` `{skus, confirmacao: "EXECUTAR|RESTAURAR <N> <LOJA>"}`; `POST /{lote}/reconferir` (somente leitura); `GET /{lote}/auditoria`; `GET /{lote}/backup/{sku}` (ZIP).
+
 ## Cards de teste (22/10/2026)
 
 `GET /api/v1/planner/activities?include_tests=true` inclui exemplos `simulation=true` e `interactive_test=true`, preservando isolamento organizacional e visibilidade do vendedor. Cards utiliza essa opção; overview/calendário/alertas continuam exclusivamente operacionais. Consulta individual e `/assign` aceitam esses exemplos, mantendo CSRF, versão, auditoria e validação do destinatário. `/review` e `/publish` recusam simulações com 409. Nenhum payload de edição pode retirar as marcas de teste. Prazo serializado como `band: simulation`, sem bucket ou notificação.

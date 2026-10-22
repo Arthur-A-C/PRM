@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-22 — Remoção de arquivos em produção
+
+- Ambientes por loja (homologação inalterada; produção ligada pela interface por administrador desenvolvedor), trava mestra `PRM_REMOVAL_PRODUCTION_ALLOWED`, HTTPS obrigatório e teste de loja somente leitura antes de ativar.
+- Permissões por usuário e loja (aprovar, executar, restaurar, administrar) em PostgreSQL (migração `20261022_0012`), aplicadas na API e de novo no worker; regra de quatro olhos ligada por padrão; confirmações digitadas; liberações de uso único de 30 minutos emitidas pela interface.
+- Backup verificado (arquivos + metadados + SHA-256) antes de cada remoção, bloqueando-a se falhar; restauração pela interface com reenvio do backup quando a mídia foi apagada; "concluído" só após releitura WooCommerce + WordPress, senão "incerto" com Reconferir; auditoria de aprovações, execuções, restaurações e tentativas bloqueadas.
+
 ## 2026-10-22 — Remoção de arquivos de produtos
 
 - Quatro modos (tudo, galeria, documentos, foto principal) para produtos existentes por SKU, com Dry Run completo, aprovação, fila com pausa/cancelamento/retomada, relatório CSV, auditoria e restauração.
