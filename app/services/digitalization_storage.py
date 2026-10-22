@@ -249,6 +249,7 @@ def finalize_draft(
         (staging / "datasheet_dados.json").write_bytes(analysis_content)
         items.append({"role": "technical_analysis", "path": "datasheet_dados.json", "sha256": _sha(analysis_content)})
         counts: dict[str, int] = {}
+        sources = []
         for role, original_name, content in documents:
             if not content or len(content) > 50 * 1024 * 1024:
                 raise ValueError(f"Documento vazio ou acima de 50 MiB: {original_name}.")
@@ -258,6 +259,10 @@ def finalize_draft(
                 raise ValueError(f"Documento não é PDF: {original_name}.")
             if filename.lower().endswith(".zip") and not zipfile.is_zipfile(io.BytesIO(content)):
                 raise ValueError(f"Documento ZIP inválido: {original_name}.")
+            # The supplier datasheet is a processing source only: never published, packaged or listed.
+            if role == "source_datasheet":
+                sources.append((filename, original_name, content))
+                continue
             (staging / filename).write_bytes(content)
             items.append({"role": role, "path": filename, "sha256": _sha(content), "original_name": original_name})
         manifest = {
@@ -286,6 +291,13 @@ def finalize_draft(
         if target.exists():
             raise FileExistsError("A pasta do produto surgiu durante a finalização; nada foi sobrescrito.")
         staging.rename(target)
+        if sources:
+            kept = draft / "fontes"
+            kept.mkdir(exist_ok=True)
+            for filename, _, content in sources:
+                (kept / filename).write_bytes(content)
+            record["source_files"] = [{"role": "source_datasheet", "path": f"fontes/{filename}", "sha256": _sha(content),
+                                       "original_name": original_name} for filename, original_name, content in sources]
         record.update({"status": "validated", "folder_path": str(target), "package_version": version, "manifest": manifest})
         _write_json(draft / "record.json", record)
         return record

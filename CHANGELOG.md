@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-10-22 — Remoção de arquivos de produtos
+
+- Quatro modos (tudo, galeria, documentos, foto principal) para produtos existentes por SKU, com Dry Run completo, aprovação, fila com pausa/cancelamento/retomada, relatório CSV, auditoria e restauração.
+- Somente `images`, `_wcda_arquivos` ou `featured_media` são gravados; mídia nunca é excluída; foto principal removida sem promover outra imagem. Produção bloqueada sem liberação específica.
+
+## 2026-10-22 — Resolução de imagens em pasta
+
+- Conversão recursiva de JPG/PNG/WEBP para quadrado exato (padrão 1500 × 1500) com fundo branco, sem deformar e mantendo nome e formato.
+- Originais movidos para `Backup-fotos` com a mesma estrutura, backup verificado antes da substituição atômica, retomada após interrupção, restauração e registro por arquivo.
+
+## 2026-10-21 — Digitalização e Publicação em Lote
+
+- Interface única: importação por SKU, geração de datasheets, Dry Run, aprovação individual/em lote, publicação de imagens e documentos e verificação, com tabela e filtros por status/empresa.
+- Integração interna entre Geração em Lote e Cadastro via API (sem baixar/reenviar ZIP); exportação de ZIP mantida para backup. Sem textos comerciais, categorias, atributos ou CSV.
+- "Aguardando cadastro por CSV" retomável, pausa/retomada sem repetir uploads, deduplicação por conteúdo entre produtos, liberação com escopo para vários SKUs restrita ao alvo homologado.
+
+## 2026-10-21 — Datasheet do fornecedor fora da exportação
+
+- Geração em Lote, pacote validado da Digitalização e pacote de cadastro deixam de exportar o datasheet original do fornecedor; ele segue como fonte da IA e fica preservado no armazenamento de origem.
+- Cadastro via API publica somente o datasheet gerado pelo PRM; pacotes antigos continuam importáveis e o original aparece como ignorado. Dry Runs anteriores com o original são bloqueados.
+
+## 2026-10-21 — Liberação de uso único para homologação
+
+- Liberação local, de curta duração e uso único, restrita a Choice/119002000072/16321 e ao hash do Dry Run aprovado; demais gravações em produção seguem bloqueadas.
+- PUT WooCommerce pela senha de aplicativo WordPress com verificação prévia de permissões; recuperação com liberação própria sem excluir mídia.
+- Identidade de conteúdo no título da mídia para reconciliação. 469 testes aprovados; nenhuma gravação real.
+
 ## 2026-10-21 — Cadastro via API somente para arquivos
 
 - Escopo restrito a imagens e `_wcda_arquivos` de produtos existentes; dados comerciais permanecem no fluxo CSV e saíram do plano da API.

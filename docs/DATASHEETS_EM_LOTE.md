@@ -54,8 +54,13 @@ importacao.zip
   confirma o processamento pago. Arquivos inválidos em um produto não impedem os
   demais; problemas estruturais/de segurança no ZIP/CSV bloqueiam o lote.
 - O download mantém os PDFs/relatórios anteriores e acrescenta, por empresa/SKU,
-  `analysis.json` quando gerado e `fontes/` com os arquivos originais. Os arquivos
-  são preservados mesmo se a geração falhar. Não contém credenciais.
+  `analysis.json` quando gerado e `fontes/` com imagens, desenhos 3D e demais
+  arquivos técnicos de origem. Os arquivos são preservados mesmo se a geração falhar.
+  Não contém credenciais.
+- **Desde 21/10/2026 o datasheet original do fornecedor não entra no ZIP exportado.**
+  Ele continua sendo enviado à IA como fonte de extração e fica preservado no
+  armazenamento do lote (`data/datasheet_batches/<lote>/`), sem alteração. O ZIP leva
+  o datasheet gerado pelo PRM (`EMPRESA/SKU.pdf`). ZIPs já exportados não mudam.
 
 O modo **Utilizar CSV do CIGAM** continua com as mesmas regras anteriores,
 inclusive lotes com empresas diferentes. Clientes antigos da API, que não enviam

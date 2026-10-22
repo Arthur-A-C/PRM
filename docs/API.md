@@ -1,5 +1,9 @@
 # API
 
+## Cards de teste (22/10/2026)
+
+`GET /api/v1/planner/activities?include_tests=true` inclui exemplos `simulation=true` e `interactive_test=true`, preservando isolamento organizacional e visibilidade do vendedor. Cards utiliza essa opção; overview/calendário/alertas continuam exclusivamente operacionais. Consulta individual e `/assign` aceitam esses exemplos, mantendo CSRF, versão, auditoria e validação do destinatário. `/review` e `/publish` recusam simulações com 409. Nenhum payload de edição pode retirar as marcas de teste. Prazo serializado como `band: simulation`, sem bucket ou notificação.
+
 ## Digitalização em lote por pastas (21/10/2026)
 
 `POST /api/v1/digitalizacao/lotes` mantém `arquivo` (ZIP), `delimitador` e CSRF e acrescenta `identificacao` (`csv`, padrão para clientes antigos; ou `folder`), `empresa` (obrigatória para `folder`: choice/portwell/sag) e `pasta_raiz` (relativa ao ZIP, opcional). CSV dentro do ZIP é opcional em `folder`, obrigatório em `csv`. Não há leitura de caminho local/rede enviado pelo usuário.

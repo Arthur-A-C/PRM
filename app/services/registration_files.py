@@ -78,13 +78,14 @@ def classify_files(folder: Path, *, portable=False, sku=None, company=None) -> d
                 if len(set(manifest["ordered_images"]))!=len(manifest["ordered_images"]):
                     raise ValueError("Imagem duplicada no manifesto.")
             ordered = [existing(relative) for relative in manifest["ordered_images"]]
-            if not ordered or (not portable and ordered[0] != manifest["main_image_path"]):
+            # A portable package may carry only documents (files-only publishing); local folders keep requiring a photo.
+            if (not ordered and not portable) or (not portable and ordered[0] != manifest["main_image_path"]):
                 raise ValueError("Imagem principal diverge da ordem do manifesto.")
             documents = [
                 {"role": item["role"], "path": existing(item["path"])}
                 for item in manifest["files"] if item["role"] not in {"main_image", "gallery", "technical_analysis"}
             ]
-            return {"main_image": ordered[0], "gallery": ordered[1:], "documents": documents, "warnings": []}
+            return {"main_image": ordered[0] if ordered else None, "gallery": ordered[1:], "documents": documents, "warnings": []}
         except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
             raise ValueError("Manifesto do produto inválido.") from exc
     images = []

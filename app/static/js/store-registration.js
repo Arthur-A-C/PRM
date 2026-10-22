@@ -43,6 +43,7 @@
     details.append(el("p","Somente imagens e _wcda_arquivos. Nome, descrições, categorias, atributos, SKU, preço, estoque e status não são enviados.","prm-note"));
     if(item.blockers.length)details.append(el("h4","Bloqueios"),list(item.blockers));
     details.append(el("p",d.write_gate));
+    if(item.homologation_grant)details.append(el("p",`Liberação de homologação de uso único ativa (${item.homologation_grant.purpose}) até ${new Date(item.homologation_grant.expires*1000).toLocaleString("pt-BR")}.`,"prm-note"));
     if(item.state==="review"&&!item.approval){
       const box=el("div",null,"api-choices");box.append(check(item,"approve","Selecionar para aprovação"));
       if(img.main_image.replacement_available)box.append(check(item,"replace","Substituir a imagem principal atual (a atual vai para a galeria)"));

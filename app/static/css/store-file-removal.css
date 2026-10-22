@@ -1,0 +1,30 @@
+/* Remoção de arquivos de produtos — layout. Controles, painéis, selos e tabelas vêm de prm-ui.css. */
+#rm-page { min-width: 0; overflow-wrap: anywhere; }
+#rm-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+.rm-modes { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin: 0; padding: 0; border: 0; }
+.rm-modes legend { margin-bottom: .45rem; color: var(--cc-ink-2); font-size: var(--ui-text-sm, .8rem); font-weight: 600; }
+.rm-mode { display: flex; gap: .6rem; align-items: flex-start; padding: .8rem .9rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface); cursor: pointer; }
+.rm-mode:has(input:checked) { border-color: var(--cc-primary); background: var(--cc-primary-soft); }
+.rm-mode input { margin-top: .2rem; }
+.rm-mode strong { display: block; font-size: .82rem; color: var(--cc-ink); }
+.rm-mode small { display: block; margin-top: .2rem; color: var(--cc-ink-3); font-size: .72rem; line-height: 1.45; }
+.rm-skus { grid-row: span 2; }
+#rm-form .prm-form-actions { grid-column: 1 / -1; justify-content: flex-end; }
+#rm-progress { width: 100%; margin: .5rem 0 .75rem; }
+.rm-counts { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
+.rm-actions { display: flex; flex-wrap: wrap; gap: 1rem 1.75rem; padding: .85rem 1rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface-2); }
+.rm-actions > div { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.rm-actions .eyebrow { width: 100%; margin: 0; }
+.rm-filters { display: grid; grid-template-columns: minmax(0, 16rem); margin: 1rem 0 .75rem; }
+.rm-table { min-width: 1080px; }
+:root .prm-ui .rm-sku { white-space: nowrap; min-height: 0; padding: 0; border: 0; background: none; color: var(--cc-primary); font: 600 .8rem var(--cc-mono); text-decoration: underline; }
+.rm-detail { display: grid; gap: .75rem; font-size: .76rem; }
+.rm-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.rm-list { padding: .65rem .75rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface); }
+.rm-list strong { font-size: .72rem; color: var(--cc-ink-2); }
+.rm-list ul { margin: .35rem 0 0; padding-left: 1.05rem; }
+.rm-detail p { margin: 0; }
+.rm-history { display: flex; flex-wrap: wrap; gap: .5rem; }
+:root .prm-ui .rm-history button { min-height: 2rem; padding: .3rem .7rem; font: 500 .72rem var(--cc-mono); }
+@media (max-width: 1100px) { .rm-modes { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rm-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { #rm-form, .rm-modes, .rm-detail-grid { grid-template-columns: minmax(0, 1fr); } .rm-skus { grid-row: auto; } }

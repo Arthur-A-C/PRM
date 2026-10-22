@@ -48,7 +48,10 @@ class Shop:
         self.calls=[];self.uploads=0;self.puts=0;self.uncertain=False;self.media={10:"https://staging.example.test/old.png"}
     def handle(self,request):
         self.calls.append(request.method)
+        if request.method=="OPTIONS":
+            return httpx.Response(200,headers={"Allow":"GET, POST" if "/wp/v2/media" in request.url.path else "GET, POST, PUT, PATCH, DELETE"})
         if request.method=="GET":
+            if request.url.path.endswith("/users/me"): return httpx.Response(200,json={"id":7,"capabilities":{"upload_files": True, "edit_products": True, "edit_published_products": True, "edit_others_products": True}})
             if "/wp/v2/media" in request.url.path: return httpx.Response(200,json=[])
             return httpx.Response(200,json=[deepcopy(self.product)] if request.url.path.endswith("/products") else deepcopy(self.product))
         if request.method=="POST":

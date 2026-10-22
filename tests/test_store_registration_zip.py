@@ -34,14 +34,18 @@ def inner_zip():
     return stream.getvalue()
 
 
-def package(sku=SKU, company="choice", *, tamper=None, extra=None, folder=True, gallery=False):
-    """Same layout as digitalization_storage.finalize_draft: SKU/manifest.json + Fotos + PDFs + 3D."""
+def package(sku=SKU, company="choice", *, tamper=None, extra=None, folder=True, gallery=False, legacy_original=False):
+    """Same layout as digitalization_storage.finalize_draft: SKU/manifest.json + Fotos + PRM datasheet + 3D.
+
+    legacy_original reproduces packages exported before the supplier datasheet was left out.
+    """
     files = {f"Fotos/{sku}_variante.jpg": jpeg(), f"{sku}_Datasheet.pdf": b"%PDF-1.4 gerado",
-             f"{sku}_Datasheet_Original.pdf": b"%PDF-1.4 fabricante", f"{sku}_Desenho_3D.zip": inner_zip(),
+             f"{sku}_Desenho_3D.zip": inner_zip(),
              "datasheet_dados.json": b'{"descricao": ["Nao usado neste modulo."]}'}
     roles = {f"Fotos/{sku}_variante.jpg": "main_image", f"{sku}_Datasheet.pdf": "generated_datasheet",
-             f"{sku}_Datasheet_Original.pdf": "source_datasheet", f"{sku}_Desenho_3D.zip": "drawing_3d",
-             "datasheet_dados.json": "technical_analysis"}
+             f"{sku}_Desenho_3D.zip": "drawing_3d", "datasheet_dados.json": "technical_analysis"}
+    if legacy_original:
+        files[f"{sku}_Datasheet_Original.pdf"] = b"%PDF-1.4 fabricante"; roles[f"{sku}_Datasheet_Original.pdf"] = "source_datasheet"
     ordered = [f"Fotos/{sku}_variante.jpg"]
     if gallery:
         files[f"Fotos/{sku}_foto2.jpg"] = jpeg("blue"); roles[f"Fotos/{sku}_foto2.jpg"] = "gallery"; ordered.append(f"Fotos/{sku}_foto2.jpg")
@@ -63,6 +67,7 @@ class Store:
     """Stateful WooCommerce + WordPress media double. Writes only ever reach this object."""
     def __init__(self, sku=SKU, images=(), wcda=None, wcda_meta=True):
         self.library = {10: ORIGIN + "/wp-content/uploads/foto-antiga.jpg"}
+        self.titles = {10: "foto-antiga"}
         self.product = {"id": 6260, "sku": sku, **deepcopy(COMMERCIAL),
                         "images": [{"id": i, "src": self.library[i]} for i in images],
                         "meta_data": [{"id": 1, "key": "_yoast_wpseo_focuskw", "value": "botoeira"}] +
@@ -73,20 +78,30 @@ class Store:
         self.fail_upload, self.lose_upload = set(), set()
         self.lose_put = self.mutate_on_put = False
         self.on_get = None
+        self.capabilities = {"upload_files": True, "edit_products": True, "edit_published_products": True, "edit_others_products": True}
+        self.product_allow, self.media_allow = "GET, POST, PUT, PATCH, DELETE", "GET, POST"
+        self.write_auth = []
 
     def handle(self, request):
         path, method = request.url.path, request.method
         self.methods.append(method)
+        if method in {"POST", "PUT"}: self.write_auth.append(request.headers.get("authorization"))
+        if method == "OPTIONS":
+            return httpx.Response(200, headers={"Allow": self.media_allow if "/wp/v2/media" in path else self.product_allow})
+        if path.endswith("/users/me"):
+            return httpx.Response(200, json={"id": 7, "capabilities": self.capabilities})
         if "/wp/v2/media" in path:
             if method == "GET":
+                # Like WordPress REST: search matches the attachment title, not the file URL.
                 term = request.url.params["search"]
-                return httpx.Response(200, json=[{"id": i, "source_url": u} for i, u in self.library.items() if term in u])
+                return httpx.Response(200, json=[{"id": i, "source_url": u} for i, u in self.library.items() if term in self.titles.get(i, "")])
             assert method == "POST"
             self.posts += 1
             name = re.search(rb'filename="([^"]+)"', request.content)[1].decode()
             if any(s in name for s in self.fail_upload): return httpx.Response(500, json={"message": "falha"})
             self.next_id += 1
             self.library[self.next_id] = ORIGIN + "/wp-content/uploads/2026/10/" + name
+            self.titles[self.next_id] = re.search(rb'name="title"\r\n\r\n([^\r]*)', request.content)[1].decode()
             if any(s in name for s in self.lose_upload): raise httpx.ReadTimeout("perdida", request=request)
             return httpx.Response(201, json={"id": self.next_id, "source_url": self.library[self.next_id]})
         if path.endswith("/products"):
@@ -156,7 +171,34 @@ def test_sku_from_folder_without_csv_and_dry_run_has_only_files(jobs, settings):
     assert "Descrição" not in json.dumps(dry, ensure_ascii=False) and "Nao usado" not in json.dumps(dry)
     assert [(a["name"], a["action"]) for a in dry["images"]["actions"]] == [(f"{SKU}_variante.jpg", "upload")]
     assert [(d["label"], d["action"]) for d in dry["documents"]["actions"]] == [
-        ("Datasheet", "add"), ("Datasheet do fabricante", "add"), ("Desenho 3D", "add")]
+        ("Datasheet", "add"), ("Desenho 3D", "add")]
+    assert dry["ignored"] == []
+
+
+def test_legacy_package_with_supplier_datasheet_imports_but_never_publishes_it(jobs, settings):
+    store = Store(wcda=[])
+    identifier, item = preview(jobs, settings, store, package(legacy_original=True))
+    dry = item["dry_run"]
+    assert item["state"] == "review" and [d["label"] for d in dry["documents"]["actions"]] == ["Datasheet", "Desenho 3D"]
+    assert [(i["name"], i["label"]) for i in dry["ignored"]] == [(f"{SKU}_Datasheet_Original.pdf", "Datasheet do fornecedor")]
+    publish(jobs, settings, store, identifier)
+    value = next(m for m in store.product["meta_data"] if m["key"] == "_wcda_arquivos")["value"]
+    assert [d["label"] for d in value] == ["Datasheet", "Desenho 3D"] and store.posts == 3
+    assert not any("fabricante" in u or "Original" in u for u in store.library.values())
+
+
+def test_dry_run_prepared_before_the_rule_is_never_executed(jobs, settings):
+    import json as _json
+    store = Store(wcda=[])
+    identifier, item = preview(jobs, settings, store)
+    with jobs.db() as db:
+        plan = _json.loads(db.execute("SELECT plan FROM jobs WHERE batch=?", (identifier,)).fetchone()[0])
+        plan["dry_run"]["documents"]["actions"].append({"label": "Datasheet do fabricante", "name": "x.pdf", "role": "source_datasheet",
+                                                        "bytes": 1, "sha256": "0" * 64, "upload_name": "x.pdf", "action": "add", "wcda_entry": None})
+        plan["downloads"].append({"path": "x", "name": "x.pdf", "role": "source_datasheet", "sha256": "0" * 64, "bytes": 1, "label": "x"})
+        db.execute("UPDATE jobs SET plan=? WHERE batch=?", (_json.dumps(plan), identifier))
+    item = publish(jobs, settings, store, identifier)
+    assert item["state"] == "error" and "datasheet do fornecedor" in item["error"] and store.posts == 0 and not store.puts
 
 
 def test_flat_zip_named_by_sku_keeps_leading_zeros(jobs, settings):
@@ -167,14 +209,19 @@ def test_flat_zip_named_by_sku_keeps_leading_zeros(jobs, settings):
 def test_leading_zero_sku_never_matched_numerically(jobs, settings):
     store = Store(); store.matches = [{**store.product, "sku": "123"}]
     _, item = preview(jobs, settings, store)
-    assert item["state"] == "error" and "não existe" in item["error"]
+    assert item["state"] == "awaiting_product" and "não existe" in item["error"]
 
 
 def test_missing_product_is_blocked_and_never_created(jobs, settings):
     store = Store(); store.matches = []
-    _, item = preview(jobs, settings, store)
-    assert item["state"] == "error" and "criação automática proibida" in item["error"]
+    identifier, item = preview(jobs, settings, store)
+    assert item["state"] == "awaiting_product" and "Aguardando cadastro por CSV" in item["error"]
     assert set(store.methods) == {"GET"} and store.posts == 0 and not store.puts
+    with pytest.raises(ValueError): jobs.approve(identifier, "org", "owner")
+    # Once the CSV flow registers the product, the item is resumed without a new import.
+    store.matches = None
+    jobs.reprocess(identifier, "org", "owner"); drain(jobs, settings, store)
+    assert jobs.detail(identifier, "org", "owner")["items"][0]["state"] == "review"
 
 
 def test_duplicate_store_sku_blocks(jobs, settings):
@@ -291,7 +338,7 @@ def test_identical_files_in_package_uploaded_once(jobs, settings):
     identifier, item = preview(jobs, settings, store, package(tamper=tamper))
     assert [a["action"] for a in item["dry_run"]["images"]["actions"]] == ["upload", "duplicate_in_package"]
     publish(jobs, settings, store, identifier)
-    assert len(store.product["images"]) == 1 and store.posts == 4  # 1 image + 3 documents
+    assert len(store.product["images"]) == 1 and store.posts == 3  # 1 image + 2 documents
 
 
 # --- Documentos WCDA ----------------------------------------------------------------------
@@ -303,12 +350,12 @@ EXISTING = [{"label": "Manual", "url": ORIGIN + "/up/manual.pdf", "filename": "m
 def test_wcda_append_preserves_existing_documents_and_order(jobs, settings):
     store = Store(wcda=EXISTING)
     identifier, item = preview(jobs, settings, store)
-    assert item["dry_run"]["documents"]["mode"] == "append" and item["dry_run"]["documents"]["final_count"] == 5
+    assert item["dry_run"]["documents"]["mode"] == "append" and item["dry_run"]["documents"]["final_count"] == 4
     publish(jobs, settings, store, identifier)
     value = next(m for m in store.product["meta_data"] if m["key"] == "_wcda_arquivos")["value"]
     assert value[:2] == EXISTING
     added = value[2:]
-    assert [d["label"] for d in added] == ["Datasheet", "Datasheet do fabricante", "Desenho 3D"]
+    assert [d["label"] for d in added] == ["Datasheet", "Desenho 3D"]
     assert set(added[0]) == {"label", "url", "filename", "filesize"}
     assert added[0]["url"] in store.library.values() and added[0]["filename"] == added[0]["url"].rsplit("/", 1)[1]
     assert added[0]["filesize"] == format_filesize(len(b"%PDF-1.4 gerado"))
@@ -348,12 +395,12 @@ def test_partial_upload_failure_keeps_uploaded_media_and_retry_does_not_duplicat
     store = Store(wcda=[]); store.fail_upload = {"Desenho"}
     identifier, _ = preview(jobs, settings, store)
     item = publish(jobs, settings, store, identifier)
-    assert item["state"] == "error" and not store.puts and store.posts == 4
-    assert len(store.library) == 4  # 3 uploads preserved, nothing deleted
+    assert item["state"] == "error" and not store.puts and store.posts == 3
+    assert len(store.library) == 3  # 2 uploads preserved, nothing deleted
     store.fail_upload = set()
     jobs.reprocess(identifier, "org", "owner"); drain(jobs, settings, store)
     item = publish(jobs, settings, store, identifier)
-    assert item["state"] == "done" and store.posts == 5 and len(store.puts) == 1
+    assert item["state"] == "done" and store.posts == 4 and len(store.puts) == 1
     assert any(e["event"] == "upload_reused" for e in item["audit"]) and any(e["event"] == "error" for e in item["audit"])
 
 
@@ -364,7 +411,7 @@ def test_lost_upload_response_is_reconciled_by_library_identity(jobs, settings):
     store.lose_upload = set()
     jobs.reprocess(identifier, "org", "owner"); drain(jobs, settings, store)
     item = publish(jobs, settings, store, identifier)
-    assert item["state"] == "done" and store.posts == 4 and len(store.product["images"]) == 1
+    assert item["state"] == "done" and store.posts == 3 and len(store.product["images"]) == 1
 
 
 def test_concurrent_change_before_put_sends_nothing(jobs, settings):
@@ -384,7 +431,7 @@ def test_concurrent_change_after_uploads_preserves_media_without_put(jobs, setti
         if s.posts: s.product["meta_data"][-1]["value"] = [EXISTING[0]]
     store.on_get = touch
     item = publish(jobs, settings, store, identifier)
-    assert item["state"] == "error" and "concorrente" in item["error"] and store.posts == 4 and not store.puts
+    assert item["state"] == "error" and "concorrente" in item["error"] and store.posts == 3 and not store.puts
 
 
 def test_lost_put_response_is_reconciled_without_second_put(jobs, settings):
@@ -465,7 +512,7 @@ def test_api_files_flow_with_individual_approval(tmp_path, settings, monkeypatch
         assert approved.status_code == 200 and approved.json()["items"][0]["approval"]["replace_main"] is False
         assert client.post(url + "/confirmar", headers={"X-CSRF-Token": "csrf"}).status_code == 422  # writes disabled
         report = client.get(url + "/relatorio").content.decode("utf-8-sig")
-        assert f"{SKU}_variante.jpg" in report and "Datasheet do fabricante" in report and ",sim" in report
+        assert f"{SKU}_variante.jpg" in report and "Desenho 3D" in report and "Original" not in report and ",sim" in report
         dry_run = client.get(url + "/dry-run").text
         for secret in ("ck_test", "cs_test", "app_password", str(tmp_path)):
             assert secret not in dry_run

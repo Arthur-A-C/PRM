@@ -419,19 +419,33 @@ class BatchStore:
                                           (str(org), str(owner)))]
         return [{k: v for k, v in self.detail(b, org, owner).items() if k != "items"} for b in ids]
 
-    def enqueue(self, batch, org, owner, model, retry=False):
+    def enqueue(self, batch, org, owner, model, retry=False, items=None):
+        """Queue pending (or, with retry, failed) items: all of them, or only the given item ids."""
         if not model:
             raise ValueError("Configure DATASHEET_MODEL no servidor.")
+        if items is not None and (not items or any(type(i) is not int for i in items)):
+            raise ValueError("Seleção de produtos inválida.")
         with self.db(True) as db:
             record = self.authorize(db, batch, org, owner)
             if record["expired"]:
                 raise ValueError("Arquivos expirados; envie um novo lote.")
-            if db.execute("SELECT 1 FROM items WHERE batch=? AND state IN ('queued','running')", (batch,)).fetchone():
+            if items is None and db.execute("SELECT 1 FROM items WHERE batch=? AND state IN ('queued','running')", (batch,)).fetchone():
                 raise ValueError("Lote já está em processamento.")
             # Successful/review items are deliberately never queued by retry.
-            db.execute("UPDATE items SET state='queued',error='',technical='',attempts=0,available=0 WHERE batch=? AND state=?",
-                       (batch, "error" if retry else "pending"))
+            selection = f" AND id IN ({','.join('?' * len(items))})" if items else ""
+            changed = db.execute("UPDATE items SET state='queued',error='',technical='',attempts=0,available=0 WHERE batch=? AND state=?" + selection,
+                                 (batch, "error" if retry else "pending", *(items or []))).rowcount
+            if items and changed != len(set(items)):
+                raise ValueError("Produto selecionado não está apto a processar.")
             db.execute("UPDATE batches SET model=?,updated=? WHERE id=?", (model, time.time(), batch))
+
+    def pause(self, batch, org, owner):
+        """Interrupt safely: queued items return to pending; a running item finishes normally."""
+        with self.db(True) as db:
+            self.authorize(db, batch, org, owner)
+            changed = db.execute("UPDATE items SET state='pending',available=0 WHERE batch=? AND state='queued'", (batch,)).rowcount
+            db.execute("UPDATE batches SET updated=? WHERE id=?", (time.time(), batch))
+            return changed
 
     def claim(self):
         now = time.time()
@@ -497,8 +511,11 @@ class BatchStore:
                     if analysis.is_file():
                         archive.write(analysis, f"{item['empresa'].upper()}/{item['codigo']}/analysis.json")
                 # Keep sources available even when generation fails; never include credentials/backups.
+                # The supplier datasheet is only an input: it stays in the batch storage, not in the export.
                 if item["state"] != "invalid":
                     for asset in item.get("assets", []):
+                        if asset.get("role") == "source_datasheet":
+                            continue
                         source = self.folder(batch) / asset["stored"]
                         if source.is_file():
                             archive.write(source, f"{item['empresa'].upper()}/{item['codigo']}/fontes/{asset['name']}")

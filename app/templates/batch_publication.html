@@ -1,0 +1,70 @@
+{% import "_workspace_icons.html" as ui %}
+{# IDs são contratos de batch-publication.js e de /api/v1/publicacao-lote. #}
+<div id="pub-page" class="prm-stack">
+  <header class="prm-page-head">
+    <div>
+      <p class="eyebrow">Digitalização / Publicação em lote</p>
+      <h2>Digitalização e publicação em lote</h2>
+      <p>Importe um ZIP com uma pasta por CIGAM/SKU, gere os datasheets, revise e publique imagens e documentos em produtos já cadastrados. Nome, descrições, categorias, atributos e CSV continuam no fluxo atual e nunca são alterados aqui.</p>
+    </div>
+    <div class="prm-page-actions">
+      <a href="/digitalizacao" class="prm-btn">{{ ui.icon('scan') }}<span>Digitalização individual</span></a>
+      <a href="/digitalizacao/lotes" class="prm-btn">{{ ui.icon('layers') }}<span>Geração em lote</span></a>
+      <a href="/digitalizacao/cadastro-api" class="prm-btn">{{ ui.icon('package') }}<span>Cadastro via API</span></a>
+    </div>
+  </header>
+
+  <ol class="pub-steps" id="pub-steps" aria-label="Etapas">
+    {% for label, hint in [("Importação", "ZIP por SKU"), ("Processamento", "Datasheets"), ("Revisão", "Dry Run"), ("Aprovação", "Individual ou lote"), ("Publicação", "Imagens e WCDA"), ("Verificação", "Releitura")] %}
+    <li data-stage="{{ loop.index }}"><span class="pub-step-index">{{ loop.index }}</span><span><strong>{{ label }}</strong><small>{{ hint }}</small></span><b data-stage-count>0</b></li>
+    {% endfor %}
+  </ol>
+
+  <section class="panel">
+    <div class="prm-section-title"><div><h2>1. Importar produtos</h2><p>Cada pasta é um produto; o nome da pasta é o código CIGAM/SKU, com zeros à esquerda preservados. A importação valida arquivos e não chama a IA.</p></div></div>
+    <form id="pub-upload" class="prm-form">
+      <div class="prm-field"><label for="pub-company">Empresa</label><select id="pub-company" name="empresa" required><option value="">Selecione</option><option value="choice">Choice</option><option value="sag">SAG</option><option value="portwell">Portwell</option></select></div>
+      <div class="prm-field"><label for="pub-root">Pasta raiz dentro do ZIP (opcional)</label><input id="pub-root" name="pasta_raiz" placeholder="Ex.: Produtos"></div>
+      <div class="prm-field"><label for="pub-file">Arquivo ZIP</label><input id="pub-file" type="file" name="arquivo" accept=".zip" required></div>
+      <div class="prm-form-actions"><button type="submit" class="button-primary">{{ ui.icon('upload') }}<span>Importar e validar</span></button></div>
+    </form>
+    <p class="prm-note">{{ ui.icon('info') }}<span>Requer os workers <code>scripts/datasheet_batch_worker.py</code> (datasheets, usa a IA somente após "Processar") e <code>scripts/store_registration_worker.py</code> (Dry Run e publicação). O datasheet original do fornecedor é usado como fonte e nunca é publicado.</span></p>
+    <p id="pub-message" class="prm-status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" id="pub-current" hidden>
+    <div class="prm-section-title">
+      <div><h2 id="pub-title">Lote</h2><p id="pub-summary" aria-live="polite"></p></div>
+      <a id="pub-export" class="prm-btn">{{ ui.icon('download') }}<span>Exportar ZIP (backup)</span></a>
+    </div>
+    <progress id="pub-progress" max="100" value="0" aria-label="Progresso do processamento"></progress>
+    <div class="pub-actions" role="group" aria-label="Ações do lote">
+      <div><span class="eyebrow">Processamento</span>
+        <button type="button" class="button-primary" data-action="processar">{{ ui.icon('sparkle') }}<span>Processar</span></button>
+        <button type="button" class="button-secondary" data-action="pausar">{{ ui.icon('clock') }}<span>Pausar</span></button>
+        <button type="button" class="button-secondary" data-action="reprocessar">{{ ui.icon('refresh') }}<span>Reprocessar erros</span></button></div>
+      <div><span class="eyebrow">Revisão e aprovação</span>
+        <button type="button" class="button-secondary" data-action="preparar">{{ ui.icon('file') }}<span>Gerar Dry Run</span></button>
+        <button type="button" class="button-secondary" data-action="aprovar">{{ ui.icon('check') }}<span>Aprovar</span></button></div>
+      <div><span class="eyebrow">Publicação</span>
+        <button type="button" class="button-primary" data-action="publicar">{{ ui.icon('shield') }}<span>Publicar aprovados</span></button>
+        <button type="button" class="button-secondary" data-action="retomar">{{ ui.icon('refresh') }}<span>Retomar pendentes</span></button></div>
+    </div>
+    <p class="prm-note">{{ ui.icon('info') }}<span>Sem seleção, a ação vale para todos os produtos aptos. Publicar só enfileira itens aprovados; a gravação nas lojas atuais continua bloqueada sem liberação de homologação específica.</span></p>
+    <div class="pub-filters">
+      <div class="prm-field"><label for="pub-filter-stage">Etapa</label><select id="pub-filter-stage"><option value="">Todas</option><option value="1">Importação</option><option value="2">Processamento</option><option value="3">Revisão</option><option value="4">Aprovação</option><option value="5">Publicação</option><option value="6">Verificação</option></select></div>
+      <div class="prm-field"><label for="pub-filter-issue">Situação</label><select id="pub-filter-issue"><option value="">Todas</option><option value="issues">Com erros ou pendências</option><option value="awaiting">Aguardando cadastro por CSV</option><option value="published">Publicados</option></select></div>
+      <div class="prm-field"><label for="pub-filter-text">SKU</label><input id="pub-filter-text" placeholder="Buscar SKU"></div>
+    </div>
+    <div class="table-scroll"><table class="pub-table"><thead><tr>
+      <th><input type="checkbox" id="pub-select-all" aria-label="Selecionar todos visíveis"></th>
+      <th>SKU</th><th>Empresa</th><th>Pasta</th><th>Imagens</th><th>Documentos</th><th>Processamento</th><th>Datasheet</th><th>WooCommerce</th><th>Erros e pendências</th>
+    </tr></thead><tbody id="pub-items"></tbody></table></div>
+  </section>
+
+  <section class="panel">
+    <div class="prm-section-title"><div><h3>Meus lotes</h3><p>Abra um lote para acompanhar ou retomar.</p></div>
+      <div class="prm-field"><label for="pub-history-company">Empresa</label><select id="pub-history-company"><option value="">Todas</option><option value="choice">Choice</option><option value="sag">SAG</option><option value="portwell">Portwell</option></select></div></div>
+    <div id="pub-history" class="pub-history"></div>
+  </section>
+</div>

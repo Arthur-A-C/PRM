@@ -1,0 +1,26 @@
+/* Digitalização e Publicação em Lote — layout. Controles, painéis, selos e tabelas vêm de prm-ui.css. */
+#pub-page { min-width: 0; overflow-wrap: anywhere; }
+#pub-upload { grid-template-columns: minmax(0, .7fr) minmax(0, 1fr) minmax(0, 1.2fr) auto; }
+.pub-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.pub-steps li { display: flex; gap: .6rem; align-items: center; min-width: 0; padding: .7rem .8rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface); color: var(--cc-ink-3); }
+.pub-steps li.has-items { border-color: color-mix(in srgb, var(--cc-primary) 35%, var(--cc-line)); color: var(--cc-ink); }
+.pub-steps strong { display: block; font-size: .8rem; }
+.pub-steps small { display: block; font-size: .68rem; color: var(--cc-ink-3); }
+.pub-steps b { margin-left: auto; font: 600 .8rem var(--cc-mono); }
+.pub-step-index { display: grid; flex: none; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--cc-surface-2); font: 600 .72rem var(--cc-mono); }
+.pub-steps li.has-items .pub-step-index { background: var(--cc-primary-soft); color: var(--cc-primary); }
+#pub-progress { width: 100%; margin: .75rem 0; }
+.pub-actions { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; }
+.pub-actions > div { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.pub-actions .eyebrow { width: 100%; margin: 0; }
+.pub-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 14rem)); gap: .75rem; margin: 1rem 0 .75rem; }
+.pub-table { min-width: 980px; }
+:root .prm-ui .pub-sku { min-height: 0; padding: 0; border: 0; background: none; color: var(--cc-primary); font: 600 .8rem var(--cc-mono); text-decoration: underline; }
+.pub-detail { display: grid; gap: .4rem; font-size: .78rem; }
+.pub-detail p { margin: 0; }
+.pub-detail ul { margin: 0; padding-left: 1.1rem; }
+.pub-choice { display: inline-flex; gap: .4rem; align-items: center; }
+.pub-history { display: flex; flex-wrap: wrap; gap: .5rem; }
+:root .prm-ui .pub-history button { min-height: 2rem; padding: .3rem .7rem; font: 500 .72rem var(--cc-mono); }
+@media (max-width: 1100px) { .pub-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } #pub-upload { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .pub-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } #pub-upload, .pub-filters { grid-template-columns: minmax(0, 1fr); } }

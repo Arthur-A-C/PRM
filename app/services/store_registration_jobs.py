@@ -15,12 +15,13 @@ from contextlib import contextmanager
 from openpyxl import load_workbook
 from app.services.store_config import ROOT, COMPANIES, StoreSettings
 from app.services.store_publish import MIMES, PublishSettings, StagingPublisher, file_info, snapshot_hash
-from app.services.store_registration_plan import prepare_files, file_plan
+from app.services.store_registration_plan import prepare_files, file_plan, stale_supplier_datasheet
 from app.services.registration_files import find_product_folder
 from app.services.registration_woo_api import WooClient, credentials_for
 from app.services.datasheet_batches import relative_name, identify_product_folders
 from app.services.digitalization_storage import validate_sku
 from app.services.store_documents import interpret_documents
+from app.services import store_publish_grant as grants
 
 
 def parse_skus(raw, name, *, details=False, strict=False):
@@ -160,7 +161,9 @@ class Jobs:
               token TEXT DEFAULT '',lease REAL DEFAULT 0,PRIMARY KEY(batch,sku));
             CREATE TABLE IF NOT EXISTS journal(scope TEXT,key TEXT,value TEXT,PRIMARY KEY(scope,key));
             CREATE TABLE IF NOT EXISTS audit(batch TEXT,sku TEXT,at REAL,actor TEXT,event TEXT,detail TEXT);
-            """)
+            """+grants.SCHEMA)
+            if "scope" not in {r[1] for r in db.execute("PRAGMA table_info(grants)")}:
+                db.execute("ALTER TABLE grants ADD COLUMN scope TEXT DEFAULT ''")
 
     @contextmanager
     def db(self):
@@ -233,9 +236,12 @@ class Jobs:
                              db.execute("SELECT * FROM audit WHERE batch=? AND sku=? ORDER BY at",(identifier,row["sku"]))],
                     "preparation_status":"prepared" if plan.get("product_id") else "pending",
                     "warnings":plan.get("warnings",[])})
+        for item in items:
+            grant=self.grant_for(batch,item) if item["dry_run"] else None
+            item["homologation_grant"]={"purpose":grant["purpose"],"expires":grant["expires"]} if grant else None
         ready=[i for i in items if i["state"]=="review" and approved(i)]
         try:
-            for item in ready: self.policy.authorize(batch["origin"],item["sku"])
+            for item in ready: self.write_gate(batch,item)
             can_confirm=bool(ready)
         except ValueError:
             can_confirm=False
@@ -244,6 +250,21 @@ class Jobs:
     def history(self,org,owner):
         with self.db() as db:
             return [dict(r) for r in db.execute("SELECT id,company,created FROM batches WHERE org=? AND owner=? ORDER BY created DESC LIMIT 100",(str(org),str(owner)))]
+
+    def grant_for(self, batch, item, purpose="publish", db=None):
+        dry=item.get("dry_run") or {}
+        return grants.find(self,company=batch["company"],origin=batch["origin"],sku=item["sku"],product_id=item.get("product_id") or dry.get("product_id"),
+                           dry_run_sha256=dry.get("dry_run_sha256"),purpose=purpose,batch=batch["id"],db=db)
+
+    def write_gate(self, batch, item, db=None):
+        """Staging policy first; a production host needs a valid single-use grant for this exact item."""
+        try:
+            self.policy.authorize(batch["origin"],item["sku"])
+            return None
+        except ValueError as exc:
+            grant=self.grant_for(batch,item,db=db)
+            if grant: return grant
+            raise ValueError(f"{exc} Sem liberação de homologação válida para este item.") from None
 
     def approve(self, identifier, org, owner, skus=None, replace_main=()):
         """Individual (skus) or batch approval of the exact Dry Run. Never queues or authorizes a write.
@@ -270,17 +291,19 @@ class Jobs:
             if not approved_skus: raise ValueError("Nenhum Dry Run pronto para aprovação.")
             return approved_skus
 
-    def confirm(self, identifier, org, owner, settings):
+    def confirm(self, identifier, org, owner, settings, skus=None):
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
             batch=self.access(db,identifier,org,owner)
             if settings.credentials(batch["company"],"wc").base_url!=batch["origin"]:
                 raise ValueError("Destino alterado; importe um novo lote.")
             rows=[r for r in db.execute("SELECT * FROM jobs WHERE batch=? AND state='review'",(identifier,)).fetchall()
-                  if approved({"approval":json.loads(r["plan"]).get("approval"),"dry_run":json.loads(r["plan"]).get("dry_run")})]
+                  if approved({"approval":json.loads(r["plan"]).get("approval"),"dry_run":json.loads(r["plan"]).get("dry_run")})
+                  and (skus is None or r["sku"] in skus)]
             if not rows: raise ValueError("Nenhum item aprovado apto.")
             for row in rows:
-                self.policy.authorize(batch["origin"],row["sku"])
+                plan=json.loads(row["plan"])
+                self.write_gate(dict(batch),{"sku":row["sku"],"product_id":plan.get("product_id"),"dry_run":plan.get("dry_run")},db)
             for row in rows:
                 db.execute("UPDATE jobs SET state='queued' WHERE batch=? AND sku=? AND state='review'",(identifier,row["sku"]))
                 self.audit(identifier,row["sku"],owner,"queued",{"origin":batch["origin"]},db)
@@ -290,14 +313,17 @@ class Jobs:
             db.execute("BEGIN IMMEDIATE")
             self.access(db,identifier,org,owner)
             # Rebuild preview only. Uncertain writes never automatically re-upload.
-            db.execute("UPDATE jobs SET state='preview_queued',error='' WHERE batch=? AND state='error'",(identifier,))
+            db.execute("UPDATE jobs SET state='preview_queued',error='' WHERE batch=? AND state IN ('error','awaiting_product')",(identifier,))
 
-    def claim(self):
+    def claim(self, batch=None, sku=None):
+        """One item globally at a time. batch/sku restrict the claim to exactly that item (worker --batch/--sku)."""
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute("UPDATE jobs SET state='uncertain',error='Worker interrompido; reconciliar manualmente.',token='' WHERE state IN ('preview_running','running') AND lease<?",(time.time(),))
             if db.execute("SELECT 1 FROM jobs WHERE state IN ('preview_running','running')").fetchone(): return None
-            row=db.execute("SELECT j.*,b.company,b.origin,b.org FROM jobs j JOIN batches b ON b.id=j.batch WHERE state IN ('preview_queued','queued') ORDER BY b.created LIMIT 1").fetchone()
+            where="".join([" AND j.batch=?" if batch else ""," AND j.sku=?" if sku else ""])
+            row=db.execute("SELECT j.*,b.company,b.origin,b.org FROM jobs j JOIN batches b ON b.id=j.batch WHERE state IN ('preview_queued','queued')"+where+" ORDER BY b.created LIMIT 1",
+                           tuple(v for v in (batch,sku) if v)).fetchone()
             if not row: return None
             job=dict(row);job["token"]=uuid.uuid4().hex
             db.execute("UPDATE jobs SET state=?,token=?,lease=? WHERE batch=? AND sku=?",
@@ -308,6 +334,9 @@ class Jobs:
         with self.db() as db:
             db.execute("UPDATE jobs SET state=?,plan=?,error=?,token='' WHERE batch=? AND sku=? AND token=?",
                 (state,json.dumps(plan or json.loads(job["plan"])),error,job["batch"],job["sku"],job["token"]))
+
+
+AWAITING_PRODUCT="Aguardando cadastro por CSV: SKU não existe na loja; criação automática proibida. Retome após o cadastro."
 
 
 def approved(item):
@@ -326,8 +355,8 @@ class Journal:
             db.execute("INSERT OR REPLACE INTO journal VALUES(?,?,?)",(self.scope,key,json.dumps(value)))
 
 
-def process_one(jobs, settings, transport=None):
-    job=jobs.claim()
+def process_one(jobs, settings, transport=None, *, batch=None, sku=None):
+    job=jobs.claim(batch,sku)
     if not job: return False
     woo=None;publisher=None
     try:
@@ -351,7 +380,12 @@ def process_one(jobs, settings, transport=None):
             if not images and not documents: raise ValueError("Nenhum arquivo reconhecido.")
             woo=WooClient(credentials_for(job["company"],settings),transport=transport)
             product=woo.find_by_sku(job["sku"])
-            if not product: raise ValueError("SKU não existe na loja; criação automática proibida.")
+            if not product:
+                # Never created here: the product is registered by the CSV flow, then the item is resumed.
+                jobs.finish(job,"awaiting_product",{"input":{"identification":inputs.get("identification")},"sources":files.get("sources",[]),
+                    "warnings":files["warnings"]},AWAITING_PRODUCT)
+                jobs.audit(job["batch"],job["sku"],"worker","awaiting_product")
+                return True
             product=woo.product(product["id"])
             if product.get('sku')!=job['sku']: raise ValueError("SKU mudou durante a consulta; refaça a prévia.")
             # Private immutable backup for this preview attempt. No remote write is performed.
@@ -361,7 +395,9 @@ def process_one(jobs, settings, transport=None):
             with (backup/(job['token']+'.json')).open('x',encoding='utf-8') as handle: handle.write(snapshot)
             dry={"dry_run":True,"writes_allowed":False,"product_id":product["id"],"sku":job["sku"],
                  **file_plan(product,images,documents),"backup_sha256":hashlib.sha256(snapshot.encode('utf-8')).hexdigest(),
-                 "ignored":[{"name":Path(d["path"]).name,"label":d["label"],"reason":"Formato sem upload homologado."} for d in unsupported]}
+                 "ignored":[{"name":Path(d["path"]).name,"label":d["label"],"reason":"Formato sem upload homologado."} for d in unsupported]+
+                           [{"name":d["name"],"label":"Datasheet do fornecedor","reason":"Datasheet original do fornecedor não é publicado; somente o datasheet gerado pelo PRM."}
+                            for d in files.get("excluded",[])]}
             try: jobs.policy.authorize(job['origin'],job['sku'])
             except ValueError as exc: dry["write_gate"]="Política de gravação: "+str(exc)
             else: dry["write_gate"]="Staging autorizado para este SKU; execução exige aprovação e confirmação."
@@ -379,7 +415,14 @@ def process_one(jobs, settings, transport=None):
         else:
             plan=json.loads(job["plan"])
             journal=Journal(jobs,job["org"]+"|"+job["origin"]+"|"+job["sku"])
-            publisher=StagingPublisher(job["company"],job["sku"],settings,jobs.policy,journal,transport=transport)
+            batch={"id":job["batch"],"company":job["company"],"origin":job["origin"]}
+            if stale_supplier_datasheet(plan["dry_run"]):
+                raise ValueError("Dry Run anterior à regra do datasheet do fornecedor; refaça a prévia e aprove novamente. Nada enviado.")
+            grant=jobs.write_gate(batch,{"sku":job["sku"],"product_id":plan["product_id"],"dry_run":plan["dry_run"]})
+            # Single use: consumed before any upload, so a failure or retry always needs a new grant.
+            if grant and not grants.consume(jobs,grant):
+                raise ValueError("Liberação de homologação expirada ou já utilizada; nada enviado.")
+            publisher=StagingPublisher(job["company"],job["sku"],settings,jobs.policy,journal,transport=transport,grant=grant)
             result=publisher.execute(plan,audit=lambda event,detail=None:jobs.audit(job["batch"],job["sku"],"worker",event,detail))
             jobs.finish(job,"done",{**plan,"result":result})
             jobs.audit(job["batch"],job["sku"],"worker","done",{"verified":result.get("verified")})
@@ -392,3 +435,32 @@ def process_one(jobs, settings, transport=None):
         if woo: woo.close()
         if publisher: publisher.close()
     return True
+
+
+def rollback_one(jobs, settings, batch, sku, *, actor, transport=None):
+    """Recovery of one published item: needs a single-use 'rollback' grant (production) or staging policy."""
+    with jobs.db() as db:
+        record=db.execute("SELECT * FROM batches WHERE id=?",(batch,)).fetchone()
+        row=db.execute("SELECT * FROM jobs WHERE batch=? AND sku=?",(batch,sku)).fetchone()
+    if not record or not row: raise LookupError("Lote/SKU não encontrado.")
+    if settings.organization_id!=record["org"] or settings.credentials(record["company"],"wc").base_url!=record["origin"]:
+        raise ValueError("Organização ou destino divergem do lote.")
+    plan=json.loads(row["plan"])
+    grant=None
+    try:
+        jobs.policy.authorize(record["origin"],sku)
+    except ValueError:
+        grant=jobs.grant_for(dict(record),{"sku":sku,"product_id":plan.get("product_id"),"dry_run":plan.get("dry_run")},"rollback")
+        if not grant: raise ValueError("Recuperação bloqueada: sem liberação 'rollback' válida para este item.") from None
+        if not grants.consume(jobs,grant,actor): raise ValueError("Liberação de recuperação expirada ou já utilizada.")
+    journal=Journal(jobs,record["org"]+"|"+record["origin"]+"|"+sku)
+    publisher=StagingPublisher(record["company"],sku,settings,jobs.policy,journal,transport=transport,grant=grant)
+    try:
+        result=publisher.rollback(plan,audit=lambda event,detail=None:jobs.audit(batch,sku,actor,event,detail))
+    except Exception as exc:
+        jobs.audit(batch,sku,actor,"rollback_error",{"error":str(exc) if type(exc) is ValueError else type(exc).__name__})
+        raise
+    finally:
+        publisher.close()
+    jobs.audit(batch,sku,actor,"rollback_done",{"status":result["status"]})
+    return result
