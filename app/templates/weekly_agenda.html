@@ -1,0 +1,92 @@
+{% import "_workspace_icons.html" as ui %}
+{# IDs são contratos de weekly-agenda.js e de /api/v1/pauta-semanal. #}
+<div id="wa-page" class="prm-stack">
+  <header class="prm-page-head">
+    <div>
+      <p class="eyebrow">Reuniões / Desenvolvimento do PRM</p>
+      <h2>Pauta Semanal de Desenvolvimento</h2>
+      <p>Atualizações de segunda a sexta (America/Sao_Paulo) a partir de commits, pull requests, issues e tarefas do Planner. Cada item mostra a situação comprovada e a origem. Integrado na main não é implantado; testes aprovados não são entrega.</p>
+    </div>
+    <div class="prm-page-actions">
+      <a href="/reunioes" class="prm-btn">{{ ui.icon('calendar') }}<span>Reuniões</span></a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="prm-section-title"><div><h2>Semana</h2><p id="wa-integration" class="prm-status">Carregando integração…</p></div></div>
+    <form id="wa-week-form" class="prm-form wa-week-form">
+      <div class="prm-field"><label for="wa-week">Qualquer dia da semana</label><input type="date" id="wa-week" name="semana" required></div>
+      <div class="prm-form-actions">
+        <button type="button" class="button-secondary" id="wa-open">{{ ui.icon('search') }}<span>Abrir</span></button>
+        <button type="submit" class="button-primary" id="wa-generate">{{ ui.icon('refresh') }}<span>Gerar ou atualizar pauta</span></button>
+      </div>
+    </form>
+    <p id="wa-message" class="prm-status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" id="wa-agenda" hidden>
+    <div class="prm-section-title">
+      <div><h2 id="wa-title">Pauta</h2><p id="wa-meta" class="prm-status"></p><div id="wa-badges" class="wa-badges"></div></div>
+      <div class="prm-page-actions">
+        <a id="wa-pdf" class="prm-btn">{{ ui.icon('download') }}<span>Exportar PDF</span></a>
+        <button type="button" class="button-primary" data-transition="aprovar">{{ ui.icon('check') }}<span>Aprovar</span></button>
+        <button type="button" class="button-secondary" data-transition="reabrir"><span>Reabrir</span></button>
+        <button type="button" class="button-secondary" data-transition="arquivar"><span>Arquivar</span></button>
+        <button type="button" class="button-secondary" data-transition="desarquivar"><span>Desarquivar</span></button>
+      </div>
+    </div>
+    <ul id="wa-warnings" class="wa-warnings"></ul>
+    <div class="wa-overview">
+      <h3>Resumo</h3><p id="wa-overview-text"></p>
+      <button type="button" class="button-secondary wa-edit-only" id="wa-overview-edit">Editar resumo</button>
+    </div>
+    <div id="wa-sections" class="wa-sections"></div>
+
+    <section class="wa-block" aria-labelledby="wa-manual-title">
+      <h3 id="wa-manual-title">Assuntos, observações e decisões da reunião</h3>
+      <form id="wa-manual-form" class="prm-form wa-manual-form wa-edit-only">
+        <div class="prm-field"><label for="wa-manual-kind">Tipo</label><select id="wa-manual-kind"><option value="subject">Assunto</option><option value="note">Observação</option><option value="decision">Decisão registrada</option></select></div>
+        <div class="prm-field wa-manual-text"><label for="wa-manual-text">Texto</label><textarea id="wa-manual-text" rows="2" maxlength="3000" required></textarea></div>
+        <div class="prm-form-actions"><button type="submit" class="button-secondary">{{ ui.icon('plus') }}<span>Adicionar</span></button></div>
+      </form>
+      <div id="wa-manual" class="wa-manual"></div>
+    </section>
+
+    <section class="wa-block" aria-labelledby="wa-people-title"><h3 id="wa-people-title">Contribuições por pessoa (somente com evidência)</h3><div id="wa-people" class="wa-people"></div></section>
+
+    <details class="wa-block" id="wa-audit-box"><summary>Histórico de alterações desta pauta</summary><div class="table-scroll"><table class="wa-table"><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Detalhe</th></tr></thead><tbody id="wa-audit"></tbody></table></div></details>
+  </section>
+
+  <section class="panel">
+    <div class="prm-section-title"><div><h2>Pautas anteriores</h2><p>Busca por texto (PR, pessoa, assunto) e situação.</p></div></div>
+    <form id="wa-search" class="prm-form wa-search">
+      <div class="prm-field"><label for="wa-q">Buscar</label><input id="wa-q" type="search" maxlength="200" placeholder="Ex.: remoção, #4, Arthur"></div>
+      <div class="prm-field"><label for="wa-status">Situação</label><select id="wa-status"><option value="">Todas</option><option value="draft">Rascunho</option><option value="approved">Aprovada</option><option value="archived">Arquivada</option></select></div>
+      <div class="prm-form-actions"><button type="submit" class="button-secondary">{{ ui.icon('search') }}<span>Buscar</span></button></div>
+    </form>
+    <div id="wa-history" class="wa-history"></div>
+    <button type="button" class="button-secondary" id="wa-more" hidden>Mais pautas</button>
+  </section>
+
+  <details class="panel" id="wa-settings-box">
+    <summary><strong>Configuração da pauta</strong></summary>
+    <form id="wa-settings" class="prm-form wa-settings">
+      <label class="wa-check"><input type="checkbox" id="wa-enabled"> <span>Preparar rascunho automaticamente</span></label>
+      <div class="prm-field"><label for="wa-weekday">Dia</label><select id="wa-weekday"><option value="0">Segunda</option><option value="1">Terça</option><option value="2">Quarta</option><option value="3">Quinta</option><option value="4">Sexta</option><option value="5">Sábado</option><option value="6">Domingo</option></select></div>
+      <div class="prm-field"><label for="wa-time">Horário (America/Sao_Paulo)</label><input type="time" id="wa-time" required></div>
+      <label class="wa-check"><input type="checkbox" id="wa-ai"> <span>Redigir com a IA configurada (envia somente títulos e situações coletados, nunca código ou credenciais)</span></label>
+      <div class="prm-field"><label for="wa-filter">Filtro de tarefas do Planner (opcional)</label><input id="wa-filter" maxlength="120" placeholder="Ex.: PRM"><small>Somente tarefas cuja reunião, parceiro, oportunidade ou título contenha o texto.</small></div>
+      <div class="prm-field wa-people-map"><label for="wa-people-map">Nomes das pessoas (login do GitHub = nome)</label><textarea id="wa-people-map" rows="3" placeholder="Kaue-Borges = Kauê"></textarea></div>
+      <div class="prm-form-actions"><button type="button" class="button-secondary" id="wa-test">Testar acesso ao GitHub</button><button type="submit" class="button-primary">Salvar configuração</button></div>
+    </form>
+  </details>
+
+  <dialog id="wa-dialog" aria-labelledby="wa-dialog-title">
+    <form method="dialog" class="wa-dialog">
+      <h2 id="wa-dialog-title">Editar</h2>
+      <p id="wa-dialog-hint" class="prm-status"></p>
+      <div class="prm-field"><label for="wa-dialog-text">Texto</label><textarea id="wa-dialog-text" rows="6" maxlength="3000"></textarea></div>
+      <footer><button type="button" class="button-secondary" id="wa-dialog-cancel">Cancelar</button><button type="submit" class="button-primary">Salvar</button></footer>
+    </form>
+  </dialog>
+</div>

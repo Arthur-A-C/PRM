@@ -1,5 +1,9 @@
 <div class="meeting-module{% if title == 'Cards' %} cards-workspace{% endif %}" data-meeting-page="{{ title }}">
   {% if title == 'Reuniões' %}
+  {% if user.role in ['gestor', 'desenvolvedor'] %}
+  <section class="cc-panel mt-weekly-link"><header class="cc-panel-head"><div><p class="cc-kicker">Desenvolvimento do PRM</p><h2>Pauta Semanal</h2></div><a class="cc-btn cc-btn-primary" href="/reunioes/pauta-semanal">Abrir pauta da semana</a></header>
+    <p class="cc-caption">Commits, pull requests, issues e tarefas do Planner da semana (segunda a sexta), com origem de cada item. Rascunho preparado automaticamente às sextas.</p></section>
+  {% endif %}
   <section class="cc-panel"><header class="cc-panel-head"><div><p class="cc-kicker">Texto → proposta → revisão</p><h2>Reuniões e compromissos</h2></div><a class="cc-btn" href="/cards">Abrir cards</a></header>
     <p class="cc-caption">Áudio é transcrito localmente. Somente o texto necessário será enviado à API configurada após consentimento. Nada é publicado ou enviado ao parceiro automaticamente.</p>
     <form data-meeting-create class="mt-form"><label>Título<input name="title" required minlength="3" maxlength="240"></label><label>Parceiro<input name="partner" maxlength="240"></label><label>Oportunidade<input name="opportunity" maxlength="240"></label><label>Data conhecida da reunião<input type="date" name="meeting_date"><small>Deixe vazio se desconhecida.</small></label><label>Fuso<input name="timezone" value="America/Sao_Paulo" required></label><label class="mt-wide">Colar transcrição<textarea name="text" rows="7" placeholder="Ou envie TXT/áudio abaixo"></textarea></label><label>TXT UTF-8<input name="txt" type="file" accept=".txt,text/plain"></label><label>Áudio<input name="audio" type="file" accept=".wav,.mp3,.m4a,.flac,.ogg,.opus,.webm"></label><button type="submit" class="cc-btn cc-btn-primary">Criar reunião privada</button></form>

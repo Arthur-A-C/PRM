@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-23 — Pauta Semanal de Desenvolvimento
+
+- Nova seção em Reuniões (`/reunioes/pauta-semanal`, gestores e desenvolvedores): pauta de segunda a sexta (America/Sao_Paulo) com commits, PRs, issues, Checks do GitHub (metadados, somente leitura, token só no backend) e tarefas do Planner, com link de origem em cada item.
+- Situação rigorosa: branch, PR aberto, integrado na main e implantado (somente com prova do commit em produção); CI aprovado nunca é entrega. Decisões necessárias e contribuições por pessoa derivadas apenas de evidência.
+- Redação opcional pela IA existente, verificada contra os dados (recusa afirmações de implantação sem prova e números inventados), com fallback por regras. Edição, anotações, nova geração preservando edições humanas, aprovação, arquivamento, PDF, histórico pesquisável, auditoria e rascunho automático às sextas (migração `20261023_0013`).
+
 ## 2026-10-22 — Teste de deduplicação de publicação em lote determinístico
 
 - Corrigida fixture ZIP 3D que variava com o relógio e causava 10 uploads em vez de 9 no CI. Metadados fixos e regressões com avanço de tempo; expectativa de 9 preservada, sem alteração da deduplicação ou dos serviços de produção.

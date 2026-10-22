@@ -1,5 +1,15 @@
 # API
 
+## Pauta Semanal (23/10/2026)
+
+Prefixo `/api/v1/pauta-semanal`; gestores e desenvolvedores da organização; mutations com `X-CSRF-Token`; versão otimista (`version`).
+
+- `GET|PUT /configuracao` (dia, horário, IA, filtro do Planner, nomes GitHub → PRM); `POST /configuracao/teste` (leitura do repositório).
+- `GET /pautas?q=&status=&page=`; `GET /pautas/atual`; `POST /pautas` `{semana?, version?}` gera ou atualiza preservando edições; `GET /pautas/{id}`.
+- `PATCH /pautas/{id}/itens/{chave}` `{version, text?, hidden?}`; `POST /pautas/{id}/restaurar-item/{chave}`; `PUT /pautas/{id}/resumo`.
+- `POST /pautas/{id}/anotacoes` `{version, kind: subject|note|decision, text}`; `PATCH|DELETE /pautas/{id}/anotacoes/{anotacao}`.
+- `POST /pautas/{id}/aprovar|reabrir|arquivar|desarquivar` `{version}`; `GET /pautas/{id}/historico`; `GET /pautas/{id}/pdf`.
+
 ## Remoção de arquivos em produção (22/10/2026)
 
 Prefixo `/api/v1/remocao-arquivos`. Mutations exigem `X-CSRF-Token`; produção exige HTTPS e permissão da loja; recusas vão para a auditoria.

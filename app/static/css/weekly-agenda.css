@@ -1,0 +1,45 @@
+/* Pauta Semanal — layout. Controles, painéis, selos e tabelas vêm de prm-ui.css. */
+#wa-page { min-width: 0; overflow-wrap: anywhere; }
+.wa-week-form, .wa-search { grid-template-columns: minmax(0, 18rem) auto; align-items: end; }
+.wa-search { grid-template-columns: minmax(0, 1fr) minmax(0, 12rem) auto; }
+.wa-badges { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+.wa-warnings { margin: 0 0 .75rem; padding-left: 1.1rem; color: var(--cc-warn); font-size: .8rem; }
+.wa-warnings:empty { display: none; }
+.wa-overview { padding: .9rem 1rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface-2); }
+.wa-overview h3, .wa-block h3, .wa-section h3 { margin: 0 0 .5rem; font-size: .95rem; }
+.wa-overview p { margin: 0 0 .5rem; }
+.wa-sections { display: grid; gap: .75rem; margin-top: 1rem; }
+.wa-section { padding: .85rem 1rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface); }
+.wa-section[data-section="deployed"] { border-left: 3px solid var(--cc-ok); }
+.wa-section[data-section="decisions"] { border-left: 3px solid var(--cc-warn); }
+.wa-section[data-section="pending"] { border-left: 3px solid var(--cc-alert); }
+.wa-items { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; }
+.wa-item { display: grid; gap: .35rem; padding: .55rem 0; border-top: 1px solid var(--cc-line); }
+.wa-item:first-child { border-top: 0; padding-top: 0; }
+.wa-item.is-hidden { opacity: .55; }
+.wa-item-text { margin: 0; }
+.wa-item-meta, .wa-item-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .75rem; }
+.wa-people-names { color: var(--cc-ink-2); }
+.wa-source { font-weight: 600; }
+.wa-flag { margin: 0; padding: .35rem .55rem; border-radius: var(--cc-radius-sm, 4px); background: var(--cc-warn-soft); color: var(--cc-warn); font-size: .78rem; }
+.wa-block { margin-top: 1.25rem; }
+.wa-manual-form { grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) auto; align-items: end; }
+.wa-manual { display: grid; gap: .5rem; margin-top: .5rem; }
+.wa-manual-item { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .55rem .75rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); }
+.wa-manual-item p { flex: 1 1 18rem; margin: 0; }
+.wa-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .5rem; }
+.wa-person { padding: .6rem .75rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); }
+.wa-person p { margin: .25rem 0 0; font-size: .78rem; color: var(--cc-ink-2); }
+.wa-history { display: grid; gap: .4rem; margin: .75rem 0; }
+:root .prm-ui .wa-history-item { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .5rem; width: 100%; min-height: 2.6rem; text-align: left; }
+.wa-settings { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: .75rem; }
+.wa-settings .wa-people-map, .wa-settings .prm-form-actions { grid-column: 1 / -1; }
+.wa-check { display: inline-flex; align-items: center; gap: .5rem; font-size: .8rem; grid-column: 1 / -1; }
+.wa-table { width: 100%; }
+:root .prm-ui #wa-dialog { width: min(640px, 94vw); }
+.wa-dialog { display: grid; gap: .75rem; padding: 1.25rem; }
+.wa-dialog h2 { margin: 0; font-size: 1.05rem; }
+.wa-dialog footer { display: flex; justify-content: flex-end; gap: .5rem; }
+@media (max-width: 760px) {
+  .wa-week-form, .wa-search, .wa-manual-form, .wa-settings { grid-template-columns: minmax(0, 1fr); }
+}
