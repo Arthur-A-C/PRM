@@ -27,3 +27,9 @@
 :root .prm-ui .res-folders button::before { content: "▸"; color: var(--cc-ink-3); }
 @media (max-width: 1100px) { .res-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 700px) { #res-form { grid-template-columns: minmax(0, 1fr); } .res-path-row { flex-direction: column; } .res-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .res-sample { columns: 1; } }
+.res-server { margin-top: 1rem; padding: .75rem .9rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface-2); }
+.res-server summary { cursor: pointer; font-size: .8rem; font-weight: 600; }
+.res-server .prm-field { margin-top: .5rem; }
+.res-restore-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .75rem; font-size: .8rem; color: var(--cc-ink-2); }
+.res-restore-row p { flex: 1 1 18rem; margin: 0; }
+.res-result-actions { flex-wrap: wrap; justify-content: flex-start; }

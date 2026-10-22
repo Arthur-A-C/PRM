@@ -1,5 +1,21 @@
 # Status do projeto
 
+## PR #4 — estabilização do teste de deduplicação — 22/10/2026
+
+- Falha investigada: `test_same_file_in_several_products_is_uploaded_once` esperava 9 uploads e intermitentemente recebia 10. `inner_zip()` criava um novo ZIP por SKU com timestamp do relógio; ao cruzar a resolução de 2 segundos do ZIP, os bytes/SHA-256 mudavam apesar do mesmo conteúdo STEP. A deduplicação por bytes estava correta; a fixture não representava o mesmo arquivo.
+- Baseline `origin/main` (`2516945`, PR #3 integrado): falha reproduzida **3/3 vezes** com relógio controlado, 2 hashes de ZIP e 10 uploads. Teste e `store_publish.py` eram idênticos na main e no PR #4 (`5f8523f`). No Actions desse commit, o workflow push passou e pull_request falhou, confirmando intermitência.
+- Correção somente em testes: `ZipInfo` com metadados temporais fixos; regressão verifica bytes/hash estáveis, conteúdo diferente continua distinto, e fluxo completo roda com relógio parado ou avançando 2 segundos. Expectativa mantida em **9 uploads**, incluindo exatamente um ZIP compartilhado. Não normalizamos nem alteramos arquivos reais para deduplicá-los.
+- Verificação em imagem exclusiva `prm:pr4-ci-review`, **Python 3.14.8**, sem rede/credenciais/volumes: **20 repetições × 3 casos = 60 aprovações**; suíte completa **630 aprovados, 26 ignorados, 1 aviso de depreciação**. Fixtures privadas e controle Compose excluído da imagem justificam os skips. Testes de remoção e autonomia do Desenvolvedor incluídos e aprovados.
+- Nenhuma alteração em serviços de produção, imagens estáveis/containers ativos, lojas, bancos ou módulo de reuniões. Resultados remotos da nova execução são registrados no PR após o push.
+
+## PR #4 — autonomia operacional na remoção — 22/10/2026
+
+- Branch isolada `feature/remocao-producao` atualizada com `origin/main` (PR #3); conflitos nos templates e documentação resolvidos preservando ambos os módulos. Nenhuma alteração no worktree original nem no módulo de reuniões.
+- Desenvolvedor ativo pode aprovar, executar e restaurar suas operações, com dispensa de quatro olhos registrada na auditoria. Gestores exigem outro aprovador autorizado; vendedores continuam bloqueados. Desativação global de quatro olhos removida; registros antigos desligados não dispensam gestores.
+- Revalidação de identidade/permissões pelo worker; preservados HTTPS, CSRF, Dry Run, confirmação digitada, backup, releitura, isolamento de organizações e auditoria. Administração de ambientes permanece uma permissão explícita. A interface emite liberações de uso único, sem terminal por SKU em produção habilitada.
+- Build isolado `prm:removal-review`; suíte completa em container descartável `--network none`: **628 aprovados, 26 ignorados, 1 aviso de depreciação**. Ignorados dependem de fixtures privadas/controle Compose excluídos da imagem. Uma primeira execução focada identificou um teste de revogação que precisava revogar **após** enfileirar; ajustado para preservar a checagem independente do worker.
+- Nenhuma chamada real às lojas, alteração de banco/volumes, deploy ou reinício do servidor. GitHub informa repositório público; usuário confirmou autorização para publicar código/testes nessa condição. Detalhes da política em [REMOCAO_ARQUIVOS.md](REMOCAO_ARQUIVOS.md).
+
 ## Docker, GitHub e CI — 22/10/2026
 
 Infraestrutura isolada na porta 8001, sem migração do banco/filas Windows. Build, pytest Linux, quatro workers e persistência verificados; proteção da main depende de plano GitHub compatível. Resultados e limites em [INFRA_STATUS.md](INFRA_STATUS.md); operação em [DOCKER.md](DOCKER.md). Alterações funcionais anteriores preservadas fora dos commits de infraestrutura.

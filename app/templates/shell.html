@@ -4,7 +4,7 @@
 
 {% block page_css %}
   {% if title == "Digitalização" %}
-  <link rel="stylesheet" href="{{ url_for('static', path='/css/digitalizacao.css') }}?v=20261020-1">
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/digitalizacao.css') }}?v=20261022-envio">
   {% endif %}
 {% endblock %}
 
@@ -190,13 +190,14 @@
 {% endblock %}
 
 {% block scripts %}
-  {% if title == "Cadastro via API" %}<script src="{{ url_for('static', path='/js/store-registration.js') }}?v=20261021-3" defer></script>{% endif %}
+  {% if title in ("Cadastro via API", "Resolução de Imagens", "Publicação em Lote", "Geração em Lote") %}<script src="{{ url_for('static', path='/js/local-files.js') }}?v=20261022-1" defer></script>{% endif %}
+  {% if title == "Cadastro via API" %}<script src="{{ url_for('static', path='/js/store-registration.js') }}?v=20261022-envio" defer></script>{% endif %}
   {% if title == "Pauta Semanal" %}<script src="{{ url_for('static', path='/js/weekly-agenda.js') }}?v=20261023-1" defer></script>{% endif %}
-  {% if title == "Remoção de Arquivos" %}<script src="{{ url_for('static', path='/js/store-file-removal.js') }}?v=20261022-1" defer></script>{% endif %}
-  {% if title == "Resolução de Imagens" %}<script src="{{ url_for('static', path='/js/image-resolution.js') }}?v=20261022-1" defer></script>{% endif %}
-  {% if title == "Publicação em Lote" %}<script src="{{ url_for('static', path='/js/batch-publication.js') }}?v=20261021-1" defer></script>{% endif %}
+  {% if title == "Remoção de Arquivos" %}<script src="{{ url_for('static', path='/js/store-file-removal.js') }}?v=20261022-roles" defer></script>{% endif %}
+  {% if title == "Resolução de Imagens" %}<script src="{{ url_for('static', path='/js/image-resolution.js') }}?v=20261022-envio" defer></script>{% endif %}
+  {% if title == "Publicação em Lote" %}<script src="{{ url_for('static', path='/js/batch-publication.js') }}?v=20261022-envio" defer></script>{% endif %}
   {% if title == "Integrações WooCommerce" %}<script src="{{ url_for('static', path='/js/store-integrations.js') }}?v=20261020-1" defer></script>{% endif %}
-  {% if title == "Geração em Lote" %}<script src="{{ url_for('static', path='/js/datasheet-batches.js') }}?v=20261021-folders" defer></script>{% endif %}
+  {% if title == "Geração em Lote" %}<script src="{{ url_for('static', path='/js/datasheet-batches.js') }}?v=20261022-envio" defer></script>{% endif %}
   {% if title in ['Visão geral', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
   <script src="{{ url_for('static', path='/js/meetings.js') }}?v=20261021-assign" defer></script>
   {% endif %}
@@ -206,7 +207,7 @@
   <script src="{{ url_for('static', path='/js/command-center.js') }}?v=20261015-cc2" defer></script>
   {% endif %}
   {% if title == "Digitalização" %}
-  <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20261020-ui1" defer></script>
+  <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20261022-envio" defer></script>
   <script src="{{ url_for('static', path='/js/registration.js') }}?v=20261015-cc1" defer></script>
   {% endif %}
 {% endblock %}

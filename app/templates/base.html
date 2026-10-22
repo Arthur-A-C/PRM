@@ -30,9 +30,10 @@
   {% if title == 'Cards' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/cards-page.css') }}?v=20261021-assign">{% endif %}
   {% if title == 'Geração em Lote' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/datasheet-batches.css') }}?v=20261021-folders">{% endif %}
   {% if title == 'Integrações WooCommerce' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/store-integrations.css') }}?v=20261020-2">{% endif %}
-  {% if title == 'Remoção de Arquivos' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/store-file-removal.css') }}?v=20261022-1">{% endif %}
-  {% if title == 'Resolução de Imagens' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/image-resolution.css') }}?v=20261022-1">{% endif %}
+  {% if title == 'Remoção de Arquivos' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/store-file-removal.css') }}?v=20261022-prod">{% endif %}
+  {% if title == 'Resolução de Imagens' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/image-resolution.css') }}?v=20261022-envio">{% endif %}
   {% if title == 'Publicação em Lote' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/batch-publication.css') }}?v=20261021-1">{% endif %}
+  {% if title in ('Cadastro via API', 'Resolução de Imagens', 'Publicação em Lote', 'Geração em Lote') %}<link rel="stylesheet" href="{{ url_for('static', path='/css/local-files.css') }}?v=20261022-1">{% endif %}
   {% if title == 'Cadastro via API' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/store-registration.css') }}?v=20261021-2">{% endif %}
 </head>
 

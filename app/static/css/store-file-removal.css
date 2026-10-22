@@ -28,3 +28,18 @@
 :root .prm-ui .rm-history button { min-height: 2rem; padding: .3rem .7rem; font: 500 .72rem var(--cc-mono); }
 @media (max-width: 1100px) { .rm-modes { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rm-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { #rm-form, .rm-modes, .rm-detail-grid { grid-template-columns: minmax(0, 1fr); } .rm-skus { grid-row: auto; } }
+/* Ambientes, permissões e confirmação digitada (produção). */
+.rm-env-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.rm-env-card { display: grid; gap: .45rem; align-content: start; padding: .9rem 1rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface); }
+.rm-env-card h3 { margin: 0; font-size: 1rem; }
+.rm-env-card p { margin: 0; }
+.rm-env-badges, .rm-env-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.rm-perm-company { min-width: 12rem; }
+#rm-permissions .rm-table { min-width: 720px; }
+:root .prm-ui #rm-confirm { width: min(560px, 94vw); }
+.rm-confirm { display: grid; gap: .75rem; padding: 1.25rem; }
+.rm-confirm h2 { margin: 0; font-size: 1.05rem; }
+.rm-confirm footer { display: flex; justify-content: flex-end; gap: .5rem; }
+#rm-confirm-phrase { font-family: var(--cc-mono); letter-spacing: .02em; }
+#rm-audit { margin-top: 1rem; }
+@media (max-width: 1100px) { .rm-env-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -1,10 +1,12 @@
-"""Single-use production homologation grants for the files-only publisher.
+"""Single-use grants for production writes.
 
-A grant is issued only by the local CLI (scripts/homologation_grant.py), never by the web UI.
-It is bound to one hard-coded target (store, origin, SKU, product ID), to the exact approved
-Dry Run hash, to one purpose, and to a short validity. Consumption is atomic and happens
-before the first upload, so a grant can never be reused. Everything else stays blocked by
-PublishSettings.authorize.
+Homologation grants (env "homologation") are issued only by the local CLI (scripts/homologation_grant.py)
+and bound to one hard-coded target in HOMOLOGATION_TARGETS. Production removal grants (env "production")
+are issued by the Remoção de arquivos UI for an authorized executor, only for removal/restore purposes,
+only while PRM_REMOVAL_PRODUCTION_ALLOWED=true and production is switched on for that store, and for at
+most 30 minutes. Every grant is bound to store, origin, SKU, product ID, the exact approved Dry Run hash
+and one purpose; consumption is atomic and happens right before the first write, so a grant can never be
+reused. Everything else stays blocked by PublishSettings.authorize.
 """
 import json
 import time
@@ -19,6 +21,8 @@ REMOVAL_MODES = ("all", "gallery", "documents", "main")
 REMOVAL_PURPOSES = {f"remove_{m}" for m in REMOVAL_MODES} | {f"restore_{m}" for m in REMOVAL_MODES}
 PURPOSES = {"publish", "rollback"} | REMOVAL_PURPOSES
 MAX_MINUTES = 120
+PRODUCTION_MAX_MINUTES = 30
+ENVIRONMENTS = ("homologation", "production")
 MAX_SCOPE_ITEMS = 50
 SCHEMA = """CREATE TABLE IF NOT EXISTS grants(id TEXT PRIMARY KEY,purpose TEXT,company TEXT,origin TEXT,sku TEXT,
   product_id INTEGER,batch TEXT,dry_run_sha256 TEXT,created REAL,expires REAL,actor TEXT,state TEXT,consumed REAL DEFAULT 0);"""
@@ -30,6 +34,12 @@ def target_allowed(company, origin, sku, product_id):
     except ValueError:
         return False
     return (company, origin, sku, product_id) in HOMOLOGATION_TARGETS
+
+
+def production_allowed(db, org, company, purpose):
+    """Production removal grants: removal/restore purposes, master switch and store environment switched on."""
+    from app.services import store_removal_production as production
+    return purpose in REMOVAL_PURPOSES and production.read_environment(db, org, company)["active"]
 
 
 def update_key(product_id, dry_run_sha256):
@@ -113,53 +123,72 @@ def issue_scope(jobs, *, batch, skus, minutes, actor, max_items, now=None):
     return {"scope": scope, "grants": issued}
 
 
-def issue_removal(jobs, *, batch, sku, minutes, actor, restore=False, now=None):
-    """Single-use grant for one approved removal (or its restore), bound to store, SKU, product, mode and Dry Run hash."""
+def issue_removal(jobs, *, batch, sku, minutes, actor, restore=False, now=None, env="homologation", approver="", db=None):
+    """Single-use grant for one approved removal (or its restore), bound to store, SKU, product, mode and Dry Run hash.
+
+    ``db`` lets the caller issue inside its own transaction (all-or-nothing for a whole batch).
+    """
+    if db is None:
+        with jobs.db() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            return issue_removal(jobs, batch=batch, sku=sku, minutes=minutes, actor=actor, restore=restore, now=now,
+                                 env=env, approver=approver, db=conn)
     from app.services import store_file_removal as removal
     now = time.time() if now is None else now
-    if type(minutes) is not int or not 1 <= minutes <= MAX_MINUTES:
-        raise ValueError(f"Validade deve ser de 1 a {MAX_MINUTES} minutos.")
-    with jobs.db() as db:
-        db.execute("BEGIN IMMEDIATE")
-        record = db.execute("SELECT * FROM removal_batches WHERE id=?", (batch,)).fetchone()
-        row = db.execute("SELECT * FROM removal_items WHERE batch=? AND sku=?", (batch, sku)).fetchone()
-        if not record or not row: raise LookupError("Lote/SKU não encontrado.")
-        plan = json.loads(row["plan"])
-        dry = plan.get("dry_run") or {}
-        product_id = plan.get("product_id")
-        if not target_allowed(record["company"], record["origin"], sku, product_id):
-            raise ValueError("Alvo fora da homologação permitida (loja/origem/SKU/produto).")
-        if not removal.approved(plan):
-            raise ValueError("Dry Run não aprovado com este hash.")
-        if restore:
-            if row["state"] not in {"done", "uncertain", "error"} or not removal.restorable(jobs, record, sku, plan):
-                raise ValueError("Não há remoção registrada para restaurar.")
-        elif row["state"] != "review" or dry.get("blockers"):
-            raise ValueError("Item não está pronto para remoção (estado/bloqueios).")
-        purpose = ("restore_" if restore else "remove_") + record["mode"]
-        if db.execute("SELECT 1 FROM grants WHERE company=? AND sku=? AND purpose=? AND state='issued' AND expires>?",
-                      (record["company"], sku, purpose, now)).fetchone():
-            raise ValueError("Já existe liberação ativa para este alvo; revogue-a antes de emitir outra.")
-        grant = {"id": uuid.uuid4().hex, "purpose": purpose, "company": record["company"], "origin": secure_url(record["origin"]),
-                 "sku": sku, "product_id": product_id, "batch": batch, "dry_run_sha256": dry["dry_run_sha256"],
-                 "created": now, "expires": now + minutes * 60, "actor": str(actor), "state": "issued", "consumed": 0, "scope": "removal"}
-        db.execute("INSERT INTO grants(id,purpose,company,origin,sku,product_id,batch,dry_run_sha256,created,expires,actor,state,consumed,scope) "
-                   "VALUES(:id,:purpose,:company,:origin,:sku,:product_id,:batch,:dry_run_sha256,:created,:expires,:actor,:state,:consumed,:scope)", grant)
-        jobs.audit(batch, sku, actor, "grant_issued", {"grant": grant["id"], "purpose": purpose, "expires": grant["expires"]}, db)
-        return grant
+    if env not in ENVIRONMENTS: raise ValueError("Ambiente inválido.")
+    limit = PRODUCTION_MAX_MINUTES if env == "production" else MAX_MINUTES
+    if type(minutes) is not int or not 1 <= minutes <= limit:
+        raise ValueError(f"Validade deve ser de 1 a {limit} minutos.")
+    record = db.execute("SELECT * FROM removal_batches WHERE id=?", (batch,)).fetchone()
+    row = db.execute("SELECT * FROM removal_items WHERE batch=? AND sku=?", (batch, sku)).fetchone()
+    if not record or not row: raise LookupError("Lote/SKU não encontrado.")
+    plan = json.loads(row["plan"])
+    dry = plan.get("dry_run") or {}
+    product_id = plan.get("product_id")
+    purpose = ("restore_" if restore else "remove_") + record["mode"]
+    if env == "production":
+        if not production_allowed(db, record["org"], record["company"], purpose):
+            raise ValueError("Produção desativada para esta loja ou bloqueada no servidor; nenhuma liberação emitida.")
+    elif not target_allowed(record["company"], record["origin"], sku, product_id):
+        raise ValueError("Alvo fora da homologação permitida (loja/origem/SKU/produto).")
+    if not removal.approved(plan):
+        raise ValueError("Dry Run não aprovado com este hash.")
+    if restore:
+        if row["state"] not in removal.RESTORABLE or not removal.restorable(jobs, record, sku, plan):
+            raise ValueError("Não há remoção registrada para restaurar.")
+    elif row["state"] != "review" or dry.get("blockers"):
+        raise ValueError("Item não está pronto para remoção (estado/bloqueios).")
+    if db.execute("SELECT 1 FROM grants WHERE company=? AND sku=? AND purpose=? AND state='issued' AND expires>?",
+                  (record["company"], sku, purpose, now)).fetchone():
+        raise ValueError("Já existe liberação ativa para este alvo; revogue-a antes de emitir outra.")
+    grant = {"id": uuid.uuid4().hex, "purpose": purpose, "company": record["company"], "origin": secure_url(record["origin"]),
+             "sku": sku, "product_id": product_id, "batch": batch, "dry_run_sha256": dry["dry_run_sha256"],
+             "created": now, "expires": now + minutes * 60, "actor": str(actor), "state": "issued", "consumed": 0, "scope": "removal",
+             "env": env, "approver": str(approver or "")}
+    db.execute("INSERT INTO grants(id,purpose,company,origin,sku,product_id,batch,dry_run_sha256,created,expires,actor,state,consumed,scope,env,approver) "
+               "VALUES(:id,:purpose,:company,:origin,:sku,:product_id,:batch,:dry_run_sha256,:created,:expires,:actor,:state,:consumed,:scope,:env,:approver)", grant)
+    jobs.audit(batch, sku, actor, "grant_issued", {"grant": grant["id"], "purpose": purpose, "expires": grant["expires"], "env": env}, db)
+    return grant
 
 
-def find(jobs, *, company, origin, sku, product_id, dry_run_sha256, purpose, batch=None, now=None, db=None):
+def find(jobs, *, company, origin, sku, product_id, dry_run_sha256, purpose, batch=None, now=None, db=None, org=None):
+    """Valid grant for this exact write. Production grants also need the store environment active (``org`` required)."""
+    if db is None:
+        with jobs.db() as conn:
+            return find(jobs, company=company, origin=origin, sku=sku, product_id=product_id, dry_run_sha256=dry_run_sha256,
+                        purpose=purpose, batch=batch, now=now, db=conn, org=org)
     now = time.time() if now is None else now
-    if not target_allowed(company, origin, sku, product_id): return None
     query = ("SELECT * FROM grants WHERE company=? AND origin=? AND sku=? AND product_id=? AND dry_run_sha256=? "
-             "AND purpose=? AND state='issued' AND expires>?" + (" AND batch=?" if batch else ""))
+             "AND purpose=? AND state='issued' AND expires>?" + (" AND batch=?" if batch else "") + " ORDER BY created DESC")
     params = (company, secure_url(origin), sku, product_id, dry_run_sha256, purpose, now) + ((batch,) if batch else ())
-    if db is not None:
-        row = db.execute(query, params).fetchone()
-    else:
-        with jobs.db() as conn: row = conn.execute(query, params).fetchone()
-    return dict(row) if row else None
+    for row in db.execute(query, params).fetchall():
+        row = dict(row)
+        if row.get("env", "homologation") == "production":
+            if org is not None and production_allowed(db, org, company, purpose):
+                return row
+        elif target_allowed(company, origin, sku, product_id):
+            return row
+    return None
 
 
 def consume(jobs, grant, actor="worker", now=None):
@@ -188,10 +217,16 @@ def listing(jobs):
                                             "FROM grants ORDER BY created DESC LIMIT 50")]
 
 
+def production_master_switch():
+    from app.services import store_removal_production as production
+    return production.master_switch()
+
+
 def check(grant, *, company, origin, sku, product_id=None, dry_run_sha256=None, purpose=None):
     """Publisher-side re-validation of a consumed grant against what is about to be written."""
     ok = (grant["company"] == company and grant["origin"] == secure_url(origin) and grant["sku"] == sku
-          and target_allowed(company, origin, sku, grant["product_id"])
+          and (target_allowed(company, origin, sku, grant["product_id"]) if grant.get("env", "homologation") != "production"
+               else grant["purpose"] in REMOVAL_PURPOSES and production_master_switch())
           and (product_id is None or grant["product_id"] == product_id)
           and (dry_run_sha256 is None or grant["dry_run_sha256"] == dry_run_sha256)
           and (purpose is None or grant["purpose"] == purpose))

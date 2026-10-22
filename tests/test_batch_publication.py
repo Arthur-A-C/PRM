@@ -4,6 +4,7 @@ Mocks only: AI, WooCommerce and WordPress are simulated; no network and no real 
 """
 import hashlib
 import io
+import itertools
 import json
 import re
 import zipfile
@@ -46,7 +47,10 @@ def image(color, fmt="PNG"):
 
 def inner_zip(tag="modelo"):
     stream = io.BytesIO()
-    with zipfile.ZipFile(stream, "w") as archive: archive.writestr("modelo.step", "ISO-10303 " + tag)
+    # A filename string makes writestr embed the wall clock (ZIP's two-second precision).
+    # This fixture represents the SAME file, not new archives with different timestamps.
+    entry = zipfile.ZipInfo("modelo.step", date_time=(2020, 1, 1, 0, 0, 0))
+    with zipfile.ZipFile(stream, "w") as archive: archive.writestr(entry, "ISO-10303 " + tag)
     return stream.getvalue()
 
 
@@ -366,16 +370,38 @@ def test_audit_trail_and_rollback_after_publication(tmp_path, app_settings, stor
     assert commercial(shop.products["000123"]) == before and len(shop.library) == 5  # media kept
 
 
-def test_same_file_in_several_products_is_uploaded_once(tmp_path, app_settings, store_settings):
+def test_shared_3d_fixture_is_independent_of_clock(monkeypatch):
+    monkeypatch.setattr(zipfile.time, "localtime", lambda *args: (2026, 10, 22, 12, 0, 0, 3, 295, -1))
+    first = inner_zip("comum")
+    monkeypatch.setattr(zipfile.time, "localtime", lambda *args: (2026, 10, 22, 12, 0, 2, 3, 295, -1))
+    second = inner_zip("comum")
+    assert first == second
+    assert hashlib.sha256(first).digest() == hashlib.sha256(second).digest()
+    assert first != inner_zip("outro modelo")  # Different source bytes must remain different.
+    with zipfile.ZipFile(io.BytesIO(second)) as archive:
+        assert archive.read("modelo.step") == b"ISO-10303 comum"
+
+
+@pytest.mark.parametrize("zip_clock_step", [0, 2], ids=["same-timestamp", "cross-timestamp-boundaries"])
+def test_same_file_in_several_products_is_uploaded_once(tmp_path, app_settings, store_settings, monkeypatch, zip_clock_step):
+    # Exercise both fast runs and runs spanning ZIP timestamp boundaries without sleeping.
+    localtime = zipfile.time.localtime
+    ticks = itertools.count(1700000000, zip_clock_step)
+    monkeypatch.setattr(zipfile.time, "localtime", lambda *args: localtime(next(ticks)))
     shop = Shop()
     pipes = make(tmp_path, app_settings, store_settings)
-    identifier = pipes.create(lot(shared=True), "choice", "org", "owner")
+    shared_lot = lot(shared=True)
+    with zipfile.ZipFile(io.BytesIO(shared_lot)) as archive:
+        sources = [archive.read(f"{sku}/{sku}_Desenho 3D.zip") for sku in SKUS]
+    assert len({hashlib.sha256(blob).digest() for blob in sources}) == 1
+    identifier = pipes.create(shared_lot, "choice", "org", "owner")
     pipes.process(identifier, "org", "owner", "model"); generate(pipes)
     pipes.handoff(identifier, "org", "owner"); drain(pipes, shop)
     pipes.approve(identifier, "org", "owner"); pipes.publish(identifier, "org", "owner"); drain(pipes, shop)
     # 2 shared photos + 1 shared 3D uploaded once; datasheet and manual differ per SKU.
     assert shop.posts == 3 + 2 * 3 and len(shop.library) == 9
     assert len({p["images"][0]["id"] for p in shop.products.values()}) == 1
+    assert len([url for url in shop.library.values() if url.endswith(".zip")]) == 1
 
 
 # --- Liberação para múltiplos SKUs --------------------------------------------------------

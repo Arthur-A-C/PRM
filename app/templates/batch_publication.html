@@ -24,8 +24,9 @@
     <div class="prm-section-title"><div><h2>1. Importar produtos</h2><p>Cada pasta é um produto; o nome da pasta é o código CIGAM/SKU, com zeros à esquerda preservados. A importação valida arquivos e não chama a IA.</p></div></div>
     <form id="pub-upload" class="prm-form">
       <div class="prm-field"><label for="pub-company">Empresa</label><select id="pub-company" name="empresa" required><option value="">Selecione</option><option value="choice">Choice</option><option value="sag">SAG</option><option value="portwell">Portwell</option></select></div>
-      <div class="prm-field"><label for="pub-root">Pasta raiz dentro do ZIP (opcional)</label><input id="pub-root" name="pasta_raiz" placeholder="Ex.: Produtos"></div>
+      <div class="prm-field"><label for="pub-root">Pasta raiz dentro do ZIP ou da pasta selecionada (opcional)</label><input id="pub-root" name="pasta_raiz" placeholder="Ex.: Produtos"></div>
       <div class="prm-field"><label for="pub-file">Arquivo ZIP</label><input id="pub-file" type="file" name="arquivo" accept=".zip" required></div>
+      <div class="prm-field lf-field"><span class="lf-label">Ou selecione no seu computador</span><div data-local-files="lote" data-zip-input="pub-file"></div><small>Sem compactar: a estrutura de subpastas é preservada e o envio pode ser retomado.</small></div>
       <div class="prm-form-actions"><button type="submit" class="button-primary">{{ ui.icon('upload') }}<span>Importar e validar</span></button></div>
     </form>
     <p class="prm-note">{{ ui.icon('info') }}<span>Requer os workers <code>scripts/datasheet_batch_worker.py</code> (datasheets, usa a IA somente após "Processar") e <code>scripts/store_registration_worker.py</code> (Dry Run e publicação). O datasheet original do fornecedor é usado como fonte e nunca é publicado.</span></p>

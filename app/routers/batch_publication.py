@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from app.dependencies import AppSettings, CurrentAuth
+from app.routers.local_uploads import batch_source, consume
 from app.routers.registration import require_manager
 from app.routers.store_integrations import authorized_settings
 from app.services.batch_publication import Pipelines
@@ -42,16 +43,19 @@ def run(action):
 
 @router.post("")
 async def upload(auth: CurrentAuth, settings: AppSettings, empresa: Annotated[Literal["choice", "sag", "portwell"], Form()],
-                 arquivo: Annotated[UploadFile, File()], pasta_raiz: Annotated[str, Form()] = "",
+                 arquivo: Annotated[UploadFile | None, File()] = None, envio: Annotated[str, Form()] = "",
+                 pasta_raiz: Annotated[str, Form()] = "",
                  csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
     require_manager(auth, csrf_token)
     service = pipelines(auth, settings)
     try:
-        raw = await arquivo.read(settings.batch_upload_mib * 1024**2 + 1)
+        raw, _ = await batch_source(auth, settings, arquivo, envio, settings.batch_upload_mib)
         identifier = await run_in_threadpool(lambda: run(lambda: service.create(raw, empresa, *scope(auth), root=pasta_raiz)))
+        consume(auth, settings, envio)
         return service.overview(identifier, *scope(auth))
     finally:
-        await arquivo.close()
+        if arquivo:
+            await arquivo.close()
 
 
 @router.get("")
