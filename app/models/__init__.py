@@ -17,6 +17,7 @@ from app.models.identity import Company, LoginSession, Organization, User
 from app.models.matching import CatalogMatch, CatalogMatchRun
 from app.models.refined_catalog import RefinedCatalogRun, RefinedCatalogItem, RefinedCatalogRaw
 from app.models.meetings import Meeting, TranscriptRevision, MeetingRun, MeetingAudio, Activity, ActivityAudit, ActivityAlert
+from app.models.store_operations import StoreOperationPermission
 
 __all__ = [
     "Base",
@@ -28,6 +29,7 @@ __all__ = [
     "CatalogMatchRun",
     "Category",
     "Company",
+    "StoreOperationPermission",
     "Comparison",
     "ComparisonItem",
     "ImportRow",

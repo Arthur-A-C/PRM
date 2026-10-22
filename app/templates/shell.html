@@ -189,7 +189,7 @@
 
 {% block scripts %}
   {% if title == "Cadastro via API" %}<script src="{{ url_for('static', path='/js/store-registration.js') }}?v=20261021-3" defer></script>{% endif %}
-  {% if title == "Remoção de Arquivos" %}<script src="{{ url_for('static', path='/js/store-file-removal.js') }}?v=20261022-1" defer></script>{% endif %}
+  {% if title == "Remoção de Arquivos" %}<script src="{{ url_for('static', path='/js/store-file-removal.js') }}?v=20261022-prod" defer></script>{% endif %}
   {% if title == "Resolução de Imagens" %}<script src="{{ url_for('static', path='/js/image-resolution.js') }}?v=20261022-1" defer></script>{% endif %}
   {% if title == "Publicação em Lote" %}<script src="{{ url_for('static', path='/js/batch-publication.js') }}?v=20261021-1" defer></script>{% endif %}
   {% if title == "Integrações WooCommerce" %}<script src="{{ url_for('static', path='/js/store-integrations.js') }}?v=20261020-1" defer></script>{% endif %}
