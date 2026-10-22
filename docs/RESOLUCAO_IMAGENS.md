@@ -8,17 +8,28 @@ um quadrado exato (padrão **1500 × 1500 px**), com a imagem inteira proporcion
 sobre fundo branco — nunca esticada. Nome, extensão e formato são mantidos. PDFs, ZIPs, desenhos
 3D e outros documentos não são tocados.
 
-## Uso
+## Uso (pasta do seu computador — padrão)
 
-1. Clique em **Selecionar pasta** (ou cole o caminho completo) e escolha a pasta principal,
-   por exemplo `...\Produtos`.
-2. Ajuste **Incluir subpastas** e a **Resolução**; "Mover imagens antigas para Backup-fotos"
-   é obrigatório.
-3. **Ver prévia**: pastas, imagens, quantas faltam converter, quantas já foram convertidas pelo
-   PRM, espaço necessário e livre.
+1. Clique em **Selecionar pasta do computador** e escolha a pasta principal, por exemplo
+   `...\Produtos`. Confira quantidade, tamanho, miniaturas e arquivos ignorados.
+2. Ajuste **Incluir subpastas** e a **Resolução**; guardar os originais em `Backup-fotos` é
+   obrigatório.
+3. **Enviar e ver prévia**: a pasta é enviada ao servidor, com progresso e retomada, e a prévia
+   mostra pastas, imagens, quantas faltam converter, quantas já foram convertidas pelo PRM, e o
+   espaço necessário e livre.
 4. Marque a confirmação e clique em **Converter imagens**. Acompanhe concluídas, ignoradas e
    erros; **Parar** interrompe com segurança após o arquivo atual.
-5. **Restaurar backups** devolve os originais ao lugar.
+5. **Baixar imagens convertidas (ZIP)** traz as imagens nas mesmas subpastas; **Baixar com
+   Backup-fotos** inclui os originais. **Descartar arquivos do servidor** apaga a cópia.
+
+O PRM converte uma cópia no servidor. Os arquivos do seu computador não são alterados; substitua-os
+pelo conteúdo do ZIP quando quiser. Detalhes do envio: `docs/SELECAO_PASTAS_LOCAIS.md`.
+
+## Uso (pasta no servidor — opcional)
+
+Só aparece, em **Pasta no servidor do PRM (avançado)**, quando `PRM_IMAGE_TOOL_ROOTS` está
+configurado. Nesse modo, as imagens são substituídas na própria pasta do servidor e **Restaurar
+backups** devolve os originais ao lugar.
 
 Resultado:
 
@@ -46,8 +57,8 @@ Produtos/
 
 ## Acesso do servidor
 
-O PRM processa as pastas no próprio servidor. Por padrão só aceita pastas dentro da pasta do
-usuário que executa o servidor. Para outras unidades/pastas, configure no `.env`:
+Somente para o modo de pasta no servidor. Sem `PRM_IMAGE_TOOL_ROOTS`, esse modo fica
+desligado e o envio pelo navegador continua disponível. Para ativá-lo, configure no `.env`:
 
 ```dotenv
 PRM_IMAGE_TOOL_ROOTS=C:\Users\PW\Documents;D:\Fotos

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-22 — Seleção de pastas do computador do usuário
+
+- Novo envio pelo navegador (`/api/v1/envios`): **Selecionar pasta do computador** ou **Selecionar arquivos**, com estrutura relativa preservada, resumo, prévia, ignorados, progresso, cancelamento e retomada em blocos. Funciona em qualquer computador da rede (Chrome/Edge), sem caminhos `C:\` no servidor.
+- Geração em lote, Publicação em lote e Cadastro via API aceitam a pasta no lugar do ZIP; o fluxo e as regras de cada módulo são os mesmos.
+- Resolução de imagens converte a cópia enviada (Backup-fotos no servidor) e devolve um ZIP com as subpastas; o modo de pasta no servidor passa a exigir `PRM_IMAGE_TOOL_ROOTS`. Tarefas visíveis só para quem as iniciou.
+- Digitalização: seleção de pasta de fotos. Isolamento por usuário, CSRF, validação de caminho, extensão e conteúdo, limites configuráveis. Documentação em `docs/SELECAO_PASTAS_LOCAIS.md`.
+
 ## 2026-10-22 — Remoção de arquivos de produtos
 
 - Quatro modos (tudo, galeria, documentos, foto principal) para produtos existentes por SKU, com Dry Run completo, aprovação, fila com pausa/cancelamento/retomada, relatório CSV, auditoria e restauração.
