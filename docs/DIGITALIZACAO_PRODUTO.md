@@ -28,13 +28,14 @@ Estrutura da primeira versão:
     <SKU>_foto2.jpg
     ...
   <SKU>_Datasheet.pdf
-  <SKU>_Datasheet_Original.pdf   (se enviado)
   <SKU>_Desenho_3D.zip          (se enviado)
   <SKU>_Manual.pdf              (se enviado)
   <SKU>_Certificado.pdf         (se enviado)
   manifest.json
   <SKU>.zip
 ```
+
+O datasheet original do fornecedor, quando enviado na finalização, **não** entra na pasta, no ZIP nem no manifesto (desde 21/10/2026): é guardado em `_runs/<run_id>/fontes/` e registrado em `record.json` (`source_files`, com SHA-256 e nome original). Ele continua sendo a fonte da análise e do datasheet gerado. O pacote de cadastro `/pacote/zip` segue a mesma regra. Pacotes já finalizados não são alterados.
 
 O ZIP interno contém a pasta `<SKU>/` e os artefatos finais, **sem** incluir o próprio ZIP. O manifesto contém empresa, SKU/CIGAM, nomes, caminhos absolutos da pasta/PDF/foto principal, imagens ordenadas, documentos, análise técnica, configurações de processamento, hashes SHA-256, horário UTC, ID, versão e status. A classificação de arquivos usa o manifesto quando ele existe; não decide a foto principal por ordem alfabética.
 

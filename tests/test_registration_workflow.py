@@ -160,14 +160,15 @@ def test_cigam_template_and_real_zip():
         [("source_datasheet", "original.pdf", b"%PDF-test")],
         size=1200, quality=90,
     )
+    # The supplier datasheet is accepted as input but never exported or listed.
     with zipfile.ZipFile(io.BytesIO(package)) as archive:
         assert set(archive.namelist()) == {
-            "00123/1.jpg", "00123/original.pdf", "00123/manifest.json",
+            "00123/1.jpg", "00123/manifest.json",
         }
         processed = Image.open(io.BytesIO(archive.read("00123/1.jpg")))
         assert processed.size == (20, 10)
         assert json.loads(archive.read("00123/manifest.json"))["sku"] == "00123"
-    assert len(manifest["files"]) == 2
+    assert [f["role"] for f in manifest["files"]] == ["main_image"]
 
 
 def test_woo_live_preview_is_read_only_and_preserves_existing(monkeypatch):

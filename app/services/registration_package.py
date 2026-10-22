@@ -72,6 +72,9 @@ def build_package(
         for role, filename, content in files:
             if role not in {"source_datasheet", "generated_datasheet", "drawing_3d", "manual", "certificate", "other"}:
                 raise ValueError(f"Tipo de arquivo não permitido: {role}.")
+            # The supplier datasheet is only a generation source; the export carries the PRM datasheet.
+            if role == "source_datasheet":
+                continue
             if len(content) > 50 * 1024 * 1024:
                 raise ValueError(f"Arquivo acima de 50 MiB: {filename}.")
             name = safe_component(filename)

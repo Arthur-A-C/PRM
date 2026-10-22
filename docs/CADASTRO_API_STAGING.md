@@ -127,7 +127,10 @@ Dry Run por item (`GET /api/v1/cadastro-api/{lote}/dry-run` e tabela da tela):
   lista). Ações `add`, `already_linked`, `conflict` (label/arquivo já cadastrados em
   outra URL). Entrada `label/url/filename/filesize`, `url` nula até o upload;
   `filesize` no formato observado (`90.8 KB`, `2.84 MB`);
-- `ignored`: formatos sem upload homologado (.step, .dwg, .dxf, .rar, .7z);
+- `ignored`: formatos sem upload homologado (.step, .dwg, .dxf, .rar, .7z) e, em
+  pacotes antigos que ainda trazem o datasheet original do fornecedor junto ao datasheet
+  gerado, o original (nunca publicado). Dry Runs preparados antes dessa regra que ainda
+  incluam o original não podem receber liberação nem ser executados: refazer a prévia;
 - `rollback`, `dependencies`, `write_gate`, `blockers`, `dry_run_sha256`.
 
 Aprovação: `POST /api/v1/cadastro-api/{lote}/aprovar` com `{"skus": [...]}` (individual)
@@ -151,6 +154,38 @@ perdida só é resolvida pela identidade na biblioteca; PUT sem resposta só é 
 a releitura for idêntica ao esperado. Recuperação registrada no journal restaura só
 `images` e `_wcda_arquivos` anteriores e **nunca exclui mídia** da biblioteca. Toda
 etapa grava na tabela `audit` (exibida por item).
+
+### Homologação em produção com liberação de uso único (21/10/2026)
+
+Sem staging disponível, a única gravação em produção possível é a de
+`HOMOLOGATION_TARGETS` em `app/services/store_publish_grant.py`:
+**Choice, `https://choicetech.com.br`, SKU `119002000072`, produto `16321`**. Ampliar
+essa lista é decisão de revisão de código. `PublishSettings` continua igual; sem
+liberação, as três lojas seguem bloqueadas.
+
+- Emitida apenas pela CLI local `scripts/homologation_grant.py` (nunca pela web), com
+  confirmação literal `AUTORIZO <finalidade> <sku>`. Exige item aprovado, sem bloqueios,
+  e o `dry_run_sha256` exato armazenado; uma liberação ativa por alvo/finalidade.
+- Finalidades: `publish` (envio aprovado) e `rollback` (recuperação). Validade de 1 a
+  120 minutos (padrão 30). Revogável (`revoke`) enquanto não usada.
+- Consumo atômico (`issued → consumed`) **antes do primeiro upload**: falha, retry ou
+  segunda execução exigem nova liberação. Dois workers não consomem a mesma.
+- O executor revalida loja/origem/SKU/produto/hash/finalidade, exige o produto
+  existente (nunca cria) e grava pelo usuário da senha de aplicativo WordPress.
+- Antes de qualquer upload verifica, só por leitura: `users/me` com `upload_files`,
+  `edit_products`, `edit_published_products`, `edit_others_products`; `OPTIONS` com
+  `PUT` em `products/16321` e `POST` em `media`. Faltando algo, nada é enviado.
+- Falha parcial: uploads confirmados ficam no journal e são reaproveitados; resposta
+  perdida é resolvida pela identidade `prm-<sha16>` no título/URL da mídia. Sem duplicatas.
+- Execução do item autorizado: `scripts/store_registration_worker.py --once --batch <lote> --sku 119002000072`
+  reivindica somente esse item; outros lotes pendentes não são tocados.
+- Verificação pós-PUT estrita para todos os campos comerciais e metadados, exceto os
+  reescritos pelo WordPress/plugins a cada salvamento (`_yoast_indexnow_last_ping`,
+  `_edit_lock`, `_edit_last`, `_oembed_*`). Sem compare-and-swap no servidor: alteração
+  externa entre a última leitura e o PUT é detectada depois, como erro com recuperação.
+- Recuperação: `scripts/store_registration_rollback.py` com liberação `rollback` restaura
+  só `images` e `_wcda_arquivos` anteriores, apenas se o produto estiver exatamente no
+  estado pós-publicação registrado; nunca exclui mídia. Tudo vai para a tabela `audit`.
 
 Para reutilizar um datasheet do próprio PRM, baixe o PDF já gerado (individual ou
 lote) e coloque-o como `SKU/SKU_Datasheet.pdf`. Não existe outro gerador nem uma

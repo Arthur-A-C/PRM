@@ -61,7 +61,8 @@ def test_finalize_creates_folder_manifest_and_valid_zip(monkeypatch, tmp_path):
     monkeypatch.setenv("PRM_PRODUCT_STORAGE_ROOT", str(tmp_path))
     record = create_draft("choice", "00123", "Produto técnico", {"specs": ["x"]}, [process_image(_image(), rotation=90), process_image(_image())], _pdf())
     approve_draft(record["run_id"])
-    final = finalize_draft(record["run_id"], _product(), [("source_datasheet", "orig.pdf", _pdf())])
+    supplier = _pdf()
+    final = finalize_draft(record["run_id"], _product(), [("source_datasheet", "orig.pdf", supplier)])
     folder = tmp_path / "choice" / "00123"
     assert final["status"] == "validated"
     assert folder.is_dir()
@@ -77,6 +78,15 @@ def test_finalize_creates_folder_manifest_and_valid_zip(monkeypatch, tmp_path):
         assert archive.testzip() is None
         assert "00123/manifest.json" in archive.namelist()
         assert "00123/Fotos/00123_variante.jpg" in archive.namelist()
+        assert "00123/00123_Datasheet.pdf" in archive.namelist()
+        assert not any("Original" in name for name in archive.namelist())
+    # Supplier datasheet: absent from folder, ZIP and manifest; preserved in the run's private sources.
+    assert not (folder / "00123_Datasheet_Original.pdf").exists()
+    assert "source_datasheet" not in {f["role"] for f in manifest["files"]}
+    assert "Original" not in json.dumps(manifest)
+    kept = tmp_path / "_runs" / record["run_id"] / final["source_files"][0]["path"]
+    assert kept.read_bytes() == supplier and final["source_files"][0]["original_name"] == "orig.pdf"
+    assert verify_package(record["run_id"])["status"] == "validated"
 
 
 def test_existing_folder_requires_explicit_new_version(monkeypatch, tmp_path):

@@ -191,8 +191,9 @@ def test_cleanup_preserves_active_and_history(store):
 @pytest.mark.parametrize("mode", ["csv", "folder"])
 def test_real_generator_with_mock_ai_and_downloads(store, monkeypatch, company, mode):
     import anthropic
+    supplier = pdf()
     if mode == "folder":
-        batch = store.create(folder_package({"10001/datasheet.pdf": pdf(), "10001/Fotos/principal.png": photo(),
+        batch = store.create(folder_package({"10001/datasheet.pdf": supplier, "10001/Fotos/principal.png": photo(),
                                              "10001/desenho.step": b"ISO-10303-21;"}), "org", "owner",
                              identification="folder", company=company)
     else:
@@ -228,6 +229,12 @@ def test_real_generator_with_mock_ai_and_downloads(store, monkeypatch, company, 
             assert archive.read(f"{company.upper()}/10001/fontes/Fotos/principal.png") == photo()
             assert archive.read(f"{company.upper()}/10001/fontes/desenho.step") == b"ISO-10303-21;"
             assert json.loads(archive.read(f"{company.upper()}/10001/analysis.json"))["especificacoes"]
+            # Supplier datasheet: not exported, still preserved in the batch sources.
+            assert f"{company.upper()}/10001/fontes/datasheet.pdf" not in archive.namelist()
+    if mode == "folder":
+        assets = store.detail(batch, "org", "owner")["items"][0]["assets"]
+        source = next(a for a in assets if a["role"] == "source_datasheet")
+        assert (store.folder(batch) / source["stored"]).read_bytes() == supplier
     if mode == "folder":
         sent = calls[0]["messages"][0]["content"]
         assert any(block["type"] == "image" for block in sent)

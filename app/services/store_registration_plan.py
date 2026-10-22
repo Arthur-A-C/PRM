@@ -72,10 +72,13 @@ def prepare_files(folder: Path, sku: str, *, company=None):
     classified["gallery"]=selected[1:]
     documents = classified["documents"]
     counts = Counter(item["role"] for item in documents)
-    # A PRM package carries both the generated datasheet and the supplier original:
-    # the generated one keeps the "Datasheet" label.
+    # When the package declares the PRM datasheet, the supplier original (older exports) is excluded:
+    # only the generated datasheet is published.
     generated = "generated_datasheet" in counts
-    labels = {**LABELS, "source_datasheet": "Datasheet do fabricante"} if generated else LABELS
+    excluded = [d for d in documents if generated and d["role"] == "source_datasheet"]
+    documents = [d for d in documents if d not in excluded]
+    counts = Counter(item["role"] for item in documents)
+    labels = LABELS
     roles = ["generated_datasheet", "source_datasheet", *[r for r in LABELS if "datasheet" not in r]]
     ordered = sorted(documents, key=lambda item: (
         roles.index(item["role"]) if item["role"] in roles else len(roles),
@@ -87,6 +90,7 @@ def prepare_files(folder: Path, sku: str, *, company=None):
         seen[label] = seen.get(label, 0) + 1
         downloads.append({**item, "label":label if seen[label] == 1 else f"{label} ({seen[label]})"})
     return {"main_image":classified["main_image"], "gallery":classified["gallery"], "downloads":downloads,
+            "excluded":[{"name":Path(d["path"]).name,"role":d["role"]} for d in excluded],
             "sources":sources, "warnings":classified["warnings"], "read_only":True,
             "wcda_mapping":"candidate_contract_append"}
 
@@ -95,6 +99,13 @@ def prepare_files(folder: Path, sku: str, *, company=None):
 WRITABLE_KEYS = {"images", "meta_data"}
 PROTECTED_FIELDS = ["name", "description", "short_description", "categories", "attributes", "sku",
                     "regular_price", "sale_price", "stock_quantity", "stock_status", "status", "demais meta_data"]
+
+
+def stale_supplier_datasheet(dry):
+    """Dry Runs prepared before the rule may still add the supplier datasheet: never execute them."""
+    actions = (dry or {}).get("documents", {}).get("actions", [])
+    return any(a["role"] == "source_datasheet" and a["action"] == "add" for a in actions) and \
+        any(a["role"] == "generated_datasheet" for a in actions)
 
 
 def identity(sha):
