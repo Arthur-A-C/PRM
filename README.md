@@ -14,6 +14,7 @@ A [nova base refinada](docs/CATALOGOS_REFINADOS.md), publicada em 09/10/2026, re
 
 - [Níveis de acesso e contas](docs/NIVEIS_DE_ACESSO.md): desenvolvedor e gestor com permissões administrativas equivalentes, vendedor restrito a produtos e reuniões/cards. Criação de contas protegida em Gestão.
 
+- [Pauta Semanal de Desenvolvimento](docs/PAUTA_SEMANAL.md): pauta automática de sexta com commits, PRs, issues e Planner, situação comprovada (branch, PR, integrado, implantado), IA verificada, edição, aprovação, PDF e histórico.
 - [Remoção de arquivos de produtos](docs/REMOCAO_ARQUIVOS.md): desvincula foto principal, galeria e/ou documentos WCDA de produtos existentes por SKU, com Dry Run, aprovação, auditoria e restauração; nunca exclui mídia nem altera dados comerciais.
 - [Resolução de imagens em pasta](docs/RESOLUCAO_IMAGENS.md): converte as fotos de uma pasta e subpastas para 1500 × 1500 px com fundo branco, mantendo nomes e formatos, com originais em `Backup-fotos`, retomada e restauração.
 - [Digitalização e Publicação em Lote](docs/PUBLICACAO_EM_LOTE.md): ZIP por SKU → datasheets → Dry Run → aprovação → imagens e documentos em produtos existentes, sem baixar/reenviar ZIP. Não gera nomes, descrições, categorias, atributos ou CSV. Lojas atuais bloqueadas sem liberação.

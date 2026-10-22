@@ -1,5 +1,15 @@
 # API
 
+## Pauta Semanal (23/10/2026)
+
+Prefixo `/api/v1/pauta-semanal`; gestores e desenvolvedores da organização; mutations com `X-CSRF-Token`; versão otimista (`version`).
+
+- `GET|PUT /configuracao` (dia, horário, IA, filtro do Planner, nomes GitHub → PRM); `POST /configuracao/teste` (leitura do repositório).
+- `GET /pautas?q=&status=&page=`; `GET /pautas/atual`; `POST /pautas` `{semana?, version?}` gera ou atualiza preservando edições; `GET /pautas/{id}`.
+- `PATCH /pautas/{id}/itens/{chave}` `{version, text?, hidden?}`; `POST /pautas/{id}/restaurar-item/{chave}`; `PUT /pautas/{id}/resumo`.
+- `POST /pautas/{id}/anotacoes` `{version, kind: subject|note|decision, text}`; `PATCH|DELETE /pautas/{id}/anotacoes/{anotacao}`.
+- `POST /pautas/{id}/aprovar|reabrir|arquivar|desarquivar` `{version}`; `GET /pautas/{id}/historico`; `GET /pautas/{id}/pdf`.
+
 ## Cards de teste (22/10/2026)
 
 `GET /api/v1/planner/activities?include_tests=true` inclui exemplos `simulation=true` e `interactive_test=true`, preservando isolamento organizacional e visibilidade do vendedor. Cards utiliza essa opção; overview/calendário/alertas continuam exclusivamente operacionais. Consulta individual e `/assign` aceitam esses exemplos, mantendo CSRF, versão, auditoria e validação do destinatário. `/review` e `/publish` recusam simulações com 409. Nenhum payload de edição pode retirar as marcas de teste. Prazo serializado como `band: simulation`, sem bucket ou notificação.
