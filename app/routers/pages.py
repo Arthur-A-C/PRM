@@ -77,7 +77,7 @@ def render_shell(request: Request, settings: AppSettings, title: str, extra_cont
                 raise HTTPException(403, "Seu nível de acesso não permite esta página.")
             if request.query_params.get("internal") == "1" or request.query_params.get("group") == "quality_review":
                 raise HTTPException(403, "Detalhes internos de importação são restritos.")
-        if title in {"Integrações WooCommerce", "Cadastro via API", "Publicação em Lote"} and auth.user.role not in {"gestor", "desenvolvedor"}:
+        if title in {"Integrações WooCommerce", "Cadastro via API", "Publicação em Lote", "Resolução de Imagens"} and auth.user.role not in {"gestor", "desenvolvedor"}:
             raise HTTPException(403, "Somente gestores podem consultar integrações.")
         companies = db.scalars(
             select(Company)
@@ -328,6 +328,7 @@ def feature_page(page: str, request: Request, settings: AppSettings):
     route_titles["digitalizacao/lotes"] = "Geração em Lote"
     route_titles["digitalizacao/cadastro-api"] = "Cadastro via API"
     route_titles["digitalizacao/publicacao-lote"] = "Publicação em Lote"
+    route_titles["digitalizacao/resolucao-imagens"] = "Resolução de Imagens"
     if page not in route_titles:
         raise HTTPException(status_code=404, detail="Página não encontrada.")
     return render_shell(request, settings, route_titles[page])

@@ -20,26 +20,68 @@ def safe_component(value: str) -> str:
     return result[:120]
 
 
+def _verified(content: bytes, limit_mib: int) -> None:
+    if len(content) > limit_mib * 1024 * 1024:
+        raise ValueError(f"Imagem acima de {limit_mib} MiB.")
+    with Image.open(io.BytesIO(content)) as source:
+        source.verify()
+
+
+def _on_white(image: Image.Image, *, palette: bool = False) -> Image.Image:
+    """Flatten transparency onto white; every other mode becomes RGB (palette transparency only on request)."""
+    if palette and image.mode == "P" and "transparency" in image.info:
+        image = image.convert("RGBA")
+    if image.mode in {"RGBA", "LA"}:
+        background = Image.new("RGB", image.size, "white")
+        background.paste(image, mask=image.getchannel("A"))
+        return background
+    return image.convert("RGB")
+
+
 def process_image(content: bytes, *, rotation: int = 0, size: int | None = 1200, quality: int = 90) -> bytes:
     if rotation not in {0, 90, 180, 270} or size not in {None, 1200, 1600} or quality not in {90, 95, 100}:
         raise ValueError("Configuração de imagem inválida.")
-    if len(content) > 25 * 1024 * 1024:
-        raise ValueError("Imagem acima de 25 MiB.")
-    with Image.open(io.BytesIO(content)) as source:
-        source.verify()
+    _verified(content, 25)
     with Image.open(io.BytesIO(content)) as source:
         image = ImageOps.exif_transpose(source)
         image = image.rotate(-rotation, expand=True)
         if size:
             image.thumbnail((size, size), Image.Resampling.LANCZOS)
-        if image.mode in {"RGBA", "LA"}:
-            background = Image.new("RGB", image.size, "white")
-            background.paste(image, mask=image.getchannel("A"))
-            image = background
-        else:
-            image = image.convert("RGB")
+        image = _on_white(image)
         output = io.BytesIO()
         image.save(output, format="JPEG", quality=quality, optimize=True)
+        return output.getvalue()
+
+
+SQUARE_FORMATS = {"JPEG", "PNG", "WEBP"}
+
+
+def fit_square(content: bytes, *, size: int = 1500, image_format: str = "JPEG", quality: int = 90) -> bytes:
+    """Exact size x size canvas: proportional fit (up or down, never stretched), centred on white.
+
+    Same verification, EXIF orientation and white flattening as process_image; keeps the
+    requested format (JPEG/PNG/WEBP) and the ICC profile when present.
+    """
+    if image_format not in SQUARE_FORMATS or not 200 <= size <= 4000 or quality not in {85, 90, 95, 100}:
+        raise ValueError("Configuração de imagem inválida.")
+    _verified(content, 60)
+    with Image.open(io.BytesIO(content)) as source:
+        if source.width * source.height > 60_000_000:
+            raise ValueError("Imagem acima de 60 megapixels.")
+        icc = source.info.get("icc_profile")
+        image = _on_white(ImageOps.exif_transpose(source), palette=True)
+        image = ImageOps.contain(image, (size, size), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (size, size), "white")
+        canvas.paste(image, ((size - image.width) // 2, (size - image.height) // 2))
+        options = {"icc_profile": icc} if icc else {}
+        if image_format == "JPEG":
+            options.update(quality=quality, optimize=True, subsampling=0 if quality >= 95 else 2)
+        elif image_format == "WEBP":
+            options.update(quality=quality, method=4)
+        else:
+            options.update(optimize=True)
+        output = io.BytesIO()
+        canvas.save(output, format=image_format, **options)
         return output.getvalue()
 
 

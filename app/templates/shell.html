@@ -169,6 +169,8 @@
       {% include "store_registration.html" %}
     {% elif title == "Publicação em Lote" %}
       {% include "batch_publication.html" %}
+    {% elif title == "Resolução de Imagens" %}
+      {% include "image_resolution.html" %}
     {% else %}
     <section class="panel empty-state-panel">
       <div class="empty-icon" aria-hidden="true">◇</div>
@@ -185,6 +187,7 @@
 
 {% block scripts %}
   {% if title == "Cadastro via API" %}<script src="{{ url_for('static', path='/js/store-registration.js') }}?v=20261021-3" defer></script>{% endif %}
+  {% if title == "Resolução de Imagens" %}<script src="{{ url_for('static', path='/js/image-resolution.js') }}?v=20261022-1" defer></script>{% endif %}
   {% if title == "Publicação em Lote" %}<script src="{{ url_for('static', path='/js/batch-publication.js') }}?v=20261021-1" defer></script>{% endif %}
   {% if title == "Integrações WooCommerce" %}<script src="{{ url_for('static', path='/js/store-integrations.js') }}?v=20261020-1" defer></script>{% endif %}
   {% if title == "Geração em Lote" %}<script src="{{ url_for('static', path='/js/datasheet-batches.js') }}?v=20261021-folders" defer></script>{% endif %}
