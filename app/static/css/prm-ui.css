@@ -1,0 +1,260 @@
+/* PRM UI — componentes compartilhados das telas de trabalho (Digitalização, lotes, integrações,
+   cadastro, catálogos, reuniões) e do login. Usa os tokens --cc-* do Command Center, claro e escuro.
+   Escopo: .prm-ui (conteúdo das páginas fora do dashboard), .meeting-module e .login-layout.
+   Os seletores têm especificidade alta de propósito: vencem as regras genéricas antigas
+   (app.css, prm-v2.css, prm-dark.css, workspace.css) sem precisar de !important. */
+
+:root {
+  --ui-space-1: .25rem; --ui-space-2: .5rem; --ui-space-3: .75rem; --ui-space-4: 1rem;
+  --ui-space-5: 1.25rem; --ui-space-6: 1.5rem; --ui-space-8: 2rem;
+  --ui-control-h: 2.5rem; --ui-control-h-sm: 2rem;
+  --ui-text-xs: .6875rem; --ui-text-sm: .75rem; --ui-text-md: .8125rem; --ui-text-base: .875rem; --ui-text-lg: 1rem;
+  --ui-ring: 0 0 0 3px color-mix(in srgb, var(--cc-focus) 26%, transparent);
+  --ui-fast: .14s; --ui-base: .22s;
+  --ui-input-bg: var(--cc-surface);
+  --ui-overlay: rgba(9, 16, 24, .55);
+}
+:root[data-theme="dark"] { --ui-input-bg: #0d141c; --ui-overlay: rgba(2, 6, 10, .72); }
+
+/* ===== Animações ===== */
+@keyframes prm-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes prm-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes prm-spin { to { transform: rotate(360deg); } }
+@keyframes prm-shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+@keyframes prm-indeterminate { 0% { transform: translateX(-100%) scaleX(.35); } 55% { transform: translateX(45%) scaleX(.55); } 100% { transform: translateX(110%) scaleX(.3); } }
+@keyframes prm-pop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes prm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@keyframes prm-draw { to { stroke-dashoffset: 0; } }
+
+/* ===== Base ===== */
+:root .prm-ui { color: var(--cc-ink); font-family: var(--cc-sans); font-size: var(--ui-text-base); }
+:root .prm-ui > :not(.cc-header) { animation: prm-rise .32s var(--cc-ease) both; }
+:root .prm-ui > :nth-child(3) { animation-delay: .04s; }
+:root .prm-ui > :nth-child(4) { animation-delay: .08s; }
+:root .prm-ui > :nth-child(n+5) { animation-delay: .12s; }
+:root .prm-ui :is(h2, h3, h4) { color: var(--cc-ink); font-family: var(--cc-display); letter-spacing: -.02em; }
+:root .prm-ui p { color: var(--cc-ink-2); }
+:root .prm-ui a:not([class]) { color: var(--cc-primary); text-underline-offset: 2px; }
+:root .prm-ui a:not([class]):hover { color: var(--cc-primary-hover); }
+:root .prm-ui code { padding: .1rem .35rem; border: 1px solid var(--cc-line); border-radius: 4px; background: var(--cc-surface-2); color: var(--cc-ink); font-family: var(--cc-mono); font-size: .85em; }
+:root .prm-ui .eyebrow { margin: 0 0 .3rem; color: var(--cc-ink-3); font-family: var(--cc-mono); font-size: .6rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+:root .prm-ui [hidden] { display: none !important; }
+:root .prm-ui :focus-visible { outline: 2px solid var(--cc-focus); outline-offset: 2px; }
+
+/* ===== Superfícies ===== */
+:root .prm-ui .panel, :root .prm-ui .cc-panel, :root .meeting-module.cc-panel, :root .meeting-module .cc-panel { min-width: 0; padding: clamp(1rem, 1.6vw, 1.5rem); border: 1px solid var(--cc-line); border-radius: var(--cc-radius); background: var(--cc-surface); color: var(--cc-ink); box-shadow: var(--cc-shadow); }
+:root .prm-ui .panel > h2:first-child, :root .prm-ui .panel > .eyebrow + h2 { margin-top: 0; }
+:root .prm-ui .panel h2 { font-size: 1.12rem; }
+:root .prm-ui .cc-panel-head, :root .meeting-module .cc-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+:root .prm-ui .cc-panel-head h2, :root .meeting-module .cc-panel-head h2 { margin: .1rem 0 0; font-size: 1.12rem; }
+
+/* Cabeçalho de página (lotes, integrações, cadastro via API) */
+.prm-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem 1.5rem; flex-wrap: wrap; margin: 0 0 1.25rem; }
+.prm-page-head h2 { margin: .15rem 0 .35rem; font-size: clamp(1.3rem, 1.9vw, 1.6rem); letter-spacing: -.03em; }
+.prm-page-head p { max-width: 72ch; margin: 0; font-size: var(--ui-text-md); line-height: 1.6; }
+.prm-page-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.prm-section-title { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin: 0 0 1rem; }
+.prm-section-title h2, .prm-section-title h3 { margin: 0; font-size: 1rem; }
+.prm-section-title p { margin: .2rem 0 0; font-size: var(--ui-text-sm); color: var(--cc-ink-3); }
+.prm-stack { display: grid; gap: 1rem; min-width: 0; }
+.prm-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.prm-note { display: flex; gap: .55rem; align-items: flex-start; margin: .9rem 0 0; padding: .65rem .8rem; border-radius: var(--cc-radius-md); background: var(--cc-surface-2); color: var(--cc-ink-3); font-size: var(--ui-text-sm); line-height: 1.55; }
+.prm-note svg { flex: none; width: 15px; height: 15px; margin-top: .1rem; }
+.prm-icon { display: inline-block; flex: none; width: 1em; height: 1em; vertical-align: -.125em; }
+
+/* ===== Botões ===== */
+:root .prm-ui :is(button, .button-secondary, .button-primary, .cc-btn, .prm-btn), :root .meeting-module .cc-btn, :root .login-layout button {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: var(--ui-control-h); max-width: 100%;
+  padding: .5rem .95rem; border: 1px solid var(--cc-line-strong); border-radius: 8px; background: var(--cc-surface); color: var(--cc-ink);
+  font: 600 var(--ui-text-md)/1.2 var(--cc-sans); letter-spacing: 0; text-decoration: none; white-space: normal; cursor: pointer; box-shadow: none; transform: none;
+  transition: background-color var(--ui-fast), border-color var(--ui-fast), color var(--ui-fast), box-shadow var(--ui-fast), transform var(--ui-fast) var(--cc-ease);
+}
+:root .prm-ui :is(button, .button-secondary, .button-primary, .cc-btn, .prm-btn):where(:not(:disabled):not([aria-disabled="true"])):hover, :root .meeting-module .cc-btn:where(:not(:disabled)):hover { border-color: var(--cc-ink-3); background: var(--cc-surface-2); color: var(--cc-ink); box-shadow: none; transform: translateY(-1px); }
+:root .prm-ui :is(button, .button-secondary, .button-primary, .cc-btn, .prm-btn):where(:not(:disabled)):active, :root .meeting-module .cc-btn:where(:not(:disabled)):active { transform: translateY(0) scale(.985); }
+:root .prm-ui :is(.button-primary, .cc-btn-primary, .prm-btn-primary, button[type="submit"]), :root .meeting-module .cc-btn-primary, :root .login-layout button[type="submit"] {
+  border-color: var(--cc-primary); background: var(--cc-primary); color: var(--cc-on-primary); box-shadow: 0 1px 2px color-mix(in srgb, var(--cc-primary) 30%, transparent), 0 4px 14px color-mix(in srgb, var(--cc-primary) 18%, transparent);
+}
+:root .prm-ui :is(.button-primary, .cc-btn-primary, .prm-btn-primary, button[type="submit"]):where(:not(:disabled)):hover, :root .meeting-module .cc-btn-primary:where(:not(:disabled)):hover, :root .login-layout button[type="submit"]:hover { border-color: var(--cc-primary-hover); background: var(--cc-primary-hover); color: var(--cc-on-primary); box-shadow: 0 2px 4px color-mix(in srgb, var(--cc-primary) 30%, transparent), 0 8px 20px color-mix(in srgb, var(--cc-primary) 22%, transparent); }
+:root .prm-ui .prm-btn-ghost { border-color: transparent; background: transparent; color: var(--cc-ink-2); }
+:root .prm-ui .prm-btn-ghost:where(:not(:disabled)):hover { border-color: var(--cc-line); background: var(--cc-surface-2); }
+:root .prm-ui .prm-btn-danger { color: var(--cc-alert); }
+:root .prm-ui .prm-btn-danger:where(:not(:disabled)):hover { border-color: color-mix(in srgb, var(--cc-alert) 45%, transparent); background: var(--cc-alert-soft); color: var(--cc-alert); }
+:root .prm-ui .prm-btn-sm { min-height: var(--ui-control-h-sm); padding: .3rem .65rem; font-size: var(--ui-text-sm); border-radius: 7px; }
+:root .prm-ui .prm-btn-lg { min-height: 3rem; padding: .7rem 1.35rem; font-size: var(--ui-text-base); border-radius: 10px; }
+:root .prm-ui .prm-btn-icon { width: var(--ui-control-h-sm); min-width: var(--ui-control-h-sm); min-height: var(--ui-control-h-sm); padding: 0; border-radius: 7px; }
+:root .prm-ui :is(button, .button-secondary, .button-primary, .cc-btn, .prm-btn) svg { flex: none; width: 15px; height: 15px; }
+:root .prm-ui :is(button, .prm-btn):disabled, :root .prm-ui [aria-disabled="true"]:is(.cc-btn, .prm-btn, .button-secondary), :root .meeting-module .cc-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; transform: none; }
+:root .prm-ui :is(button, .prm-btn)[aria-busy="true"] { cursor: progress; opacity: 1; }
+:root .prm-ui :is(button, .button-secondary, .button-primary, .cc-btn, .prm-btn):focus-visible, :root .meeting-module .cc-btn:focus-visible { outline: 2px solid var(--cc-focus); outline-offset: 2px; }
+
+:root .prm-ui :is(button, .prm-btn).is-busy > svg:first-child { display: none; }
+:root .prm-ui :is(button, .prm-btn).is-busy::before { content: ""; flex: none; width: 15px; height: 15px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: prm-spin .7s linear infinite; }
+:root .prm-ui [role="status"][aria-busy="true"]::before { content: ""; flex: none; width: 13px; height: 13px; margin-top: .2rem; border: 2px solid var(--cc-primary); border-right-color: transparent; border-radius: 50%; animation: prm-spin .7s linear infinite; }
+.prm-spinner { display: inline-block; flex: none; width: 15px; height: 15px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: prm-spin .7s linear infinite; }
+
+/* ===== Campos ===== */
+:root .prm-ui :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), select, textarea),
+:root .meeting-module :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea),
+:root .login-layout input:not([type="checkbox"]) {
+  width: 100%; min-width: 0; max-width: 100%; min-height: var(--ui-control-h); margin: 0; padding: .5rem .75rem;
+  border: 1px solid var(--cc-line-strong); border-radius: 8px; background: var(--ui-input-bg); color: var(--cc-ink);
+  font: 400 var(--ui-text-base)/1.4 var(--cc-sans); box-shadow: inset 0 1px 1px rgba(13, 25, 35, .03);
+  transition: border-color var(--ui-fast), box-shadow var(--ui-fast), background-color var(--ui-fast);
+}
+:root .prm-ui :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), select, textarea):is(select), :root .meeting-module :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea):is(select) { appearance: none; padding-right: 2.1rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237d8a97' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .75rem center; background-size: 12px; cursor: pointer; }
+:root .prm-ui :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), select, textarea):is(textarea), :root .meeting-module :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea):is(textarea) { min-height: 5.5rem; padding: .65rem .8rem; line-height: 1.55; resize: vertical; }
+:root .prm-ui :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), select, textarea):hover,
+:root .meeting-module :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea):hover { border-color: var(--cc-ink-3); }
+:root .prm-ui :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), select, textarea):focus,
+:root .meeting-module :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea):focus,
+:root .login-layout input:not([type="checkbox"]):focus { border-color: var(--cc-focus); box-shadow: var(--ui-ring); outline: none; }
+:root .prm-ui :is(input, select, textarea):disabled { background: var(--cc-surface-2); color: var(--cc-ink-3); cursor: not-allowed; }
+:root .prm-ui :is(input, textarea)::placeholder, :root .meeting-module :is(input, textarea)::placeholder, :root .login-layout input::placeholder { color: var(--cc-ink-3); opacity: .8; }
+:root .prm-ui select option { background: var(--cc-surface); color: var(--cc-ink); }
+:root .prm-ui :is(input[type="checkbox"], input[type="radio"]), :root .meeting-module :is(input[type="checkbox"], input[type="radio"]) { width: 1rem; height: 1rem; margin: 0; accent-color: var(--cc-primary); cursor: pointer; }
+:root .prm-ui input[type="file"], :root .meeting-module input[type="file"] { width: 100%; max-width: 100%; min-height: var(--ui-control-h); padding: .3rem; border: 1px dashed var(--cc-line-strong); border-radius: 8px; background: var(--cc-surface-2); color: var(--cc-ink-3); font: 400 var(--ui-text-sm) var(--cc-sans); cursor: pointer; transition: border-color var(--ui-fast), background-color var(--ui-fast); }
+:root .prm-ui input[type="file"]:hover, :root .meeting-module input[type="file"]:hover { border-color: var(--cc-primary); background: var(--cc-primary-soft); }
+:root .prm-ui input[type="file"]::file-selector-button, :root .meeting-module input[type="file"]::file-selector-button { margin-right: .7rem; padding: .4rem .75rem; border: 1px solid var(--cc-line-strong); border-radius: 6px; background: var(--cc-surface); color: var(--cc-ink); font: 600 var(--ui-text-sm) var(--cc-sans); cursor: pointer; }
+:root .prm-ui label, :root .meeting-module label { color: var(--cc-ink-2); font-size: var(--ui-text-sm); font-weight: 600; }
+:root .prm-ui small { color: var(--cc-ink-3); }
+.prm-field { display: grid; gap: .4rem; min-width: 0; }
+.prm-field > label, .prm-field > span:first-child { color: var(--cc-ink-2); font-size: var(--ui-text-sm); font-weight: 600; }
+.prm-field > small { font-size: var(--ui-text-xs); line-height: 1.45; }
+.prm-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; align-items: end; }
+.prm-form .is-wide { grid-column: 1 / -1; }
+.prm-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.prm-check { display: inline-flex; align-items: flex-start; gap: .55rem; color: var(--cc-ink-2); font-size: var(--ui-text-md); font-weight: 500; line-height: 1.45; cursor: pointer; }
+.prm-check input { margin-top: .15rem !important; }
+
+/* ===== Tabelas ===== */
+:root .prm-ui .table-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface); box-shadow: none; }
+:root .prm-ui .table-scroll table, :root .prm-ui table.prm-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--ui-text-md); text-align: left; }
+:root .prm-ui .table-scroll :is(th, td) { padding: .7rem .85rem; border: 0; border-bottom: 1px solid var(--cc-line); color: var(--cc-ink); vertical-align: top; text-align: left; }
+:root .prm-ui .table-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--cc-surface-2); color: var(--cc-ink-3); font: 600 .62rem/1.3 var(--cc-mono); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+:root .prm-ui .table-scroll tbody tr { transition: background-color var(--ui-fast); }
+:root .prm-ui .table-scroll tbody tr:hover { background: color-mix(in srgb, var(--cc-primary) 4%, transparent); }
+:root .prm-ui .table-scroll tbody tr:last-child :is(th, td) { border-bottom: 0; }
+:root .prm-ui .table-scroll tbody:empty::after { content: attr(data-empty); display: block; padding: 1.5rem; color: var(--cc-ink-3); font-size: var(--ui-text-md); }
+:root .prm-ui .table-scroll td a, :root .prm-ui .table-scroll td button { margin: 0 .35rem .25rem 0; }
+:root .prm-ui .table-scroll td button { min-height: var(--ui-control-h-sm); padding: .25rem .6rem; font-size: var(--ui-text-sm); }
+:root .prm-ui .table-scroll details summary { color: var(--cc-primary); font-size: var(--ui-text-sm); }
+.prm-table-empty { display: grid; justify-items: center; gap: .35rem; padding: 2rem 1rem; text-align: center; color: var(--cc-ink-3); font-size: var(--ui-text-md); }
+.prm-table-empty svg { width: 22px; height: 22px; color: var(--cc-ink-3); }
+
+/* ===== Progresso ===== */
+:root .prm-ui progress { appearance: none; display: block; width: 100%; height: 6px; overflow: hidden; border: 0; border-radius: 999px; background: var(--cc-surface-3); color: var(--cc-primary); }
+:root .prm-ui progress::-webkit-progress-bar { border-radius: 999px; background: var(--cc-surface-3); }
+:root .prm-ui progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--cc-primary), color-mix(in srgb, var(--cc-primary) 70%, #13a38b)); transition: width .4s var(--cc-ease); }
+:root .prm-ui progress::-moz-progress-bar { border-radius: 999px; background: var(--cc-primary); }
+.prm-indeterminate { position: relative; height: 3px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--cc-primary) 14%, transparent); }
+.prm-indeterminate::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--cc-primary); transform-origin: left; animation: prm-indeterminate 1.35s var(--cc-ease) infinite; }
+
+/* ===== Mensagens, alertas e selos ===== */
+.prm-status { display: flex; align-items: flex-start; gap: .55rem; min-height: 0; margin: .9rem 0 0; color: var(--cc-ink-2); font-size: var(--ui-text-md); line-height: 1.5; overflow-wrap: anywhere; }
+.prm-status:empty { display: none; }
+.prm-status.is-boxed { padding: .7rem .85rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); background: var(--cc-surface-2); }
+:root .prm-ui :is(.price-warning, .alert-error), :root .login-layout .alert-error { border: 1px solid color-mix(in srgb, var(--cc-alert) 35%, transparent); border-radius: var(--cc-radius-md); background: var(--cc-alert-soft); color: var(--cc-alert); }
+:root .prm-ui .alert-success { border: 1px solid color-mix(in srgb, var(--cc-ok) 35%, transparent); border-radius: var(--cc-radius-md); background: var(--cc-ok-soft); color: var(--cc-ok); }
+:root .prm-ui .notice { display: flex; flex-wrap: wrap; gap: .25rem .6rem; align-items: baseline; margin: 0 0 1rem; padding: .8rem 1rem; border: 1px solid color-mix(in srgb, var(--cc-primary) 25%, var(--cc-line)); border-left: 3px solid var(--cc-primary); border-radius: var(--cc-radius-md); background: var(--cc-primary-soft); color: var(--cc-ink-2); font-size: var(--ui-text-md); line-height: 1.55; }
+:root .prm-ui .notice strong { color: var(--cc-ink); }
+.prm-pill { display: inline-flex; align-items: center; gap: .35rem; min-height: 1.45rem; padding: .15rem .55rem; border: 1px solid var(--cc-line); border-radius: 999px; background: var(--cc-surface-2); color: var(--cc-ink-2); font: 600 var(--ui-text-xs)/1.2 var(--cc-sans); white-space: nowrap; }
+.prm-pill::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .85; }
+.prm-pill.is-ok { border-color: color-mix(in srgb, var(--cc-ok) 30%, transparent); background: var(--cc-ok-soft); color: var(--cc-ok); }
+.prm-pill.is-warn { border-color: color-mix(in srgb, var(--cc-warn) 30%, transparent); background: var(--cc-warn-soft); color: var(--cc-warn); }
+.prm-pill.is-alert { border-color: color-mix(in srgb, var(--cc-alert) 30%, transparent); background: var(--cc-alert-soft); color: var(--cc-alert); }
+.prm-pill.is-info { border-color: color-mix(in srgb, var(--cc-primary) 30%, transparent); background: var(--cc-primary-soft); color: var(--cc-primary); }
+.prm-pill.is-busy::before { animation: prm-pulse 1.1s ease-in-out infinite; }
+.prm-pill.is-plain::before { display: none; }
+
+/* Skeleton */
+.prm-skeleton { display: block; border-radius: 6px; background: linear-gradient(90deg, var(--cc-surface-2) 0%, var(--cc-surface-3) 45%, var(--cc-surface-2) 90%); background-size: 200% 100%; animation: prm-shimmer 1.4s linear infinite; }
+
+/* Toasts (região criada pelo JS da página) */
+.prm-toasts { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 80; display: grid; gap: .5rem; width: min(24rem, calc(100vw - 2rem)); pointer-events: none; }
+.prm-toast { display: flex; align-items: flex-start; gap: .6rem; padding: .75rem .9rem; border: 1px solid var(--cc-line); border-left: 3px solid var(--cc-primary); border-radius: var(--cc-radius-md); background: var(--cc-surface); color: var(--cc-ink); box-shadow: var(--cc-shadow-lift); font-size: var(--ui-text-md); line-height: 1.45; pointer-events: auto; animation: prm-rise .25s var(--cc-ease) both; }
+.prm-toast svg { flex: none; width: 16px; height: 16px; margin-top: .1rem; }
+.prm-toast.is-success { border-left-color: var(--cc-ok); } .prm-toast.is-success svg { color: var(--cc-ok); }
+.prm-toast.is-warning { border-left-color: var(--cc-warn); } .prm-toast.is-warning svg { color: var(--cc-warn); }
+.prm-toast.is-leaving { opacity: 0; transform: translateY(4px); transition: opacity .2s, transform .2s; }
+
+/* ===== Detalhes e diálogos ===== */
+:root .prm-ui details > summary, :root .meeting-module details > summary { display: flex; align-items: center; gap: .45rem; width: fit-content; cursor: pointer; color: var(--cc-ink-2); font-size: var(--ui-text-md); font-weight: 600; list-style: none; }
+:root .prm-ui details > summary::-webkit-details-marker, :root .meeting-module details > summary::-webkit-details-marker { display: none; }
+:root .prm-ui details > summary::before, :root .meeting-module details > summary::before { content: ""; flex: none; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform var(--ui-fast) var(--cc-ease); }
+:root .prm-ui details[open] > summary::before, :root .meeting-module details[open] > summary::before { transform: rotate(45deg); }
+:root .prm-ui dialog, :root .meeting-module.mt-dialog { padding: 0; border: 1px solid var(--cc-line); border-radius: var(--cc-radius); background: var(--cc-surface); color: var(--cc-ink); box-shadow: 0 24px 64px rgba(0, 0, 0, .28); }
+:root .meeting-module.mt-dialog { padding: 1.25rem; }
+:root .prm-ui dialog[open], :root .meeting-module.mt-dialog[open] { animation: prm-rise .22s var(--cc-ease) both; }
+:root .prm-ui dialog::backdrop, :root .meeting-module.mt-dialog::backdrop { background: var(--ui-overlay); backdrop-filter: blur(3px); }
+
+/* ===== Página genérica (rotas ainda sem domínio) ===== */
+:root .prm-ui .empty-state-panel { display: grid; justify-items: center; gap: .5rem; max-width: 36rem; margin: 2rem auto; padding: 2.5rem 2rem; text-align: center; }
+:root .prm-ui .empty-state-panel .empty-icon { display: grid; place-items: center; width: 3rem; height: 3rem; border: 1px solid var(--cc-line); border-radius: 12px; background: var(--cc-surface-2); color: var(--cc-ink-3); font-size: 1.3rem; }
+:root .prm-ui .empty-state-panel h2 { margin: .5rem 0 0; }
+:root .prm-ui .empty-state-panel p { max-width: 46ch; margin: 0 0 .75rem; font-size: var(--ui-text-md); line-height: 1.6; }
+
+/* ===== Catálogo e comparações (herdam os componentes acima) ===== */
+:root .prm-ui .filters.panel > label { display: grid; gap: .4rem; }
+:root .prm-ui .filters fieldset { min-width: 0; margin: 0; padding: .75rem; border: 1px solid var(--cc-line); border-radius: var(--cc-radius-md); }
+:root .prm-ui .product-card, :root .prm-ui .comparison-card { border: 1px solid var(--cc-line); border-radius: var(--cc-radius); background: var(--cc-surface); box-shadow: var(--cc-shadow); transition: box-shadow var(--ui-base), transform var(--ui-base) var(--cc-ease); }
+:root .prm-ui .product-card:hover { box-shadow: var(--cc-shadow-lift); transform: translateY(-2px); }
+:root .prm-ui :is(.pagination, .gap-pagination) { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: 1rem; font-size: var(--ui-text-md); }
+:root .prm-ui :is(.pagination, .gap-pagination) a { display: inline-flex; align-items: center; min-height: var(--ui-control-h-sm); padding: .3rem .75rem; border: 1px solid var(--cc-line-strong); border-radius: 7px; color: var(--cc-ink); text-decoration: none; }
+:root .prm-ui :is(.pagination, .gap-pagination) a:hover { border-color: var(--cc-ink-3); background: var(--cc-surface-2); }
+
+/* ===== Login ===== */
+:root .login-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(22rem, 30rem); align-items: stretch; gap: clamp(1.5rem, 4vw, 4rem); min-height: 100dvh; padding: clamp(1rem, 3vw, 2.5rem); background: var(--cc-bg); color: var(--cc-ink); font-family: var(--cc-sans); }
+:root .login-visual { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 2rem; min-height: 32rem; padding: clamp(1.75rem, 4vw, 3.5rem); overflow: hidden; border: 1px solid #1c2a37; border-radius: 18px; background: radial-gradient(120% 90% at 100% 0%, rgba(53, 169, 214, .16), transparent 55%), radial-gradient(90% 80% at 0% 100%, rgba(125, 194, 64, .12), transparent 55%), linear-gradient(160deg, #0d1822, #070c12); color: #e7edf3; animation: prm-fade .5s ease both; }
+:root .login-visual::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px); background-size: 44px 44px; mask-image: radial-gradient(ellipse at 70% 30%, #000 20%, transparent 75%); pointer-events: none; }
+:root .login-visual::after { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, var(--b-portwell) 0 33.3%, var(--b-choice) 33.3% 66.6%, var(--b-sag) 66.6%); }
+:root .login-visual > * { position: relative; }
+:root .login-kicker { display: inline-block; color: #8fa3b6; font: 600 .62rem var(--cc-mono); letter-spacing: .16em; text-transform: uppercase; }
+:root .login-visual h2 { max-width: 13ch; margin: 1.1rem 0 1rem; color: #fff; font: 700 clamp(2rem, 3.6vw, 3.4rem)/1.05 var(--cc-display); letter-spacing: -.045em; }
+:root .login-visual p { max-width: 30rem; margin: 0; color: #a9b8c7; font-size: .95rem; line-height: 1.6; }
+:root .login-visual-index { color: #5f7488; font: 500 .62rem var(--cc-mono); letter-spacing: .14em; }
+:root .login-card { align-self: center; width: 100%; padding: clamp(1.75rem, 3.5vw, 2.75rem); border: 1px solid var(--cc-line); border-radius: 16px; background: var(--cc-surface); color: var(--cc-ink); box-shadow: var(--cc-shadow-lift); animation: prm-rise .45s .08s var(--cc-ease) both; }
+:root .login-card .brand-mark { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; margin: 0 0 1.75rem; border: 1px solid rgba(255, 255, 255, .14); border-radius: 10px; background: linear-gradient(140deg, #1f3247, #0c1620); color: #fff; font: 700 .7rem var(--cc-mono); letter-spacing: .04em; }
+:root .login-card .eyebrow { margin: 0; color: var(--cc-ink-3); font: 600 .6rem var(--cc-mono); letter-spacing: .14em; text-transform: uppercase; }
+:root .login-card h1 { margin: .35rem 0 .4rem; color: var(--cc-ink); font: 700 1.75rem/1.15 var(--cc-display); letter-spacing: -.035em; }
+:root .login-card .muted { margin: 0; color: var(--cc-ink-3); font-size: var(--ui-text-md); }
+:root .login-card .stack { display: grid; gap: .4rem; margin-top: 1.6rem; }
+:root .login-card .stack label { margin-top: .5rem; color: var(--cc-ink-2); font-size: var(--ui-text-sm); font-weight: 600; }
+:root .login-card .stack label:first-child { margin-top: 0; }
+:root .login-card .stack input { min-height: 2.75rem; margin: 0; }
+:root .login-card .stack button[type="submit"] { width: 100%; min-height: 2.75rem; margin-top: 1rem; font-size: var(--ui-text-base); }
+:root .login-card .alert-error { margin: 1rem 0 0; padding: .7rem .85rem; font-size: var(--ui-text-md); }
+:root .login-card .fine-print { margin: 1.5rem 0 0; padding-top: 1rem; border-top: 1px solid var(--cc-line); color: var(--cc-ink-3); font-size: var(--ui-text-sm); line-height: 1.55; }
+:root .login-layout .login-theme-toggle { min-height: var(--ui-control-h-sm); margin-top: .9rem; padding: .3rem .7rem; border-color: var(--cc-line); background: transparent; color: var(--cc-ink-3); font-size: var(--ui-text-sm); }
+:root .login-layout .login-theme-toggle:hover { border-color: var(--cc-ink-3); background: var(--cc-surface-2); color: var(--cc-ink); }
+
+/* Cabeçalho do shell nas páginas de trabalho: títulos longos não empurram as ações para fora. */
+:root .prm-ui > .cc-header .page-header-main { flex: 1 1 auto; min-width: 0; }
+:root .prm-ui > .cc-header h1 { overflow-wrap: anywhere; }
+@media (max-width: 1600px) {
+  :root .prm-ui > .cc-header .cc-header-action { width: 2.6rem; padding: 0; justify-content: center; }
+  :root .prm-ui > .cc-header .cc-header-action span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  :root .prm-ui > .cc-header .cc-header-action svg { width: 18px; height: 18px; }
+}
+@media (max-width: 1440px) { :root .prm-ui > .cc-header .brand-trio-header { display: none; } }
+
+/* ===== Responsivo ===== */
+@media (max-width: 1100px) { .prm-grid-3 { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 860px) {
+  :root .login-layout { grid-template-columns: minmax(0, 1fr); align-content: start; gap: 1rem; }
+  :root .login-visual { min-height: 0; gap: 1.25rem; padding: 1.5rem; }
+  :root .login-visual h2 { margin: .6rem 0; font-size: 1.85rem; }
+  :root .login-visual-index { display: none; }
+}
+@media (max-width: 600px) {
+  .prm-page-head { align-items: flex-start; }
+  .prm-page-actions, .prm-form-actions { width: 100%; }
+  .prm-page-actions > *, .prm-form-actions > * { flex: 1 1 auto; }
+  .prm-toasts { right: 1rem; bottom: 1rem; }
+  :root .prm-ui .panel { padding: 1rem; border-radius: var(--cc-radius-md); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .prm-ui *, :root .prm-ui > *, :root .login-layout *, .prm-toast { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+@media (forced-colors: active) {
+  .prm-pill, .prm-toast, :root .prm-ui .panel { border: 1px solid CanvasText; }
+}

@@ -1,5 +1,178 @@
 # Status do projeto
 
+## Docker, GitHub e CI — 22/10/2026
+
+Infraestrutura isolada na porta 8001, sem migração do banco/filas Windows. Build, pytest Linux, quatro workers e persistência verificados; proteção da main depende de plano GitHub compatível. Resultados e limites em [INFRA_STATUS.md](INFRA_STATUS.md); operação em [DOCKER.md](DOCKER.md). Alterações funcionais anteriores preservadas fora dos commits de infraestrutura.
+
+## Cadastro via API: escopo exclusivo de arquivos — 21/10/2026
+
+- **Escopo corrigido:** o módulo só adiciona imagens e documentos WCDA a produtos existentes. Nome, descrições, categorias, atributos, SKU, preço, estoque, status e demais metadados continuam no fluxo CSV. O mapeamento comercial `prepare_content` foi removido do plano de publicação via API; os serviços de descrição, datasheet e CSV (`registration_description`, `registration_woo_csv` etc.) não foram alterados. Versões anteriores copiadas no scratchpad.
+- Reaproveitados do trabalho anterior (Codex + etapa de hoje): CSV opcional, SKU pelo nome da pasta/SKU.zip com zeros preservados, ZIP da Geração em Lote, validação de manifesto (SKU/empresa/caminho/hash, arquivo não declarado bloqueia), fila, lease, snapshot privado, isolamento por organização/dono, interface de Dry Run.
+- Plano de arquivos (`file_plan`): imagens `upload`/`already_linked` (identidade `prm-<sha256>` no URL)/`duplicate_in_package`/`conflict` (mesmo nome sem identidade, bloqueia); principal atual preservada, troca só com `replace_main` aprovado e a antiga permanece na galeria. Documentos: `add`/`already_linked`/`conflict` (label/arquivo já no WCDA); formatos sem upload homologado (.step/.dwg/.rar…) listados em `ignored`. Modos WCDA: `append`, `first_inclusion` (campo existente e vazio, rollback para `[]`) e `blocked` (ausente, duplicado ou não-lista).
+- Executor de staging (`StagingPublisher.execute`): exige aprovação do `dry_run_sha256` exato, Dry Run sem bloqueios e política (`PRM_PUBLISH_*`; as três lojas atuais seguem bloqueadas). Antes de enviar, busca a mídia na biblioteca pela identidade de hash, depois faz upload e um único PUT restrito a `images` + `_wcda_arquivos` (entrada `label/url/filename/filesize` com URL e nome reais retornados pelo WordPress). Por fim relê o produto e confere imagens, documentos e hash de todos os campos comerciais e outros metadados. Falha parcial preserva uploads no journal; recusa explícita permite reenvio; resposta perdida só é aceita pela identidade na biblioteca ou por releitura idêntica. Mudança concorrente antes do PUT aborta sem gravar. Plano de recuperação no journal restaura só as duas chaves e nunca exclui mídia.
+- Aprovação individual (`skus`) ou em lote, opt-in `replace_main`, tabela `audit` (preview, aprovação, fila, uploads, PUT, verificação, erro) exibida por item. Confirmação sem aprovação é recusada.
+- **Dry Run real Choice 119002000072** (somente GET, 2 requisições, fila isolada): produto 16321, estado `review`. Imagem: `119002000072_variante.jpg` → principal (produto sem imagens). WCDA meta 194572 vazio → primeira inclusão de Datasheet (90.8 KB), Datasheet do fabricante (224.2 KB) e Desenho 3D (2.84 MB). Nenhum campo comercial no plano. Gravação bloqueada: `PRM_PUBLISH_ENABLED=false` e host de produção.
+- Verificação: **448 testes aprovados**, 3 avisos conhecidos; 37 testes no novo escopo, com loja simulada Woo+WP (mocks), sem rede. Edge headless 1440/390 px sem overflow/erros. Nenhum POST/PUT/DELETE real, upload ou IA paga. Pendente: staging autorizado, verificação de reconhecimento do plugin WCDA no frontend e autorização explícita para produção.
+
+## Digitalização em Lote sem CSV — 21/10/2026
+
+- Adaptados o parser, upload, fila, worker, ZIP de saída e interface existentes; sem novo pipeline. Identificação por pasta com empresa selecionada, SKU textual exato (zeros preservados), raiz opcional e CSV complementar por correspondência exata. Modo CSV anterior mantido e padrão da API para clientes antigos.
+- Prévia de produtos e inventário antes de iniciar, validação de nomes/duplicidades/pastas vazias/extensões/arquivos. PDFs e imagens entram no gerador individual já utilizado pelos lotes; documentos auxiliares 3D/compactados preservados, sem análise ou extração. Downloads incluem análise JSON e fontes por SKU além dos resultados/relatórios anteriores.
+- Sem acesso à unidade Z:, leitura de pasta de rede, IA paga, alteração nos bancos de catálogo ou chamadas às lojas nesta etapa. Publicação WooCommerce continua bloqueada; não foi habilitada opção de escrita. Serviço WCDA e fallback Playwright preservados. A homologação Choice SKU 119002000072 continua aguardando arquivos reais gerados e Dry Run específico.
+- Operação e limitações em [DATASHEETS_EM_LOTE.md](DATASHEETS_EM_LOTE.md). Reiniciar servidor e worker de lotes para carregar o backend atualizado; nenhum worker pago foi iniciado automaticamente.
+- Verificação: **411 testes aprovados**, 3 avisos conhecidos AnyIO/openpyxl. Inclui 63 testes de lote, geração real de PDF nas três marcas com IA simulada nos dois modos, identificação/arquivos/CSV complementar/isolamento. Navegador headless: 1440/768/390/320 px, claro/escuro, sem overflow nem erros de JavaScript; formulário e inventário testados com mocks.
+
+## `_wcda_arquivos`: contrato candidato e Dry Run — 21/10/2026
+
+- Nova auditoria autenticada somente GET: Choice produto 6260/meta 92930 (1 documento), SAG 5667/meta 103183 (4), Portwell 5546/meta 88345 (1), todos HTTP 200. Nas três lojas: lista de objetos `label/url/filename/filesize`. Portwell preserva URL legada e tamanho vazio; Choice tem SKU provisório `codmaterialaqui`, não selecionado para teste.
+- Implementado serviço puro de adição preservando lista/ordem/campos originais, deduplicação conservadora, payload apenas do metadado escolhido, prévia sanitizada com hashes, releitura e plano de rollback. Simulador GET/PUT/GET aceita exclusivamente MockTransport; não há liberação de escrita em produção por variável de ambiente.
+- CLI `scripts/preview_wcda_update.py` consulta por SKU exato ou ID e apresenta o corpo proposto. Executada realmente para Portwell 5546: `no_op`, nenhuma adição, payload exato sem redactions. Falta documento novo real e autorização específica de loja/SKU para a homologação.
+- A orientação da SPLComunic não comprova gravação nem reconhecimento pelo plugin. Não houve PUT, upload, alteração no banco PRM, remoção do Playwright ou mudança de credenciais nesta etapa. Execução real, journal/backup pré-escrita e verificação pública do plugin seguem pendentes; cadastro em lote mantém documentos bloqueados.
+- Estrutura, payload real de inspeção, limites, procedimento controlado, rollback e perguntas à SPL: [WCDA_HOMOLOGACAO.md](WCDA_HOMOLOGACAO.md).
+- Validação final: **384 testes aprovados**, incluindo 36 do novo serviço; 3 avisos conhecidos (AnyIO/openpyxl). `git diff --check` sem erros de whitespace. Os PUTs dos testes usam mocks, sem acesso às lojas.
+
+## Cards reais, atribuição e alertas — 21/10/2026
+
+- Ativado o módulo persistente no `prm_mvp`: revisão `20261021_0011` (tabelas de reuniões/cards/alertas + merge). Contagens de organizações, usuários e ofertas verificadas antes/depois e preservadas. Nenhum dado copiado do staging, usuário fictício ou card de teste criado no oficial: zero cards/alertas na ativação.
+- Atribuição individual diretamente em cada card, além da atribuição em lote existente. Desenvolvedor/gestor seleciona qualquer usuário ativo da mesma organização, com nome e nível (desenvolvedor, gestor, vendedor). Backend mantém CSRF, escopo organizacional, bloqueio de usuário inativo, controle de versão e auditoria. Vendedor continua sem autorização para atribuir a outra pessoa.
+- Cards publicados abertos geram alerta de atribuição e, conforme o prazo, proximidade (até 7 dias), hoje ou atraso. Troca de responsável/prazo resolve avisos anteriores; conclusão/cancelamento/inativação encerra avisos; reabertura reativa os elegíveis sem duplicação. Rascunhos e simulações não notificam. Alertas exclusivos do destinatário em `/alertas`, sem e-mail ou WhatsApp.
+- Painel de demonstração removido das páginas operacionais (Cards, Planner e Visão geral); arquivos e endpoint restrito do exemplo preservados, sem exclusão. `details.simulation` excluído das consultas operacionais e da geração/listagem de alertas, inclusive para administradores.
+- Cards padronizados em 32rem, grade responsiva, ações alinhadas ao rodapé, títulos extensos abreviados com acesso completo pelo detalhe; impressão sem altura fixa. Identidade visual preservada.
+- Servidor local recarregado na porta 8000; worker exclusivo `python -m scripts.meeting_worker --stage alerts` iniciado e trava advisory confirmada. Ciclo de 60s, sem chamadas IA/lojas. Processo de alertas separado: após reiniciar o computador, iniciar novamente conforme `docs/CARDS_E_ALERTAS.md`.
+- Validação: **348 testes aprovados, 3 avisos**; `node --check` aprovado. Edge isolado com mocks: 24 atribuições, 1440/768/390/320 px, claro/escuro, seis cards sempre com 512px de altura, sem overflow horizontal e sem erros JS. Não houve atribuição fictícia no banco oficial para testar notificações.
+- Pendência anterior de migração de reuniões resolvida nesta etapa. A extração IA de reuniões continua sendo uma etapa separada, com consentimento e worker próprios; nenhuma análise foi disparada automaticamente. Guia: `docs/CARDS_E_ALERTAS.md`.
+
+## Níveis de acesso — 21/10/2026
+
+- Implementados `desenvolvedor`, `gestor` (mesmas permissões nesta etapa) e `vendedor` (catálogos/características, reuniões/cards, planner e alertas). Navegação filtrada, redirecionamento inicial do vendedor para catálogos, guard de módulos no backend e procedência de importação restrita. Digitalização, lotes, integração WooCommerce, importações e gestão negados ao vendedor também por acesso direto.
+- Três formulários administrativos em `/contas/criar/desenvolvedor`, `/contas/criar/gestor`, `/contas/criar/vendedor`, acessíveis em Gestão. Exigem gestor/desenvolvedor, sessão e CSRF; sem autoinscrição pública privilegiada. Organização herdada do administrador, senhas Argon2, e-mails únicos. Nenhum usuário de teste criado no banco oficial.
+- Auditoria `prm_mvp`: somente duas contas ativas e uma organização. IDs `47074f89-6177-416a-a766-34fc6c6ae7d3` e `eb7d404d-08ce-466a-a718-7f536c949db8` promovidos explicitamente de gestor para desenvolvedor; senhas, IDs, organizações e sessões preservados. Constraint e promoção na mesma transação.
+- Banco antes em `20261009_0008`, agora em `20261021_0010`. Migração de reuniões `20261016_0009` não executada; merge `20261021_0011` prepara um único head futuro. Não executar upgrade genérico sem considerar essa pendência. Script de auditoria/aplicação: `scripts/configure_access_levels.py`.
+- Servidor antigo em 8000 confirmado com 404 nas novas rotas e reiniciado com autorização do usuário. Novo servidor respondeu 200 no login e 303 para login nas três páginas sem sessão. Não houve publicação externa, alteração nas lojas ou remoção do Playwright. `.env` não foi modificado nesta etapa.
+- Estado anterior preservado: arquivos não commitados de front-end, reuniões, digitalização e APIs. Integrações das lojas já autenticadas na etapa anterior, mas escrita de documentos `_wcda_arquivos` segue sem homologação; a investigação REST/interpretação pendente não é considerada cadastro completo. Autorização de níveis não libera escrita em produção.
+- Guia: `docs/NIVEIS_DE_ACESSO.md`. Suíte: 342 testes aprovados, 3 avisos (depreciação do portal AnyIO e estilos de planilhas). Validações de criação e permissões em banco temporário; formulários reais exigem login do operador.
+
+## Front-end — reformulação das telas de trabalho, 20/10/2026
+
+- Nova camada `app/static/css/prm-ui.css` (tokens `--cc-*`, claro/escuro): botões, campos, selects, uploads, tabelas, progresso, alertas, selos, skeleton, toasts, diálogos e login. Aplicada via `.prm-ui` no `<main>` de todas as páginas fora do dashboard e em `.meeting-module`. O dashboard (Visão geral/Comparador/Importações) não foi alterado.
+- Digitalização reescrita em 8 etapas com stepper fixo, estado por etapa e progresso no painel de contexto: produto, imagens, datasheet do fornecedor, especificações extraídas, análise com Claude, revisão, geração e pacote, mais cadastro automatizado. Novos cartões de fotos (principal, mover, girar, remover, ampliar), arrastar e soltar também para PDF/3D, editor de especificações com estados de extração, painel de progresso com tempo decorrido na análise e na geração, revisão estruturada (modelo, categoria, subtítulo, introdução, destaques, características, especificações, dimensões, tabelas, aplicações, uso das imagens, conferência, alertas e dados não encontrados) com aba do JSON editável, e cartão de sucesso do datasheet.
+- Regras da Digitalização e do login removidas de `app.css`, `design-system.css`, `prm-v2.css`, `prm-dark.css` e `workspace.css`; `digitalizacao.css` é agora a única fonte e carrega depois de `prm-ui.css` (bloco `page_css` de `base.html`).
+- Geração em Lote, Integrações WooCommerce e Cadastro via API redesenhadas no mesmo sistema; status do lote em selos.
+- Preservados: todos os IDs, `name` e `data-*` dos templates, endpoints, campos de FormData e cabeçalhos (comparação automática antes/depois). JavaScript alterado apenas na apresentação (`digitalizacao.js`, `datasheet-batches.js`).
+- A análise da página usa Claude (o `app/services/qwen.py` não é importado). A extração do PDF é local e sem tradução; a interface não exibe "tradução concluída". As etapas mostradas durante a análise/geração são indicativas; o tempo decorrido é real.
+- Verificação: 314 testes; inspeção no Edge headless em 1920/1440/1366/1280/1024/768/390 px, temas claro e escuro, sem rolagem horizontal nem erros de JS; fluxo completo da Digitalização exercitado com APIs interceptadas no navegador (dados fictícios, nenhuma chamada real). Catálogo legado conferido com dados fictícios renderizados pelo template real.
+
+## Organização das integrações — configuração local, 20/10/2026
+
+- Consulta somente leitura ao banco `prm_mvp`: tabela `organizations`, modelo `Organization` em `app/models/identity.py`, contém apenas `Organização PRM`, ID `8cbaed7f-d92d-463c-8045-10bc86b6b160`.
+- Os dois usuários ativos são gestores e pertencem a essa organização; as três sessões vigentes também pertencem a ela. Sem acesso ao cookie do navegador não se identifica qual dessas sessões é a do operador, mas não há ambiguidade de organização.
+- Configurado apenas `PRM_STORE_ORGANIZATION_ID` no `.env` local, ignorado pelo Git. Validado carregamento e autorização para ambos os usuários, sem revelar credenciais.
+- Choice, SAG e Portwell compartilham o vínculo de autorização da organização, com configurações e credenciais independentes por loja. Nenhuma organização ou Company criada; o cadastro de Company da SAG permanece uma questão separada.
+- Nenhuma chamada às lojas, escrita no banco, upload ou publicação realizada nesta etapa. Configuração não libera escrita em produção nem substitui homologação.
+
+## Cadastro via API — staging e contrato de documentos pendente, 20/10/2026
+
+- Implementados intake CSV/XLSX/XLSM de SKUs + ZIP de pastas, prévia remota por SKU exato, inventário de arquivos/quantidades existentes, confirmação, fila persistente SQLite, worker em subprocesso, histórico e relatório CSV. Tela `/digitalizacao/cadastro-api`, link em Digitalização. Sem frontend Flask ou automação de navegador para este fluxo.
+- Publicador de imagens implementado/testado com mocks: POST mídia, PUT restrito a imagens, principal existente preservada, journal por hash/origem/organização/SKU, releitura, detecção de alteração concorrente, tratamento de resposta incerta e reprocessamento sem retry cego. Produção hard-blocked nas três URLs atuais; execução real requer OUTRA origem de staging e SKU único explicitamente configurados.
+- Documentos identificados com labels do legado; PDFs gerados pelo PRM podem entrar no ZIP sem regeração. Qualquer item com documentos fica bloqueado antes de upload enquanto falta contrato PHP de `_wcda_arquivos`. Não há alegação de cadastro completo de documentos.
+- Auditoria GET de até cinco produtos/loja: entradas de Choice/SAG têm `label`, `url`, `filename`, `filesize` (strings); sem ID de mídia visível. Amostra Portwell: cinco listas vazias. Plugin/snippet não encontrado no repositório; escrita não testada, armazenamento interno não confirmado.
+- Auditoria SELECT do banco: organização única `Organização PRM`, UUID `8cbaed7f-d92d-463c-8045-10bc86b6b160`, com Choice/Portwell/Eco. SAG não cadastrada como Company; nenhum vínculo criado automaticamente. UUID documentado para configuração pelo operador, `.env` preservado.
+- Testes: **314 aprovados, 3 avisos** na suíte completa final; `node --check` aprovado e rotas confirmadas no OpenAPI. Uploads/atualizações de teste exclusivamente simulados. A rodada anterior revelou contaminação de variável de ambiente em teste legado: pytest exibiu Consumer Key (não Consumer Secret); teste isolado e comparação redigida para não exibir valores. Nenhuma credencial copiada para documentação ou código.
+- Regras de nomes/pastas/labels reaproveitadas, com bloqueios explícitos para ambiguidade e formatos não homologados. Deduplicação cobre envios registrados pelo PRM; acervo anterior com nomes diferentes exige inventário/hashes confiáveis. Sem garantia de CAS atômico no WooCommerce; homologação deve impedir edições concorrentes.
+- Nenhum upload/PUT real, alteração no banco oficial, migração, deploy, remoção Playwright, commit ou push. Worker não deixado executando. Documentado em `docs/CADASTRO_API_STAGING.md`; README/API/CHANGELOG/.env.example atualizados.
+- Pendências para concluir: obter PHP do plugin, confirmar organização da SAG, fornecer URL/SKU staging, homologar tipos/tamanhos e persistência de documentos, resolver deduplicação de acervo antigo e concorrência no servidor, testar UI em navegador e fluxo staging real. Não desativar Playwright antes desses gates.
+
+## Integrações REST — senhas corrigidas, 20/10/2026 às 13:57 (São Paulo)
+
+- Reexecutado `scripts/check_store_connections.py` com credenciais atualizadas: WooCommerce e WordPress autenticados com HTTP 200 em Choice, SAG e Portwell (6/6). WooCommerce com controle anônimo recusado; WordPress com identidade válida e leitura de mídia em contexto edit permitida nas três.
+- Todas as contas WordPress declararam `read`, `upload_files`, `edit_products` e `manage_woocommerce`. Isso não comprova escrita pela chave WooCommerce nem upload efetivo/formatos MIME permitidos.
+- `_wcda_arquivos` novamente encontrado como lista na amostra de um produto por loja. Contrato de atualização ainda não homologado.
+- Nenhum produto, arquivo ou configuração das lojas foi modificado. Playwright preservado. `.env` não foi alterado pelo agente; segredos não foram exibidos.
+- `PRM_STORE_ORGANIZATION_ID` continua vazio: falta vincular a organização para usar a interface. Execução CLI não grava o histórico da tela. Próxima etapa de escrita/upload depende de autorização e homologação específica.
+
+## Integrações REST — teste autenticado real em 20/10/2026
+
+- Após preenchimento do `.env` pelo usuário, executado `scripts/check_store_connections.py`: WooCommerce Choice, SAG e Portwell autenticados, HTTP 200 no GET protegido de produtos e controle anônimo recusado. Somente leitura confirmada; escrita não testada.
+- WordPress das três lojas retornou HTTP 401. Diagnóstico complementar GET-only `scripts/check_wordpress_auth.py` confirmou código `incorrect_password` nas três. Necessário conferir usuário e senha de aplicativo de cada site; nenhum segredo foi impresso ou alterado.
+- `_wcda_arquivos` apareceu como lista em `meta_data` na amostra de um produto por loja. Valores não expostos. Presença em leitura não comprova schema de gravação, armazenamento interno ou suporte a atualização.
+- `PRM_STORE_ORGANIZATION_ID` ainda não configurado; a interface permanece bloqueada de forma segura até vincular a organização autorizada. Testes CLI não gravam histórico da interface.
+- Homologação parcial: WooCommerce 3/3, WordPress 0/3. Nenhum upload, escrita de produto, exclusão ou instalação nas lojas. Próximo passo: corrigir senhas de aplicativo e repetir testes; manter Playwright.
+
+## Geração de Datasheets em Lote — 20/10/2026
+
+- Especificação `ae62b017-36f1-496e-b5fb-ded7f525799c/Pasted text.txt` lida integralmente. Implementados upload ZIP/CSV, pré-validação por produto, vínculo exato de PDFs, fila persistente, worker separado, progresso, histórico privado, downloads individuais/ZIP e reprocessamento de falhas. Página `/digitalizacao/lotes`, acessível pela Digitalização.
+- Reutilizados serviço Claude, prompts, validações e motores PDF atuais. Geração individual, `.env`, banco oficial/staging e catálogos não foram modificados. Não há integração/publicação automática no WooCommerce.
+- Fila SQLite local em `data/datasheet_batches`, adequada a um servidor; não depende de migração das reuniões. Transações de reivindicação, limite global de concorrência, subprocesso por produto, watchdog/timeout, lease e rejeição de resultados atrasados. Interrupções incertas exigem reprocessamento explícito; 429/5xx têm backoff limitado. Retry pode repetir custos, conforme guia.
+- Segurança: validação do nome original do ZIP (incluindo normalização Windows), sem `extractall`, bloqueio de traversal/links/extensões, limites de descompressão, PDF e CSV, CSRF e escopo organização/proprietário. Retenção explícita com simulação, preservando lotes ativos e histórico.
+- Verificação: suíte completa **265 testes aprovados** (3 avisos de dependências/planilhas); após adicionar contrato da nova página e reforçar testes de acesso/início, **60 testes direcionados aprovados** (1 aviso de depreciação). Geração pelo motor real das três marcas com IA simulada. JS validado por `node --check`.
+- Smoke visual/browser isolado: **8 combinações aprovadas**, claro/escuro em 1440/768/390/320 px; tabela, histórico, progresso, reprocessamento habilitado e escape de conteúdo verificados, sem overflow global/erros JS. Evidências locais: `data/exports/batch-visual-1792500553326`. Nenhum dado de teste foi publicado no PRM.
+- Operação: reiniciar web e executar `.\.venv\Scripts\python.exe scripts/datasheet_batch_worker.py` em terminal separado. Worker não foi deixado em execução. Limites/configuração e arquivos alterados em `docs/DATASHEETS_EM_LOTE.md`; `.env.example`, README, API e changelog atualizados.
+- Homologação pendente: lote real com API paga, carga representativa e configuração de serviço Windows caso desejada. Nenhuma chamada paga, implantação em produção, commit ou push realizados. Não há garantia de cobrança exatamente uma vez em falhas de rede; conferir antes de reprocessar.
+
+## Digitalização: retorno ao fluxo completo com Sonnet — 19/10/2026
+
+- A pedido do usuário, `.env` local configurado com `DATASHEET_MODEL=claude-sonnet-5-5`. Autenticação e presença exata do modelo confirmadas pela listagem da API, sem geração paga.
+- Revertidos o uso obrigatório da ferramenta e o bloco de concisão adicionados na última tentativa com Haiku. Sonnet usa o prompt editorial completo existente, `tool_choice=auto`, esforço médio, limite de saída de 32.000 tokens e até duas revisões visuais. Isso permite até três chamadas de geração; não representa previsão de consumo.
+- Preservados validação de especificações, rejeição de respostas truncadas, diagnóstico por etapa e regeneração após correções. Sem alterações no banco ou layout. 13 testes direcionados aprovados com clientes simulados/motor local; geração real ainda precisa ser testada após reiniciar o servidor.
+
+## Digitalização: resposta Haiku truncada — 19/10/2026
+
+- Haiku passa a usar `tool_choice` obrigatório para `entregar_datasheet`, evitando texto livre antes do JSON. Prompt 2026-10-19.2 pede resposta concisa sem tabelas duplicadas ou transcrição de catálogos, preservando especificações relevantes.
+- Mantidos 16.000 tokens de saída, modelo configurado e uma revisão visual; sem retry de truncamento ou aumento automático de custo. Erro distingue análise inicial de revisão visual e rejeita JSON parcial.
+- 12 testes direcionados aprovados (cliente simulado e motor local), incluindo truncamento nas duas etapas sem renderizar a resposta parcial. Nenhuma chamada paga ou alteração no banco/.env. Necessário reiniciar o servidor e validar com o anexo real; correção reduz o risco, não garante que qualquer catálogo caiba no limite.
+
+## CLI extrair_e_identificar — 19/10/2026
+
+- Implementada sobre o motor atual, conforme autorização do usuário: extração PyMuPDF+smask, filtros, trim, pHash mantendo maior resolução, inventário F1/F2, desenho vetorial heurístico, seleção Haiku sem coordenadas, validação JSON Schema, até duas correções e geração local com até duas tentativas de paginação.
+- CLI separada, sem trocar a integração web, banco ou `.env`. Pastas únicas em `trabalho/` ignoradas no Git. `--somente-extrair` disponível. Sem chamadas pagas nesta implementação. Exemplo estrutural sintético, com `--exemplo` opcional; ZIP de referência não fornecido.
+- 14 testes direcionados aprovados; extração real local inspecionada. União vetorial ampla detectada na auditoria foi restringida para evitar página inteira como foto. Revisão humana obrigatória; não há remoção de logos OCR/inpaint neste escopo. Guia: [EXTRAIR_E_IDENTIFICAR.md](EXTRAIR_E_IDENTIFICAR.md).
+
+## Haiku: prompt e contrato de especificações — 19/10/2026
+
+- Prompt compacto específico para modelos com `haiku` no ID, priorizando extração das tabelas técnicas antes do texto comercial. Preservadas regras de fontes, configurações, marcas, imagens e pendências.
+- Schema por requisição exige `especificacoes` no completo, fixa nome/nível solicitados e define seção `{secao}` ou linha `{chave, valor}`. Validador rejeita tipos/linhas inválidas; não insere especificações fictícias nem lista vazia como correção automática.
+- Haiku: limite de saída 16.000 tokens, sem `output_config.effort`, uma revisão visual por padrão (geração + revisão); Opus mantém 32.000 e duas revisões. Sem fallback automático para Opus ou retry adicional de correção. Limite de tokens não é previsão de gasto.
+- Corrigido retorno de revisão com `revisao_ok=true` e conteúdo alterado: PDF é regenerado com as correções, evitando entregar a versão anterior. **10 testes direcionados aprovados**, sem chamadas pagas. `.env`, banco e identidade dos PDFs preservados. Reiniciar servidor para carregar alterações; geração real com o PDF do usuário ainda não validada.
+
+## Diretrizes editoriais para datasheets — 19/10/2026
+
+- Texto do operador em `319c57d8-b9f5-4f6b-a256-30acb9da0bc6/Pasted text.txt` lido integralmente e adaptado ao prompt `app/services/datasheet_prompt.py`, versão `2026-10-19.1`. Reforçados inventário/conferência, identidade técnica, configuração ausente como opções, organização/legendas das vistas, conectores por painel, dados instalados versus capacidade e revisão de todas as prévias.
+- Mantido contrato `entregar_datasheet` e motor local; instruções de shell/pastas do texto não são executadas pelo modelo. Etiquetas seguem a empresa selecionada (sem marca Portwell aplicada a Choice/SAG). Sem inventar certificações ou dados elétricos. Etiquetas em perspectiva/texturas não suportadas devem ser pendências, não sucesso alegado.
+- Schema comunicado ao Claude passa a declarar tags de até 48 caracteres, features de até 95 e coordenadas entre 0 e 1. Isso é contrato de geração, não garantia de validação geométrica completa pelo motor.
+- **4 testes direcionados aprovados**, incluindo cliente Claude simulado e geração de datasheets. Nenhuma chamada real, alteração do `.env`, modelo configurado, banco ou layout dos PDFs. ID `claude-opus-5-5` não foi validado contra a API; teste mock não comprova disponibilidade. Servidor precisa recarregar o módulo Python para usar o prompt novo.
+
+## Visual da página Cards — 16/10/2026
+
+- Alteração exclusivamente de apresentação em `/cards`, inspirada no Industrial Command Center: cabeçalho, contexto da reunião, quatro indicadores derivados dos mesmos sete cards, destaque da data prevista e quadro responsivo com evidências expansíveis. Cores, tipografia, superfícies e temas reutilizam tokens existentes.
+- CSS dedicado `cards-page.css` carregado somente em Cards; variantes do template/JS condicionadas a `cards-showcase`. Visão geral, Planner e demais páginas mantêm apresentação anterior. Dados, endpoints, permissões, ações, publicação, mock e banco inalterados.
+- **38 testes direcionados aprovados**; cinco novos testes verificam isolamento visual e preservação de hooks. Navegador local: oito combinações (1440/768/390/320 px, claro/escuro), sete cards, contagens 7/6/1/7, detalhes expansíveis, sem overflow horizontal nem exceções JS. Capturas desktop escuro e mobile claro inspecionadas.
+- Evidências privadas em `data/exports/cards-visual-20261016/`; script `scripts/cards_visual_smoke.cjs` usa HTML renderizado e respostas mock, sem sessão real ou escrita no banco. Nenhum reinício necessário: mudanças em templates/assets.
+
+## Mock READ AI publicado no dashboard — 16/10/2026
+
+- Validação final: **210 testes aprovados**, três avisos preexistentes, em 50,01 s. Sintaxe JavaScript e diff aprovados.
+- A pedido do usuário, publicado painel **Mock — transcrição READ AI** na Visão geral, Cards e Planner. Sete cards determinísticos com citações/checklists/pendências; seis ações e um evento em 24/09/2026, reunião-base 16/09/2026. Horário 15h candidato, responsáveis PRM pendentes. Não é resposta de API real nem publicação operacional de tarefas.
+- Fonte exata validada por SHA-256; 111 segmentos. Artefato privado `data/meetings/read-ai-dashboard-demo.json`, ignorado pelo Git, autenticado por `GET /api/v1/meeting-demo`, restrito a gestores da organização configurada. Sem transcrição integral exposta. Publicador idempotente `scripts.publish_meeting_demo --transcript <TXT>`; repetição preserva sete cards.
+- **Zero chamadas de IA, zero escritas no banco, zero alertas/convites**. Banco oficial sem migração nova; controles operacionais ainda não migrados ficam ocultos nas páginas com o mock para não atrapalhar a demonstração.
+- Servidor local PRM da pasta oficial reiniciado na porta 8000, mantendo host 127.0.0.1; rota nova confirmada no OpenAPI. Nenhum push/deploy remoto. Testes do módulo: **28 aprovados**, incluindo isolamento organizacional, autorização e contrato real da fixture; JS e diff sem erros.
+
+## Continuação: revisão em lote e comentários — 16/10/2026
+
+- Verificação final: **208 testes aprovados**, três avisos preexistentes, em 50,20 s; JavaScript e `git diff --check` sem erros. Inspeção somente leitura confirma oficial `prm_mvp` em `20261009_0008`, sem tabelas do módulo novo; modelo de reuniões ainda não configurado.
+- Estado anterior confirmado: **206 testes aprovados**, três avisos preexistentes; código local ainda sem commit/deploy. Nenhuma alteração no oficial nesta continuação.
+- Cards agora têm aprovação, rejeição e devolução à revisão em lote, com trava ordenada, versão esperada, limite de 100 IDs distintos e rollback integral em caso de erro/permissão/conflito.
+- Comentários internos independentes da edição, permitidos ao curador/gestor ou executor autorizado; idempotência por UUID/autor/card, sem mudar status/aprovação/prazo. Campos não salvos permanecem intactos ao comentar. Conteúdo mostrado como texto, inclusive marcação HTML.
+- **26 testes do módulo aprovados**, incluindo atomicidade, versão antiga, retry de comentário, isolamento e ausência de efeitos na atividade. Sintaxe JavaScript aprovada. Sem migração nova, publicação de tarefas ou notificações externas.
+- Próximos itens: homologação visual, mesclar/dividir, retenção, contrato Claude real e demais pendências em [REUNIOES_PLANNER.md](REUNIOES_PLANNER.md). Responsáveis do exemplo permanecem pendentes.
+
+## Reuniões → Cards → Alertas → Planner — 16/10/2026 (staging)
+
+- Implementação inicial das páginas, API autenticada, revisões/evidências, schema 2.0, jobs por etapa, atribuição individual/em lote, revisão/publicação, exportação e calendário mensal adicional na dashboard. Estilos existentes preservados; homologação visual ainda pendente.
+- Migração aditiva `20261016_0009` aplicada **somente em `prm_pipeline_staging`**. Oficial `prm_mvp`, catálogos, `.env`, usuários e serviços atuais preservados; sem push/deploy/reinício.
+- READ AI: 111 segmentos, sete propostas **simuladas** em rascunho. Datas confirmadas: 16/09/2026 e 24/09/2026; 15h permanece candidato. Responsáveis pendentes, nenhuma conta fictícia, zero publicação/alertas.
+- Suíte geral: **205 aprovados** antes da última adição; módulo final: **24 aprovados**. Oito rotas verificadas no PostgreSQL staging em transação somente leitura; JS sem erro de sintaxe. Teste real local ASR `small` CPU/int8: 20,178 s de voz sintética em 6,106 s, cinco segmentos. Ambiente `.venv-asr` isolado; PyAV fixado em 16.1.0 após incompatibilidade real com 19.
+- **Não é aceite integral:** faltam homologação visual/concorrente, contrato Claude real (modelo de reuniões não configurado), chunking, mesclar/dividir, retenção/exclusão, arraste e demais lacunas listadas em [REUNIOES_PLANNER.md](REUNIOES_PLANNER.md). Workers não iniciados permanentemente. Próxima sessão deve partir desse documento, sem reimportar catálogos nem publicar os rascunhos automaticamente.
+
 ## Logos individuais Portwell · Choice · SAG — 15/10/2026
 
 - Fontes salvas pelo operador: `data/imports/logos-novas.png.png` (lockup) e `data/imports/portwell-nova.png.png` (Portwell oficial isolada). Originais inalterados.

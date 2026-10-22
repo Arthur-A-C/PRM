@@ -1,2 +1,5 @@
-# Auto detect text files and perform LF normalization
 * text=auto
+# Executed inside Linux containers: always LF, also on Windows checkouts.
+*.sh text eol=lf
+docker/** text eol=lf
+Dockerfile text eol=lf

@@ -28,3 +28,9 @@ def get_current_auth(
 
 CurrentAuth = Annotated[AuthContext, Depends(get_current_auth)]
 
+
+def require_module_access(request: Request, auth: CurrentAuth):
+    from app.services.access import api_allowed
+    if not api_allowed(auth.user.role, request.url.path):
+        raise HTTPException(403, "Seu nível de acesso não permite este módulo.")
+

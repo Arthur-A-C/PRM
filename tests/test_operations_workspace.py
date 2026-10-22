@@ -67,8 +67,58 @@ def test_no_snapshot_never_renders_dashboard_or_legacy_data():
     assert 'data-operations' not in html and 'id="ops-data"' not in html
 
 
+def test_cards_visual_style_is_scoped_and_preserves_action_hooks():
+    html = render('Cards')
+    assert '/css/cards-page.css' in html and 'cards-workspace' in html
+    nodes = Elements(html).nodes
+    for hook in ['data-cards-filters', 'data-cards-list', 'data-export', 'data-review-selected',
+                 'data-assign-selected', 'data-publish-selected']:
+        assert any(hook in attrs for _, attrs in nodes)
+    assert 'data-demo-cards' not in html and '/js/meeting-demo.js' not in html
+    ids = [attrs['id'] for _, attrs in nodes if 'id' in attrs]
+    assert len(ids) == len(set(ids))
+
+
+def test_batch_page_has_isolated_assets_and_controls():
+    html = render("Geração em Lote")
+    nodes = Elements(html).nodes
+    ids = [attrs["id"] for _, attrs in nodes if "id" in attrs]
+    assert len(ids) == len(set(ids))
+    assert {"batch-upload", "batch-start", "batch-retry", "batch-progress", "batch-products", "batch-history"} <= set(ids)
+    assert "/css/datasheet-batches.css" in html and "/js/datasheet-batches.js" in html
+    assert "/js/digitalizacao.js" not in html
+    assert "/css/datasheet-batches.css" not in render("Digitalização")
+
+
+def test_integration_page_separate_cards_without_credentials():
+    html = render("Integrações WooCommerce")
+    assert html.count("data-test-store=") == 3
+    assert html.count("data-wc-status") == html.count("data-wp-status") == 3
+    assert "/js/store-integrations.js" in html
+    assert "WC_SECRET" not in html and "WP_APP_PASSWORD" not in html
+    assert "/js/store-integrations.js" not in render("Digitalização")
+
+
+def test_registration_api_page_controls_and_scoped_assets():
+    html=render("Cadastro via API")
+    for name in ["api-registration-upload","api-registration-confirm","api-registration-progress",
+                 "api-registration-items","api-registration-history","api-registration-report"]:
+        assert f'id="{name}"' in html
+    assert "/js/store-registration.js" in html
+    assert "/css/store-registration.css" in html
+    assert "/js/store-registration.js" not in render("Digitalização")
+
+
+@pytest.mark.parametrize('title',['Visão geral','Planner','Reuniões','Digitalização'])
+def test_cards_redesign_not_loaded_on_other_pages(title):
+    html = render(title)
+    assert '/css/cards-page.css' not in html
+    assert 'cards-showcase' not in html and 'cards-metrics' not in html
+
+
 def test_digitalization_keeps_workflow_ids_scripts_and_inspector_target():
     html = render("Digitalização")
+    assert 'href="/digitalizacao/lotes"' in html
     nodes = Elements(html).nodes
     ids = [attrs["id"] for _, attrs in nodes if "id" in attrs]
     assert len(ids) == len(set(ids))

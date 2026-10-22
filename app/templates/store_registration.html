@@ -1,0 +1,45 @@
+{% import "_workspace_icons.html" as ui %}
+{# IDs e names são contratos de store-registration.js e de /api/v1/cadastro-api. #}
+<section id="api-registration" class="prm-stack">
+  <header class="prm-page-head">
+    <div>
+      <p class="eyebrow">Digitalização / Cadastro via API</p>
+      <h2>Arquivos de produtos existentes</h2>
+      <p>Adiciona imagens e documentos WCDA a produtos já cadastrados, localizados por SKU exato. Nome, descrições, categorias, atributos, preço, estoque e status continuam no fluxo CSV e nunca são enviados por aqui. A prévia só lê a loja; gravações nas três lojas atuais seguem bloqueadas. O Playwright permanece disponível.</p>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="prm-section-title"><div><h2>Importar arquivos</h2><p>ZIP com pastas por SKU ou arquivos diretamente em SKU.zip. Planilha opcional no modo pastas. Os arquivos vão ao PRM, não à loja.</p></div></div>
+    <form id="api-registration-upload" class="prm-form">
+      <div class="prm-field"><label for="api-registration-company">Empresa</label><select id="api-registration-company" name="empresa"><option value="choice">Choice</option><option value="sag">SAG</option><option value="portwell">Portwell</option></select></div>
+      <div class="prm-field"><label for="api-registration-mode">Identificação</label><select id="api-registration-mode" name="identificacao"><option value="folder">Utilizar nome da pasta como código CIGAM/SKU</option><option value="csv">Utilizar planilha CIGAM</option></select></div>
+      <div class="prm-field"><label for="api-registration-sheet">Planilha CIGAM (opcional no modo pastas)</label><input id="api-registration-sheet" name="planilha" type="file" accept=".csv,.xlsx,.xlsm"></div>
+      <div class="prm-field"><label for="api-registration-zip">ZIP do PRM (pasta por SKU, SKU.zip ou lote)</label><input id="api-registration-zip" name="arquivos" type="file" accept=".zip" required></div>
+      <div class="prm-field" id="api-registration-root-field"><label for="api-registration-root">Pasta raiz dentro do ZIP (opcional)</label><input id="api-registration-root" name="pasta_raiz" placeholder="Ex.: Choice"><small>Vazio reconhece SKUs na raiz ou Produtos/. Arquivos soltos usam o nome exato SKU.zip.</small></div>
+      <div class="prm-form-actions"><button class="button-primary" type="submit">{{ ui.icon('upload') }}<span>Importar e preparar prévia</span></button></div>
+    </form>
+    <p class="prm-note">{{ ui.icon('info') }}<span>Aceita o pacote validado da Digitalização (SKU.zip com manifesto), pastas por SKU e o ZIP da Geração em Lote (fontes apenas inventariadas). Imagens: principal atual preservada por padrão, novas na galeria. Documentos: acrescentados ao <code>_wcda_arquivos</code> preservando os existentes e a ordem. Nada é criado se o SKU não existir. O worker <code>scripts/store_registration_worker.py</code> prepara a prévia.</span></p>
+    <p id="api-registration-message" class="prm-status" role="status" aria-live="polite"></p>
+  </div>
+
+  <div class="panel">
+    <div class="prm-section-title">
+      <div><h2>Itens do lote</h2><p id="api-registration-summary" aria-live="polite"></p></div>
+      <div id="api-registration-actions" class="prm-page-actions" hidden>
+        <button type="button" class="button-primary" id="api-registration-confirm">{{ ui.icon('shield') }}<span>Enviar aprovados — somente staging autorizado</span></button>
+        <button type="button" class="button-secondary" id="api-registration-approve">{{ ui.icon('check') }}<span>Aprovar Dry Run (selecionados ou todos)</span></button>
+        <button type="button" class="button-secondary" id="api-registration-retry">{{ ui.icon('refresh') }}<span>Refazer prévia dos erros</span></button>
+        <a id="api-registration-report" class="prm-btn">{{ ui.icon('download') }}<span>Baixar relatório</span></a>
+        <a id="api-registration-dry-run" class="prm-btn">{{ ui.icon('download') }}<span>Baixar Dry Run JSON</span></a>
+      </div>
+    </div>
+    <progress id="api-registration-progress" max="100" value="0" aria-label="Progresso do lote"></progress>
+    <div class="table-scroll"><table><thead><tr><th>SKU</th><th>Status</th><th>Existentes</th><th>Arquivos encontrados</th><th>Avisos/erros</th></tr></thead><tbody id="api-registration-items" data-empty="Importe um lote para ver os itens."></tbody></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="prm-section-title"><div><h3>Meus lotes</h3><p>Clique em um lote para consultá-lo.</p></div></div>
+    <div id="api-registration-history"></div>
+  </div>
+</section>

@@ -1,5 +1,9 @@
 # PRM
 
+## Docker e colaboração
+
+Ambiente isolado na porta **8001**, preservando o PRM Windows: [guia Docker](docs/DOCKER.md), [resultados da infraestrutura](docs/INFRA_STATUS.md) e [fluxo de Pull Requests Kaue/Arthur](CONTRIBUTING.md). Sem deploy automático ou migração dos dados atuais.
+
 Product Relationship Manager: aplicação interna para analisar catálogos de produtos do grupo SAG, com foco nas ofertas da Choice Tech e da Portwell e comparação com concorrentes como a Eco Automação.
 
 Este repositório contém o código e a documentação da primeira entrega (`0.1.0`). O [marco da entrega](docs/ENTREGA_0_1.md) resume o que funciona e seus limites; o [estado operacional](docs/STATUS.md) registra as verificações mais recentes.
@@ -7,6 +11,15 @@ Este repositório contém o código e a documentação da primeira entrega (`0.1
 A [nova base refinada](docs/CATALOGOS_REFINADOS.md), publicada em 09/10/2026, reúne os quatro arquivos atuais em snapshots separados do histórico: 89.693 registros e 500.016 observações de atributos. Catálogos abre a nova fotografia, com acesso ao histórico preservado. **Comparação técnica/cobertura dessa nova base ainda não foram homologadas**; os próximos gates estão documentados.
 
 ## O que já funciona
+
+- [Níveis de acesso e contas](docs/NIVEIS_DE_ACESSO.md): desenvolvedor e gestor com permissões administrativas equivalentes, vendedor restrito a produtos e reuniões/cards. Criação de contas protegida em Gestão.
+
+- [Cadastro via API — arquivos](docs/CADASTRO_API_STAGING.md): imagens e documentos `_wcda_arquivos` de produtos já existentes, a partir de ZIPs do PRM por SKU (CSV opcional). Dry Run, aprovação, journal, auditoria e releitura; dados comerciais continuam no fluxo CSV. Escrita nas lojas atuais bloqueada.
+- [Documentos `_wcda_arquivos`](docs/WCDA_HOMOLOGACAO.md): estrutura observada nas três lojas, serviço de preparação, Dry Run, preservação de documentos, payload e plano de rollback. Sem escrita real; teste futuro exige autorização específica de loja/SKU.
+
+- [Integrações WooCommerce e WordPress](docs/INTEGRACOES_LOJAS.md): diagnósticos autenticados somente leitura para as três lojas, restritos a gestores/desenvolvedores. Autenticação das seis APIs confirmada em 20/10/2026; escrita e contrato de documentos ainda não homologados. Playwright preservado.
+
+- [Geração de Datasheets em Lote](docs/DATASHEETS_EM_LOTE.md): ZIP por pastas CIGAM/SKU (CSV opcional) ou modo CSV/PDFs anterior, prévia com inventário, fila persistente e exportação de PDFs/análises/fontes por empresa. Acesse `/digitalizacao/lotes`; requer iniciar o worker separado descrito no guia. Sem publicação automática nas lojas.
 
 - Login individual, sessões e páginas protegidas.
 - Importação auditável de planilhas XLSX da Eco Automação, Portwell e Choice Tech, com prévia, validação e proteção contra reimportação idêntica.

@@ -1,0 +1,21 @@
+<section class="panel">
+  <h2>Contas da organização</h2>
+  <p>Desenvolvedor e gestor têm as mesmas permissões nesta etapa. Vendedor acessa produtos, reuniões, cards, calendário e alertas, sem importações ou integrações.</p>
+  <nav aria-label="Criar contas">
+    <a class="button-secondary" href="/contas/criar/desenvolvedor">Criar desenvolvedor</a>
+    <a class="button-secondary" href="/contas/criar/gestor">Criar gestor</a>
+    <a class="button-secondary" href="/contas/criar/vendedor">Criar vendedor</a>
+  </nav>
+  {% if account_role %}
+  <h3>Nova conta: {{ account_role|capitalize }}</h3>
+  <p>A conta pertencerá à sua organização. Estes links exigem acesso administrativo; não são convites públicos.</p>
+  {% if request.query_params.get('criada') == '1' %}<p role="status">Conta criada. O novo usuário já pode entrar com o e-mail e a senha definidos.</p>{% endif %}
+  <form method="post" action="/contas/criar/{{ account_role }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="account-name">Nome</label><input id="account-name" name="name" required maxlength="200">
+    <label for="account-email">E-mail</label><input id="account-email" name="email" type="email" required maxlength="320" autocomplete="off">
+    <label for="account-password">Senha (mínimo 6 caracteres)</label><input id="account-password" name="password" type="password" required minlength="6" maxlength="1024" autocomplete="new-password">
+    <button type="submit">Criar {{ account_role }}</button>
+  </form>
+  {% endif %}
+</section>

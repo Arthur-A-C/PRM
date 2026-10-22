@@ -39,7 +39,9 @@ def test_screenshot_single_memory_row_partial_without_installed_maximum_confusio
     assert 'Descrição complementar' not in facets
     html = templates.get_template('_current_comparison.html').render(current_comparison=result, user=SimpleNamespace(role='vendedor'))
     assert html.count('<th scope="row">Memória</th>') == 1
-    assert 'Correspondência parcial' in html and '4800 MHz' in html and 'Dados originais e origem' in html
+    assert 'Correspondência parcial' in html and '4800 MHz' in html and 'Dados originais e origem' not in html
+    admin_html = templates.get_template('_current_comparison.html').render(current_comparison=result, user=SimpleNamespace(role='desenvolvedor'))
+    assert 'Dados originais e origem' in admin_html
 
 
 def test_storage_combined_vs_split_and_real_differences():

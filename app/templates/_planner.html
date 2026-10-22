@@ -1,0 +1,13 @@
+<section class="meeting-module cc-panel" data-planner>
+  <header class="cc-panel-head"><div><p class="cc-kicker">Agenda de compromissos</p><h2>Planner · timeline de atividades</h2></div><a class="cc-btn" href="/reunioes">Nova reunião</a></header>
+  <p class="cc-caption">Tarefas na data do prazo e reuniões no início confirmado. Fuso: <strong>America/Sao_Paulo</strong>. Rascunhos sem data permanecem fora da grade.</p>
+  <form class="mt-filters" data-planner-filters><label>Responsável interno<select name="assignee" data-mt-users><option value="">Todos autorizados</option></select></label><label>Parceiro<input name="partner" placeholder="Nome exato"></label><label>Status<select name="status"><option value="">Todos</option><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="waiting_external">Aguardando parceiro</option><option value="blocked">Bloqueada</option><option value="done">Concluída</option><option value="cancelled">Cancelada</option></select></label><label class="mt-check"><input type="checkbox" name="mine"> Minhas atividades</label><button class="cc-btn" type="submit">Aplicar</button></form>
+  <div class="mt-deadlines" data-deadline-bands aria-label="Prazos das atividades"></div>
+  <label class="mt-check"><input type="checkbox" data-show-proposals> Mostrar propostas datadas na agenda (não entram nos indicadores nem geram alertas)</label>
+  <p class="cc-caption" data-deadline-scope></p>
+  <details><summary>Histograma · intervalos até o prazo</summary><div class="mt-histogram" data-deadline-histogram></div><p class="cc-caption">Intervalos categóricos, não escala linear. Clique para filtrar a agenda. Tarefas abertas publicadas; sem prazo e rascunhos não entram no denominador.</p></details>
+  <div class="mt-calendar-nav"><button type="button" class="cc-btn" data-month-step="-1" aria-label="Mês anterior">←</button><button type="button" class="cc-btn" data-month-today>Hoje</button><label>Mês<input type="month" data-month></label><button type="button" class="cc-btn" data-month-step="1" aria-label="Próximo mês">→</button><button type="button" class="cc-btn" data-clear-band>Limpar faixa</button><span data-calendar-scope class="cc-caption"></span></div>
+  <div class="mt-calendar" data-calendar aria-label="Calendário mensal"></div>
+  <details open><summary>Sem prazo / Sem data confirmada</summary><div data-undated class="mt-card-list"></div></details>
+  <p role="status" data-planner-message></p>
+</section>

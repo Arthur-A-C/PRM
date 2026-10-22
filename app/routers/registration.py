@@ -29,7 +29,7 @@ router = APIRouter(prefix="/api/v1/digitalizacao/cadastro", tags=["cadastro auto
 
 
 def require_manager(auth: CurrentAuth, csrf_token: str | None) -> None:
-    if auth.user.role != "gestor":
+    if auth.user.role not in {"gestor", "desenvolvedor"}:
         raise HTTPException(status_code=403, detail="Somente gestores podem preparar cadastros.")
     if not csrf_token or not secrets_match(auth.login_session.csrf_hash, csrf_token):
         raise HTTPException(status_code=403, detail="Token CSRF inválido.")
@@ -77,6 +77,9 @@ def description(payload: DescriptionRequest, auth: CurrentAuth, csrf_token: Anno
 @router.post("/woocommerce/previa")
 def woo_preview(payload: DescriptionRequest, auth: CurrentAuth, csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
     require_manager(auth, csrf_token)
+    # All web access to the shared store credentials uses the same tenant gate.
+    from app.routers.store_integrations import authorized_settings
+    authorized_settings(auth)
     require_validated_run(payload.run_id, payload.product)
     try:
         return preview_live_product(payload.product)

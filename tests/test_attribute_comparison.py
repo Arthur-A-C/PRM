@@ -77,6 +77,8 @@ def test_grouped_template_renders_single_os_row_and_verdicts():
         item.update(source_id='portwell', title_display='<script>unsafe</script>', sku='A', record_key='A',
                     classification={'family_label': 'PC'}, commercial={'prices': []}, quality_issues=[])
     html = templates.get_template('_current_comparison.html').render(current_comparison=result, user=SimpleNamespace(role='vendedor'))
-    assert html.count('data-scope="supported"') == 2
+    assert 'data-scope="supported"' not in html
+    admin_html = templates.get_template('_current_comparison.html').render(current_comparison=result, user=SimpleNamespace(role='gestor'))
+    assert admin_html.count('data-scope="supported"') == 2
     assert 'comparison-verdict--different' in html
     assert 'Diferente' in html and '<script>unsafe</script>' not in html

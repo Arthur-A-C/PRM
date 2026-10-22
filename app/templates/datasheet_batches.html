@@ -1,0 +1,66 @@
+{% import "_workspace_icons.html" as ui %}
+{# IDs e names são contratos de datasheet-batches.js e do endpoint /api/v1/digitalizacao/lotes. #}
+<div id="batch-page" class="prm-stack">
+  <header class="prm-page-head">
+    <div>
+      <p class="eyebrow">Digitalização / Documentação técnica</p>
+      <h2>Geração de datasheets em lote</h2>
+      <p>Importe um ZIP com pastas por CIGAM/SKU ou com CSV e PDFs originais. Confira a prévia antes de iniciar: a validação não chama a IA nem publica na loja.</p>
+    </div>
+    <div class="prm-page-actions">
+      <a href="/digitalizacao" class="prm-btn">{{ ui.icon('scan') }}<span>Digitalização individual</span></a>
+      <a href="/api/v1/digitalizacao/lotes/modelo.csv" class="prm-btn">{{ ui.icon('download') }}<span>Baixar CSV modelo</span></a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="prm-section-title"><div><h2>Importar lote</h2><p>Modo pastas: 119002000072/datasheet.pdf e imagens/documentos na mesma pasta ou subpastas. A pasta externa Produtos/ é reconhecida automaticamente. Sem acesso a pastas de rede.</p></div></div>
+    <form id="batch-upload" class="prm-form">
+      <div class="prm-field"><label for="batch-identification">Identificação dos produtos</label>
+        <select id="batch-identification" name="identificacao"><option value="folder">Utilizar nome da pasta como código CIGAM/SKU</option><option value="csv">Utilizar CSV do CIGAM (modo existente)</option></select>
+      </div>
+      <div class="prm-field" id="batch-company-field"><label for="batch-company">Empresa das pastas</label>
+        <select id="batch-company" name="empresa" required><option value="">Selecione</option><option value="choice">Choice</option><option value="portwell">Portwell</option><option value="sag">SAG</option></select>
+      </div>
+      <div class="prm-field" id="batch-root-field"><label for="batch-root">Pasta raiz dentro do ZIP (opcional)</label><input id="batch-root" name="pasta_raiz" placeholder="Ex.: Meu lote/Produtos"><small>Vazio: SKUs na raiz ou dentro de Produtos/. Não informe caminho de disco.</small></div>
+      <div class="prm-field"><label for="batch-file">Arquivo ZIP</label><input id="batch-file" type="file" name="arquivo" accept=".zip" required></div>
+      <div class="prm-field"><label for="batch-delimiter">Delimitador do CSV</label>
+        <select id="batch-delimiter" name="delimitador"><option value=",">Vírgula</option><option value=";">Ponto e vírgula</option><option value="&#9;">Tabulação</option></select>
+      </div>
+      <p class="prm-note" id="batch-identification-help">O CSV dentro do ZIP é opcional neste modo. Para complementar dados, use codigo e, opcionalmente, nome, empresa, descricao, categoria, observacoes e datasheet_original. O código deve corresponder exatamente à pasta, incluindo zeros.</p>
+      <div class="prm-form-actions"><button type="submit" class="button-primary">{{ ui.icon('upload') }}<span>Importar e validar</span></button></div>
+    </form>
+    <p id="batch-message" class="prm-status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" id="batch-current" hidden>
+    <div class="prm-section-title">
+      <div><h2 id="batch-title">Lote</h2><p id="batch-model"></p></div>
+      <div class="prm-page-actions">
+        <button id="batch-start" type="button" class="button-primary">{{ ui.icon('sparkle') }}<span>Iniciar produtos válidos</span></button>
+        <button id="batch-retry" type="button" class="button-secondary">{{ ui.icon('refresh') }}<span>Reprocessar falhas</span></button>
+        <a id="batch-download" class="prm-btn">{{ ui.icon('download') }}<span>Baixar ZIP e relatório</span></a>
+      </div>
+    </div>
+    <div class="batch-progress">
+      <p id="batch-summary" aria-live="polite"></p>
+      <progress id="batch-progress" max="100" value="0" aria-label="Progresso do lote"></progress>
+    </div>
+    <p class="prm-note">{{ ui.icon('info') }}<span>Gerar ou reprocessar usa a API paga configurada. PDFs com avisos exigem revisão humana; nada é publicado automaticamente no catálogo ou no WooCommerce. Se um item permanecer na fila, verifique se o worker de lotes está em execução.</span></p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>CIGAM</th><th>Produto</th><th>Empresa</th><th>PDF original</th><th>Status</th><th>Detalhes</th><th>Resultado</th></tr></thead>
+      <tbody id="batch-products" data-empty="Nenhum produto neste lote."></tbody>
+    </table></div>
+  </section>
+
+  <section class="panel">
+    <div class="prm-section-title">
+      <div><h2>Histórico das minhas importações</h2><p>Atualizado automaticamente a cada poucos segundos enquanto a página está aberta.</p></div>
+      <button type="button" class="button-secondary" id="batch-refresh">{{ ui.icon('refresh') }}<span>Atualizar</span></button>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Lote / data</th><th>Total</th><th>Concluídos</th><th>Revisão</th><th>Erros</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody id="batch-history" data-empty="Nenhuma importação registrada."></tbody>
+    </table></div>
+  </section>
+</div>

@@ -1,0 +1,22 @@
+<section class="meeting-module cc-panel{% if title == 'Cards' %} cards-showcase{% endif %}" data-meeting-demo hidden>
+  {% if title == 'Cards' %}
+  {% import '_workspace_icons.html' as icons %}
+  <header class="cards-heading"><div><p class="cc-kicker">01 · Central de compromissos</p><h2>Da conversa à próxima ação.</h2><p class="cc-caption">Entregas e decisões da reunião, organizadas para revisão.</p></div><span class="cc-status-chip is-warn">{{ icons.icon('info') }} Ambiente de demonstração</span></header>
+  <div class="cards-context"><span>{{ icons.icon('file') }} Transcrição READ AI</span><span>{{ icons.icon('clock') }} 16 set 2026</span><span>Portwell · E-commerce e integrações</span></div>
+  <p data-demo-notice class="cards-notice"></p>
+  <div class="cards-metrics" aria-label="Resumo dos cards de demonstração">
+    <div><span>Total de cards</span><strong data-demo-count="all">—</strong><small>Propostas extraídas no mock</small></div>
+    <div><span>Ações e entregas</span><strong data-demo-count="task">—</strong><small>Compromissos e possibilidades</small></div>
+    <div><span>Reuniões previstas</span><strong data-demo-count="event">—</strong><small>Data confirmada pelo usuário</small></div>
+    <div><span>Responsáveis pendentes</span><strong data-demo-count="pending">—</strong><small>Atribuição interna a confirmar</small></div>
+  </div>
+  <div class="cards-agenda"><div class="cards-date"><strong>24</strong><span>SET · 2026</span></div><div><p class="cc-kicker">Próximo encontro previsto na transcrição</p><h3>Apresentação da proposta</h3><p>15h a confirmar · duração estimada de 40 min · não é um convite agendado</p></div><span class="cc-tag">Evento do exemplo</span></div>
+  <header class="cards-list-heading"><div><p class="cc-kicker">02 · Quadro de revisão</p><h3>Cards da reunião</h3></div><span class="cc-caption">Somente leitura · sem alertas reais</span></header>
+  {% else %}
+  <header class="cc-panel-head"><div><p class="cc-kicker">Demonstração para testes · sem chamada de IA</p><h2>Mock — transcrição READ AI</h2></div><a class="cc-btn" href="/cards#read-ai-demo">Ver cards de demonstração</a></header>
+  <p data-demo-notice class="cc-caption"></p>
+  <p><strong>Reunião: 16/09/2026</strong> · Responsáveis internos pendentes · Sem notificações reais</p>
+  <details open><summary>Timeline do exemplo · setembro de 2026</summary><p>16/09 — reunião de levantamento → 24/09 — apresentação da proposta. Horário 15h candidato, ainda não confirmado.</p></details>
+  {% endif %}
+  <div id="read-ai-demo" data-demo-cards class="mt-card-list"></div>
+</section>

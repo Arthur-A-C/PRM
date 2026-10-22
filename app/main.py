@@ -1,10 +1,16 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.routers import auth, catalog, digitalizacao, health, operations, pages, registration
+from app.routers import meetings, meeting_demo
+from app.routers import datasheet_batches
+from app.routers import store_integrations
+from app.routers import store_registration
+from app.routers import accounts
+from app.dependencies import require_module_access
 
 
 settings = get_settings()
@@ -16,8 +22,8 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=Path("app/static")), name="static")
 app.include_router(health.router)
 app.include_router(auth.router)
-app.include_router(catalog.router)
-app.include_router(digitalizacao.router)
-app.include_router(registration.router)
-app.include_router(operations.router)
+for protected in (catalog, digitalizacao, datasheet_batches, store_integrations,
+                  store_registration, registration, operations, meetings, meeting_demo):
+    app.include_router(protected.router, dependencies=[Depends(require_module_access)])
+app.include_router(accounts.router)
 app.include_router(pages.router)  # Catch-all page route must follow the API routes.

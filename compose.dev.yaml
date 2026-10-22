@@ -1,0 +1,10 @@
+# Source only; never bind .env, data/, a Windows drive or a SQLite database.
+services:
+  api:
+    command: [uvicorn, "app.main:app", --host, "0.0.0.0", --port, "8000", --reload]
+    volumes:
+      - ./app:/app/app:ro
+      - ./scripts:/app/scripts:ro
+      - ./tests:/app/tests:ro
+      - ./migrations:/app/migrations:ro
+      - ./config:/app/config:ro

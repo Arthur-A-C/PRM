@@ -19,6 +19,7 @@ from app.services.comparable_snapshot import load_snapshot, snapshot_view
 from app.services.security import secrets_match
 from app.services.current_analysis import summarize_current
 from app.services.refined_catalog_database import database_manifest
+from app.services.access import MANAGERS, public_product_data
 
 
 router = APIRouter(prefix="/api/v1", tags=["catálogos"])
@@ -57,7 +58,7 @@ def products(
         raise HTTPException(status_code=422, detail="page_size deve ser 24, 48, 100 ou 200.")
     if price_min is not None and price_max is not None and price_min > price_max:
         raise HTTPException(status_code=422, detail="price_min não pode ser maior que price_max.")
-    if include_excluded and auth.user.role != "gestor":
+    if include_excluded and auth.user.role not in {"gestor", "desenvolvedor"}:
         raise HTTPException(status_code=403, detail="Somente gestores podem incluir exclusões analíticas.")
     filters = CatalogFilters(
         search=q,
@@ -79,10 +80,10 @@ def products(
 def product(offer_id: uuid.UUID, auth: CurrentAuth, db: DbSession) -> dict:
     detail = get_offer_detail(db, auth.user.organization_id, offer_id)
     if detail is None or (
-        detail["excluded_from_analytics"] and auth.user.role != "gestor"
+        detail["excluded_from_analytics"] and auth.user.role not in {"gestor", "desenvolvedor"}
     ):
         raise HTTPException(status_code=404, detail="Oferta não encontrada.")
-    return detail
+    return detail if auth.user.role in MANAGERS else public_product_data(detail)
 
 
 @router.get("/comparisons/preview")
@@ -100,11 +101,11 @@ def compare_preview(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if auth.user.role != "gestor" and any(
+    if auth.user.role not in {"gestor", "desenvolvedor"} and any(
         item["excluded_from_analytics"] for item in comparison["items"]
     ):
         raise HTTPException(status_code=404, detail="Uma oferta não foi encontrada.")
-    return comparison
+    return comparison if auth.user.role in MANAGERS else public_product_data(comparison)
 
 
 @router.get("/catalog-matches")
@@ -171,7 +172,7 @@ def create_comparison(
             title=payload.title,
             offer_ids=payload.offer_ids,
             reference_offer_id=payload.reference_offer_id,
-            allow_excluded=auth.user.role == "gestor",
+            allow_excluded=auth.user.role in {"gestor", "desenvolvedor"},
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -183,7 +184,7 @@ def create_comparison(
         organization_id=auth.user.organization_id,
         comparison_id=comparison.id,
     )
-    return saved
+    return saved if auth.user.role in MANAGERS else public_product_data(saved)
 
 
 @router.get("/comparisons/{comparison_id}")
@@ -198,7 +199,7 @@ def saved_comparison(
         comparison_id=comparison_id,
     )
     if comparison is None or (
-        auth.user.role != "gestor" and comparison["creator_id"] != auth.user.id
+        auth.user.role not in {"gestor", "desenvolvedor"} and comparison["creator_id"] != auth.user.id
     ):
         raise HTTPException(status_code=404, detail="Comparação não encontrada.")
-    return comparison
+    return comparison if auth.user.role in MANAGERS else public_product_data(comparison)

@@ -1,0 +1,477 @@
+{
+  "$defs": {
+    "Due": {
+      "additionalProperties": false,
+      "properties": {
+        "raw_expression": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Expression"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "datetime": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Datetime"
+        },
+        "timezone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        },
+        "precision": {
+          "default": "unknown",
+          "enum": [
+            "unknown",
+            "date",
+            "datetime",
+            "partial",
+            "conditional"
+          ],
+          "title": "Precision",
+          "type": "string"
+        },
+        "origin": {
+          "default": "not_stated",
+          "enum": [
+            "not_stated",
+            "explicit",
+            "relative",
+            "human",
+            "policy"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "needs_review": {
+          "default": true,
+          "title": "Needs Review",
+          "type": "boolean"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        }
+      },
+      "title": "Due",
+      "type": "object"
+    },
+    "EventProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "local_id": {
+          "pattern": "^[a-zA-Z0-9_-]{1,60}$",
+          "title": "Local Id",
+          "type": "string"
+        },
+        "commitment_type": {
+          "enum": [
+            "explicit",
+            "request",
+            "offer",
+            "suggestion"
+          ],
+          "title": "Commitment Type",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 240,
+          "minLength": 3,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 10000,
+          "title": "Description",
+          "type": "string"
+        },
+        "owner_participant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Owner Participant Id"
+        },
+        "due": {
+          "$ref": "#/$defs/Due"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "normal",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Priority"
+        },
+        "checklist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40,
+          "title": "Checklist",
+          "type": "array"
+        },
+        "depends_on_local_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Depends On Local Ids",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "ambiguities": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40,
+          "title": "Ambiguities",
+          "type": "array"
+        },
+        "kind": {
+          "const": "event",
+          "title": "Kind",
+          "type": "string"
+        },
+        "time_candidate": {
+          "anyOf": [
+            {
+              "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Candidate"
+        },
+        "duration_estimate_minutes": {
+          "anyOf": [
+            {
+              "maximum": 1440,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Estimate Minutes"
+        },
+        "participant_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Participant Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "local_id",
+        "commitment_type",
+        "title",
+        "description",
+        "owner_participant_id",
+        "due",
+        "priority",
+        "checklist",
+        "depends_on_local_ids",
+        "evidence",
+        "ambiguities",
+        "kind"
+      ],
+      "title": "EventProposal",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "segment_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Segment Id",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 5000,
+          "minLength": 3,
+          "title": "Quote",
+          "type": "string"
+        },
+        "supports": {
+          "items": {
+            "enum": [
+              "action",
+              "owner",
+              "due",
+              "correction",
+              "decision"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Supports",
+          "type": "array"
+        }
+      },
+      "required": [
+        "segment_id",
+        "quote",
+        "supports"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "TaskProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "local_id": {
+          "pattern": "^[a-zA-Z0-9_-]{1,60}$",
+          "title": "Local Id",
+          "type": "string"
+        },
+        "commitment_type": {
+          "enum": [
+            "explicit",
+            "request",
+            "offer",
+            "suggestion"
+          ],
+          "title": "Commitment Type",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 240,
+          "minLength": 3,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 10000,
+          "title": "Description",
+          "type": "string"
+        },
+        "owner_participant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Owner Participant Id"
+        },
+        "due": {
+          "$ref": "#/$defs/Due"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "normal",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Priority"
+        },
+        "checklist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40,
+          "title": "Checklist",
+          "type": "array"
+        },
+        "depends_on_local_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Depends On Local Ids",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "ambiguities": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40,
+          "title": "Ambiguities",
+          "type": "array"
+        },
+        "kind": {
+          "const": "task",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "local_id",
+        "commitment_type",
+        "title",
+        "description",
+        "owner_participant_id",
+        "due",
+        "priority",
+        "checklist",
+        "depends_on_local_ids",
+        "evidence",
+        "ambiguities",
+        "kind"
+      ],
+      "title": "TaskProposal",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "2.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 10000,
+      "title": "Summary",
+      "type": "string"
+    },
+    "proposals": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "event": "#/$defs/EventProposal",
+            "task": "#/$defs/TaskProposal"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/TaskProposal"
+          },
+          {
+            "$ref": "#/$defs/EventProposal"
+          }
+        ]
+      },
+      "maxItems": 150,
+      "title": "Proposals",
+      "type": "array"
+    },
+    "decisions": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Decisions",
+      "type": "array"
+    },
+    "context_notes": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Context Notes",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "summary",
+    "proposals",
+    "decisions",
+    "context_notes",
+    "warnings"
+  ],
+  "title": "Extraction",
+  "type": "object"
+}

@@ -7,7 +7,7 @@
   <label>Empresa<select name="source"><option value="">Todas</option>{% for code,label in [('own','Nossas empresas'),('portwell','Portwell'),('choice','Choice'),('eco','ECO'),('dimensional','Dimensional')] %}<option value="{{ code }}" {% if refined_catalog.source == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   <label>Grupo da análise<select name="group"><option value="">Todos os registros</option>{% for code,label in [('shared','Família presente nas nossas empresas'),('not_found','Família não encontrada na base própria'),('review','Precisa de conferência: classificação'),('quality_review','Conferência: todos os alertas de qualidade')] %}<option value="{{ code }}" {% if refined_catalog.group == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   <label>Família proposta<select name="family"><option value="">Todas</option>{% for id,f in refined_catalog.manifest.families|dictsort %}<option value="{{ id }}" {% if refined_catalog.family == id %}selected{% endif %}>{{ f.label }}</option>{% endfor %}</select></label>
-  {% if user.role == 'gestor' %}<label>Visão<select name="internal"><option value="0">Publicados e visíveis</option><option value="1" {% if refined_catalog.internal %}selected{% endif %}>Todos, inclusive internos</option></select></label>{% endif %}
+  {% if user.role in ['gestor', 'desenvolvedor'] %}<label>Visão<select name="internal"><option value="0">Publicados e visíveis</option><option value="1" {% if refined_catalog.internal %}selected{% endif %}>Todos, inclusive internos</option></select></label>{% endif %}
   <button type="submit">Filtrar</button><a href="/catalogos?view=legacy">Histórico e comparação direta legada</a>
 </form>
 <section class="panel">
@@ -20,11 +20,11 @@
     {% for item in refined_catalog['items'] %}
     <tr><th scope="row">{% if not catalog_reference or catalog_reference.item_id != item.item_id %}<label><input type="checkbox" name="item" value="{{ item.item_id }}"> Selecionar {{ item.sku or item.record_key }}</label><br>{% endif %}{{ {'portwell':'Portwell','choice':'Choice','eco':'ECO','dimensional':'Dimensional'}[item.source_id] }}<br><small>ID: {{ item.record_key }}{% if item.sku %}<br>SKU: {{ item.sku }}{% endif %}</small></th>
       <td>{{ item.title_display }}<br><small>{{ item.classification.family_label }} · {{ item.brand_claimed or 'Marca não informada' }}</small><br><a href="/catalogos?source=own{% if item.classification.family_id != 'unknown' %}&family={{ item.classification.family_id }}{% endif %}&reference={{ item.item_id }}&run_id={{ refined_catalog.manifest.run_id }}">Escolher produtos próprios para comparar</a></td>
-      <td><details><summary>{{ item.attribute_count }} atributos · {{ item.quality_issues|length }} alertas</summary>
+      <td><details><summary>{{ item.attribute_count }} atributos{% if user.role in ['gestor', 'desenvolvedor'] %} · {{ item.quality_issues|length }} alertas{% endif %}</summary>
         <dl>{% for a in item.attribute_observations %}<dt>{{ a.canonical_label|default(a.raw_name) }}{% if a.canonical_label and a.canonical_label != a.raw_name %} <small>Origem: {{ a.raw_name }}</small>{% endif %}</dt><dd>{{ a.raw_value }}{% if a.mapped and a.knowledge_state == 'known' and a.normalized_value != a.raw_value %} <small>Padronizado: {{ a.normalized_value }}{% if a.unit %} {{ a.unit }}{% endif %}</small>{% endif %} <small>({{ {'known':'observado','unknown':'desconhecido','conflicting':'conflito','unparseable':'não interpretado'}.get(a.knowledge_state,a.knowledge_state) }})</small></dd>{% endfor %}</dl>
-        {% if item.quality_issues %}<p>Pendências: {{ item.quality_issues|join(', ') }}</p>{% endif %}
+        {% if user.role in ['gestor', 'desenvolvedor'] and item.quality_issues %}<p>Pendências: {{ item.quality_issues|join(', ') }}</p>{% endif %}
       </details></td>
-      <td>{% for p in item.commercial.prices %}{% if p.amount and (p.visibility != 'internal_only' or user.role == 'gestor') %}<div>{{ p.kind }}: R$ {{ p.amount }}{% if p.visibility == 'internal_only' %} <small>uso interno</small>{% endif %}</div>{% endif %}{% endfor %}<small>Condições e comparabilidade não confirmadas. Zero não é gratuito.</small></td>
+      <td>{% for p in item.commercial.prices %}{% if p.amount and (p.visibility != 'internal_only' or user.role in ['gestor', 'desenvolvedor']) %}<div>{{ p.kind }}: R$ {{ p.amount }}{% if p.visibility == 'internal_only' %} <small>uso interno</small>{% endif %}</div>{% endif %}{% endfor %}<small>Condições e comparabilidade não confirmadas. Zero não é gratuito.</small></td>
     </tr>
     {% else %}<tr><td colspan="4">Nenhum registro encontrado na base analisada com esses filtros.</td></tr>{% endfor %}
   </tbody></table></div>

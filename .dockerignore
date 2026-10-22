@@ -1,0 +1,54 @@
+# Build context = application code only. Secrets, local data and environments never enter the image.
+.git
+.gitattributes
+.github
+.claude
+.env
+.env.*
+*.env
+.venv
+.venv-*
+__pycache__
+**/__pycache__
+**/*.pyc
+.codex
+.agents
+*.py[cod]
+.pytest_cache
+pytest-cache-files-*
+htmlcov
+.coverage
+*.log
+
+# Runtime data lives in volumes / bind mounts (7+ GB, SQLite queues, backups, tools).
+data
+trabalho
+backups-docker
+chrome-profile*
+playwright
+
+# Local credentials and dumps
+credenciais*.json
+credentials*.json
+secrets*.json
+*.dump
+*.sql
+*.sqlite3
+*.sqlite3-*
+*.db
+*.bak
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+
+# Tooling not needed inside the image
+docs
+*.md
+!README.md
+scripts/*.cjs
+compose*.yaml
+docker-compose*.yml
+Dockerfile
+.dockerignore

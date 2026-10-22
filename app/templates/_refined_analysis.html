@@ -16,7 +16,7 @@
       {% endfor %}
     </tbody></table></div>
     <p>“Com atributos” indica extração, não suficiência técnica. Atributos padronizados indicam correspondência de campo, inclusive com conflitos, não equivalência ou aprovação do produto. Campos sem parser ficam preservados e listados para mapeamento. Preços zero não são gratuitos; condições comerciais e data de coleta não foram confirmadas. Estoque Dimensional não é quantidade confiável.</p>
-    {% if user.role == 'gestor' %}
+    {% if user.role in ['gestor', 'desenvolvedor'] %}
     {% for input in refined_analysis.inputs %}<p class="analysis-note">{{ input.source_id }} · {{ input.file }}<br>SHA-256: {{ input.sha256 }}</p>{% endfor %}
     {% endif %}
   </details>

@@ -21,6 +21,15 @@
   <link rel="stylesheet" href="{{ url_for('static', path='/css/prm-dark.css') }}?v=20261009-4">
   <link rel="stylesheet" href="{{ url_for('static', path='/css/workspace.css') }}?v=20261015-cc2">
   <link rel="stylesheet" href="{{ url_for('static', path='/css/command-center.css') }}?v=20261015-cc4">
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/prm-ui.css') }}?v=20261020-4">
+  {% block page_css %}{% endblock %}
+  {% if title in ['Visão geral', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/meetings.css') }}?v=20261016-1">
+  {% endif %}
+  {% if title == 'Cards' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/cards-page.css') }}?v=20261021-assign">{% endif %}
+  {% if title == 'Geração em Lote' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/datasheet-batches.css') }}?v=20261021-folders">{% endif %}
+  {% if title == 'Integrações WooCommerce' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/store-integrations.css') }}?v=20261020-2">{% endif %}
+  {% if title == 'Cadastro via API' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/store-registration.css') }}?v=20261021-2">{% endif %}
 </head>
 
 <body>

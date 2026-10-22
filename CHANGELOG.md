@@ -1,5 +1,83 @@
 # Changelog
 
+## 2026-10-21 — Cadastro via API somente para arquivos
+
+- Escopo restrito a imagens e `_wcda_arquivos` de produtos existentes; dados comerciais permanecem no fluxo CSV e saíram do plano da API.
+- Pacotes PRM sem CSV (pasta/SKU.zip/lote), manifesto validado, deduplicação por hash/identidade de mídia, principal preservada salvo aprovação explícita, primeira inclusão em WCDA vazio com rollback para lista vazia.
+- Executor de staging com aprovação por Dry Run, PUT limitado a `images`/`meta_data`, releitura com verificação dos campos comerciais, journal, auditoria e recuperação sem excluir mídia. Lojas atuais seguem bloqueadas.
+- Dry Run real do Choice 119002000072 somente leitura. 448 testes aprovados.
+
+## 2026-10-21 — Digitalização em lote por pastas
+
+- CSV opcional no novo modo por nome de pasta, empresa selecionável e SKU preservado como texto. CSV complementar não altera identidade; modo CSV anterior permanece disponível.
+- Prévia com inventário, validação de pastas/arquivos, anexos de imagens/PDFs pelo gerador existente e preservação de documentos auxiliares/JSON no ZIP de saída.
+- Mesma fila, escopo e confirmação de início; nenhuma escrita WooCommerce habilitada, nenhum acesso a Z: e nenhuma remoção do fallback Playwright.
+
+## 2026-10-21 — Preparação segura de `_wcda_arquivos`
+
+- Confirmada por GET a estrutura de documentos nas três lojas, incluindo metadado Portwell não vazio.
+- Serviço de append preservando originais, deduplicação conservadora, prévia sanitizada, verificação posterior e preparação de rollback; execução de PUT restrita a mocks.
+- CLI somente leitura `preview_wcda_update.py` e roteiro de homologação por loja/SKU. Nenhuma escrita real habilitada ou executada; reconhecimento pelo plugin ainda não confirmado.
+
+## 2026-10-21 — Atribuição de cards e alertas reais
+
+- Seletor de responsável por card com nome/nível e usuários ativos da mesma organização; atribuição nos três níveis, auditoria e controle de concorrência.
+- Alertas privados de atribuição e prazo/atraso, resolução na reatribuição/conclusão e reativação sem duplicação. Worker exclusivo de alertas ativado.
+- Migração do módulo de reuniões/cards no banco oficial, sem importar staging. Demonstração retirada das páginas operacionais, preservada em arquivos.
+- Cards de altura uniforme, grade responsiva e ações alinhadas. 348 testes aprovados e 24 atribuições simuladas no navegador em quatro larguras e dois temas.
+
+## 2026-10-21 — Níveis de acesso e criação de contas
+
+- Desenvolvedor e gestor com permissões equivalentes; vendedor limitado a produtos e reuniões/cards, com calendário e alertas. Bloqueios no backend, navegação filtrada e ocultação da procedência de importação.
+- Formulários administrativos de criação por nível, CSRF, isolamento organizacional, Argon2 e e-mail único; sem cadastro público privilegiado.
+- Migração específica da constraint e promoção transacional das duas contas existentes, preservando senha e organização. Migração de reuniões pendente não aplicada.
+- Reinício local autorizado e novas rotas verificadas; documentação em `docs/NIVEIS_DE_ACESSO.md`.
+
+## 2026-10-20 — Reformulação do front-end das telas de trabalho
+
+- `prm-ui.css`: sistema de componentes compartilhado (claro/escuro) para páginas fora do dashboard e login.
+- Digitalização em 8 etapas com stepper, uploads modernos, especificações com estados de extração, feedback forte na análise e na geração, revisão estruturada e cartão de sucesso do datasheet.
+- Lotes, Integrações WooCommerce e Cadastro via API no mesmo padrão. CSS legado da Digitalização/login consolidado em um único arquivo. IDs, endpoints e FormData inalterados.
+
+## 2026-10-20 — Cadastro API preparado para staging
+
+- Nova tela Digitalização → Cadastro via API, intake CSV/XLSX + ZIP por SKU, prévia remota somente leitura, histórico, fila persistente, confirmação e relatório.
+- Publicador de imagens separado dos diagnósticos, com origem/SKU de staging obrigatórios e bloqueio explícito das três lojas em uso. Preserva imagens/metadata existentes, deduplica envios PRM por hash, registra tentativas incertas e verifica atualização por releitura.
+- Reaproveitadas regras de classificação e labels do script antigo; arquivos do gerador PRM entram sem regeração. Documentos bloqueados antes do upload até obter contrato PHP. Playwright mantido.
+- Auditoria real de organização e metadata: Choice/SAG apresentam objetos label/url/filename/filesize; amostra Portwell vazia. Nenhuma escrita remota executada.
+
+## 2026-10-20 — Integrações REST das lojas (homologação pendente)
+
+- Ampliado cliente WooCommerce existente e adicionado cliente WordPress: HTTPS, Basic Auth no header, somente GET, timeout e erros sanitizados. Configuração por empresa e proteção contra exposição de segredos.
+- Página Integrações WooCommerce com diagnóstico separado por API, histórico do último teste e autorização por gestor/organização. Teste público não conta como autenticação.
+- Planejamento puro de labels de documentos reaproveita regras do script antigo. `wcda_arquivos` permanece sem escrita até confirmar schema/plugin. Nenhum upload, alteração de produto ou remoção do Playwright.
+
+## 2026-10-20 — Geração de Datasheets em Lote
+
+- Nova página em Digitalização para importar ZIP/CSV, validar e visualizar produtos, acompanhar estados, consultar histórico, baixar PDFs/ZIP e reprocessar falhas.
+- Reutilizados pipeline Claude e templates das três empresas, sem alterar a digitalização individual. Fila SQLite local persistente, worker separado com concorrência limitada, timeout, backoff e sinalização de interrupções; sem deploy ou geração paga automática.
+- Proteções de ZIP/caminhos/limites, escopo por organização e proprietário, CSRF e retenção explícita. Guia completo em `docs/DATASHEETS_EM_LOTE.md`.
+
+## 2026-10-19 — Haiku na Digitalização
+
+- Prompt compacto e schema por nível exigindo especificações estruturadas no completo; validação de linhas e nome/nível. Haiku com uma revisão visual padrão e saída limitada a 16 mil tokens, sem mudar automaticamente para Opus. Revisões corrigidas são aplicadas ao PDF mesmo quando marcadas como aprovadas pelo modelo.
+
+## 2026-10-19 — instruções técnicas para datasheets
+
+- Prompt editorial adaptado às diretrizes do operador para Portwell, Choice e SAG: inventário, conferência técnica, vistas, conectores, configuração e revisão visual. Preservados motor e identidade visual; limitações de edição em perspectiva explicitadas como pendências. Testes sem chamada de API.
+
+## 2026-10-16 — visual de Cards
+
+- Página Cards alinhada à identidade do dashboard principal, com indicadores do mock, destaque de reunião e quadro responsivo. Estilos restritos a Cards; dados, ações e demais páginas preservados. Conferência nos dois temas e quatro larguras.
+
+## 2026-10-16 — Reuniões e Planner (em homologação)
+
+- Painel mock READ AI publicado para testes: sete cards autenticados com evidências e timeline das datas confirmadas; sem chamadas pagas, tarefas operacionais ou notificações.
+- Continuação: revisão de cards em lote com rollback e controle de versão; comentários internos idempotentes, sem modificar tarefas ou descartar campos não salvos.
+- Novos módulos Reuniões, Cards, Meus alertas e Planner; calendário adicional na dashboard, sem reformular o estilo existente.
+- Pipeline textual/áudio local, contrato 2.0, jobs persistentes, revisão com evidências, atribuição, publicação transacional, exportação e notificações internas.
+- Migração apenas em staging; exemplo READ AI identificado como simulação, sem responsáveis ou publicações automáticas. Limites, testes e pendências: [REUNIOES_PLANNER.md](docs/REUNIOES_PLANNER.md).
+
 ## 2026-10-15 — logos individuais
 
 - Portwell (nova), Choice e SAG em arquivos com transparência real, adaptados ao tema; aplicados em header, sidebar, login, seletores e comparação direta. Script reproduzível `scripts.extract_brand_logos`.

@@ -34,3 +34,13 @@ uvicorn==0.53.0
 watchfiles==1.2.0
 websockets==17.1
 anthropic==1.8.0
+pymupdf>=1.24,<2
+pillow>=10,<13
+numpy>=1.26,<3
+ImageHash==4.3.2
+jsonschema>=4.23,<5
+reportlab>=4,<6
+# Datasheet image cleanup (inpainting/components). Optional in code, but changes the output: keep parity with Windows.
+opencv-python-headless==5.0.0.93
+# PDF reading in tests (and the unused Qwen path).
+pypdf==6.19.0

@@ -1,738 +1,378 @@
 {% import "_brand_logos.html" as logos %}
+{% import "_workspace_icons.html" as ui %}
+{# IDs, names e data-* abaixo são contratos de digitalizacao.js, registration.js, ui.js e workspace.js. #}
 <div class="digitalizacao-page">
-
-  <section class="digitalizacao-hero">
-    <div>
-      <p class="eyebrow">Digitalização / Fluxo de preparação</p>
-      <h2>Seu workspace de produto.</h2>
-      <p>
-        Organize fotos, documentos técnicos e informações do produto
-        antes da publicação no catálogo.
-      </p>
+  <header class="dz-intro">
+    <div class="dz-intro-copy">
+      <p class="eyebrow">Fluxo de preparação de produto</p>
+      <h2>Nova digitalização</h2>
+      <p>Do material do fabricante ao pacote final: identificação, fotos, datasheet, análise técnica, revisão e exportação.</p>
     </div>
-
-    <div class="digitalizacao-hero-badge" aria-hidden="true">
-      <span>01 — 04</span>
-      <strong>Do arquivo ao cadastro</strong>
+    <div class="dz-intro-actions">
+      <a class="prm-btn" href="/digitalizacao/lotes">{{ ui.icon('layers') }}<span>Geração em lote</span></a>
+      <a class="prm-btn" href="/digitalizacao/cadastro-api">{{ ui.icon('store') }}<span>Cadastro via API</span></a>
+      <button type="button" class="prm-btn prm-btn-ghost dz-inspector-toggle" data-workspace-inspector aria-expanded="true" aria-controls="workspace-product-context">Recolher contexto do produto</button>
     </div>
-  </section>
+  </header>
 
+  <nav class="dz-stepper" aria-label="Etapas da digitalização">
+    <div class="dz-stepper-track" aria-hidden="true"><span class="dz-stepper-fill" data-dz-progress-fill></span></div>
+    <ol>
+      {% for target, label, hint in [
+        ('digitalizacao-produto-etapa', 'Produto', 'Empresa e código'),
+        ('digitalizacao-fotos-etapa', 'Imagens', 'Fotos do produto'),
+        ('digitalizacao-documentos-etapa', 'Datasheet', 'PDF do fornecedor'),
+        ('digitalizacao-especificacoes-etapa', 'Especificações', 'Texto extraído'),
+        ('digitalizacao-analise-etapa', 'Análise', 'Claude'),
+        ('digitalizacao-review', 'Revisão', 'Dados estruturados'),
+        ('digitalizacao-geracao-etapa', 'Geração', 'Datasheet final'),
+        ('digitalizacao-pacote-etapa', 'Pacote', 'Pasta CIGAM')] %}
+      <li><button class="digitalizacao-step{% if loop.first %} is-active{% endif %}" type="button" data-step-target="{{ target }}"><span class="dz-step-index" aria-hidden="true"><span class="dz-step-number">{{ loop.index }}</span>{{ ui.icon('check') }}</span><span class="dz-step-copy"><strong>{{ label }}</strong><small>{{ hint }}</small></span></button></li>
+      {% endfor %}
+    </ol>
+  </nav>
 
-  <section class="digitalizacao-progress" aria-label="Etapas da digitalização">
-
-    <button class="digitalizacao-step is-active" type="button" data-step-target="digitalizacao-produto-etapa">
-      <span>1</span>
-      <div>
-        <strong>Produto</strong>
-        <small>Identificação</small>
-      </div>
-    </button>
-
-    <button class="digitalizacao-step" type="button" data-step-target="digitalizacao-fotos-etapa">
-      <span>2</span>
-      <div>
-        <strong>Imagens</strong>
-        <small>Tratamento visual</small>
-      </div>
-    </button>
-
-    <button class="digitalizacao-step" type="button" data-step-target="digitalizacao-documentos-etapa">
-      <span>3</span>
-      <div>
-        <strong>Datasheet</strong>
-        <small>Documentação técnica</small>
-      </div>
-    </button>
-
-    <button class="digitalizacao-step" type="button" data-step-target="digitalizacao-pacote-etapa">
-      <span>4</span>
-      <div>
-        <strong>Pacote final</strong>
-        <small>Revisão e exportação</small>
-      </div>
-    </button>
-
-  </section>
-
-
-  <div class="workspace-tools"><span>Arquivos → revisão técnica → datasheet → cadastro</span><button type="button" data-workspace-inspector aria-expanded="true" aria-controls="workspace-product-context">Recolher contexto do produto</button></div>
   <div class="digitalizacao-workspace">
     <div class="digitalizacao-main">
-  <!-- ETAPA 1 -->
-  <section class="panel digitalizacao-panel" id="digitalizacao-produto-etapa">
 
-    <div class="digitalizacao-section-heading">
-      <div class="digitalizacao-section-number">1</div>
+      <!-- 1 · PRODUTO -->
+      <section class="dz-card" id="digitalizacao-produto-etapa" aria-labelledby="dz-title-1">
+        <header class="dz-card-head">
+          <span class="dz-card-index" aria-hidden="true">01</span>
+          <div class="dz-card-title"><h3 id="dz-title-1">Empresa e identificação do produto</h3><p>Escolha a empresa e informe o código CIGAM e o nome comercial.</p></div>
+          <span class="prm-pill" data-dz-step-state>Pendente</span>
+        </header>
 
-      <div>
-        <p class="eyebrow">Etapa 1</p>
-        <h2>Identificação do produto</h2>
-        <p>
-          Informe a empresa, o código e o nome comercial do produto.
-        </p>
-      </div>
-    </div>
+        <div class="dz-field-label" id="dz-company-label">Empresa</div>
+        <div class="digitalizacao-company-cards" role="group" aria-labelledby="dz-company-label">
+          <button type="button" data-company-select="portwell" aria-pressed="false"><span class="dz-company-logo">{{ logos.company('portwell') }}</span><span class="dz-company-copy"><strong>Portwell</strong><small>Automação industrial</small></span><span class="dz-company-check" aria-hidden="true">{{ ui.icon('check') }}</span></button>
+          <button type="button" data-company-select="choice" aria-pressed="false"><span class="dz-company-logo">{{ logos.company('choice') }}</span><span class="dz-company-copy"><strong>Choice</strong><small>Tecnologia e energia</small></span><span class="dz-company-check" aria-hidden="true">{{ ui.icon('check') }}</span></button>
+          <button type="button" data-company-select="sag" aria-pressed="false"><span class="dz-company-logo">{{ logos.company('sag') }}</span><span class="dz-company-copy"><strong>SAG</strong><small>Controle e posicionamento</small></span><span class="dz-company-check" aria-hidden="true">{{ ui.icon('check') }}</span></button>
+        </div>
+        {# O select continua sendo a fonte do valor (lido pelo JS); os cartões acima o atualizam. #}
+        <div class="prm-field" hidden>
+          <label for="digitalizacao-empresa">Empresa</label>
+          <select id="digitalizacao-empresa" name="empresa">
+            <option value="">Selecione uma empresa</option>
+            <option value="choice">Choice</option>
+            <option value="sag">SAG</option>
+            <option value="portwell">Portwell</option>
+          </select>
+        </div>
 
-    <div class="digitalizacao-form-grid">
+        <div class="dz-form-grid">
+          <div class="prm-field">
+            <label for="digitalizacao-codigo">Código CIGAM</label>
+            <input id="digitalizacao-codigo" class="dz-mono" name="codigo" type="text" placeholder="Ex.: BZLIK" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="prm-field dz-span-2">
+            <label for="digitalizacao-produto">Nome do produto</label>
+            <input id="digitalizacao-produto" name="produto" type="text" placeholder="Nome ou título comercial do produto">
+          </div>
+          <div class="prm-field">
+            <label for="digitalizacao-configuracao">Configuração específica <span class="dz-optional">opcional</span></label>
+            <input id="digitalizacao-configuracao" type="text" placeholder="CPU, memória, tela…">
+          </div>
+          <div class="prm-field">
+            <label for="digitalizacao-opcionais">Opcionais <span class="dz-optional">opcional</span></label>
+            <input id="digitalizacao-opcionais" type="text" placeholder="Acessórios ou módulos">
+          </div>
+          <div class="prm-field">
+            <label for="digitalizacao-nivel">Nível do datasheet</label>
+            <select id="digitalizacao-nivel"><option value="completo">Completo</option><option value="resumido">Resumido</option></select>
+          </div>
+        </div>
+      </section>
 
-      <div class="digitalizacao-company-cards digitalizacao-field-wide" role="group" aria-label="Selecionar empresa">
-        <button type="button" data-company-select="portwell" aria-pressed="false">{{ logos.company('portwell') }}<strong>Portwell</strong><small>Automação industrial</small></button>
-        <button type="button" data-company-select="choice" aria-pressed="false">{{ logos.company('choice') }}<strong>Choice</strong><small>Tecnologia e energia</small></button>
-        <button type="button" data-company-select="sag" aria-pressed="false">{{ logos.company('sag') }}<strong>SAG</strong><small>Controle e posicionamento</small></button>
-      </div>
+      <!-- 2 · IMAGENS -->
+      <section class="dz-card" id="digitalizacao-fotos-etapa" aria-labelledby="dz-title-2">
+        <header class="dz-card-head">
+          <span class="dz-card-index" aria-hidden="true">02</span>
+          <div class="dz-card-title"><h3 id="dz-title-2">Imagens do produto</h3><p>A primeira foto é sempre a principal. Reordene, gire ou remova antes de gerar.</p></div>
+          <span class="dz-counter"><strong id="image-count">0</strong> fotos</span>
+          <span class="prm-pill" data-dz-step-state>Pendente</span>
+        </header>
 
-      <div class="digitalizacao-field">
-        <label for="digitalizacao-empresa">
-          Empresa
+        <label class="digitalizacao-dropzone" for="digitalizacao-imagens">
+          <span class="dz-dropzone-icon" aria-hidden="true">{{ ui.icon('upload') }}</span>
+          <span class="dz-dropzone-copy">
+            <strong>Arraste as fotos para cá <span>ou clique para selecionar</span></strong>
+            <small>JPG, JPEG ou PNG · até 20 fotos · 25 MiB por arquivo</small>
+          </span>
+          <span class="prm-btn prm-btn-sm dz-dropzone-button" aria-hidden="true">{{ ui.icon('plus') }} Adicionar fotos</span>
+          <input id="digitalizacao-imagens" type="file" accept="image/jpeg,image/png" multiple hidden>
         </label>
 
-        <select
-          id="digitalizacao-empresa"
-          name="empresa"
-        >
-          <option value="">Selecione uma empresa</option>
-          <option value="choice">Choice</option>
-          <option value="sag">SAG</option>
-          <option value="portwell">Portwell</option>
-        </select>
-      </div>
-
-
-      <div class="digitalizacao-field">
-        <label for="digitalizacao-codigo">
-          Código do produto
-        </label>
-
-        <input
-          id="digitalizacao-codigo"
-          name="codigo"
-          type="text"
-          placeholder="Ex.: BZLIK"
-          autocomplete="off"
-        >
-      </div>
-
-
-      <div class="digitalizacao-field digitalizacao-field-wide">
-        <label for="digitalizacao-produto">
-          Nome do produto
-        </label>
-
-        <input
-          id="digitalizacao-produto"
-          name="produto"
-          type="text"
-          placeholder="Digite o nome ou título comercial do produto"
-        >
-      </div>
-      <div class="digitalizacao-field"><label for="digitalizacao-configuracao">Configuração específica</label><input id="digitalizacao-configuracao" type="text"></div>
-      <div class="digitalizacao-field"><label for="digitalizacao-opcionais">Opcionais</label><input id="digitalizacao-opcionais" type="text"></div>
-      <div class="digitalizacao-field"><label for="digitalizacao-nivel">Nível do datasheet</label><select id="digitalizacao-nivel"><option value="completo">Completo</option><option value="resumido">Resumido</option></select></div>
-
-    </div>
-
-  </section>
-
-
-  <!-- ETAPA 2 -->
-  <section class="panel digitalizacao-panel" id="digitalizacao-fotos-etapa">
-
-    <div class="digitalizacao-section-heading">
-
-      <div class="digitalizacao-section-number">2</div>
-
-      <div>
-        <p class="eyebrow">Etapa 2</p>
-        <h2>Tratamento de imagens</h2>
-        <p>
-          Organize as fotos que serão utilizadas no catálogo.
-          A imagem número 1 será sempre a foto principal.
-        </p>
-      </div>
-
-      <span class="digitalizacao-counter">
-        <strong id="image-count">0</strong>
-        imagens
-      </span>
-
-    </div>
-
-
-    <label
-      class="digitalizacao-dropzone"
-      for="digitalizacao-imagens"
-    >
-
-      <span class="digitalizacao-dropzone-icon">＋</span>
-
-      <strong>Adicionar fotos do produto</strong>
-
-      <span>
-        Clique aqui ou arraste as imagens para esta área
-      </span>
-
-      <small>
-        Formatos permitidos: JPG, JPEG e PNG
-      </small>
-
-      <input
-        id="digitalizacao-imagens"
-        type="file"
-        accept="image/jpeg,image/png"
-        multiple
-        hidden
-      >
-
-    </label>
-
-
-    <div
-      class="digitalizacao-images"
-      id="digitalizacao-images"
-    >
-
-      <div class="digitalizacao-empty">
-        Nenhuma foto adicionada.
-      </div>
-
-    </div>
-
-
-    <div class="digitalizacao-settings-box">
-
-      <div class="digitalizacao-settings-title">
-        <strong>Configurações de saída</strong>
-        <small>
-          Defina como as imagens serão preparadas.
-        </small>
-      </div>
-
-      <div class="digitalizacao-image-settings">
-
-        <div class="digitalizacao-field">
-
-          <label for="image-format">
-            Formato final
-          </label>
-
-          <select id="image-format">
-            <option value="jpg">JPEG</option>
-          </select>
-
+        <div class="digitalizacao-images" id="digitalizacao-images" aria-live="polite">
+          <div class="digitalizacao-empty">Nenhuma foto adicionada.</div>
         </div>
 
-
-        <div class="digitalizacao-field">
-
-          <label for="image-size">
-            Resolução
-          </label>
-
-          <select id="image-size">
-            <option value="1200">1200 × 1200 px</option>
-            <option value="1600">1600 × 1600 px</option>
-            <option value="original">Resolução original</option>
-          </select>
-
+        <div class="dz-output-settings">
+          <div class="dz-output-title"><strong>Saída das imagens</strong><small>Como as fotos serão tratadas no pacote final.</small></div>
+          <div class="prm-field"><label for="image-format">Formato</label><select id="image-format"><option value="jpg">JPEG</option></select></div>
+          <div class="prm-field"><label for="image-size">Resolução</label><select id="image-size"><option value="1200">1200 × 1200 px</option><option value="1600">1600 × 1600 px</option><option value="original">Resolução original</option></select></div>
+          <div class="prm-field"><label for="image-quality">Qualidade JPEG</label><select id="image-quality"><option value="90">90%</option><option value="95">95%</option><option value="100">100%</option></select></div>
         </div>
+      </section>
 
+      <!-- 3 · DATASHEET DO FORNECEDOR -->
+      <section class="dz-card" id="digitalizacao-documentos-etapa" aria-labelledby="dz-title-3">
+        <header class="dz-card-head">
+          <span class="dz-card-index" aria-hidden="true">03</span>
+          <div class="dz-card-title"><h3 id="dz-title-3">Datasheet do fornecedor</h3><p>Material técnico original do fabricante. O PDF alimenta as especificações e a análise.</p></div>
+          <span class="prm-pill" data-dz-step-state>Pendente</span>
+        </header>
 
-        <div class="digitalizacao-field">
-
-          <label for="image-quality">
-            Qualidade JPEG
-          </label>
-
-          <select id="image-quality">
-            <option value="90">90%</option>
-            <option value="95">95%</option>
-            <option value="100">100%</option>
-          </select>
-
+        <div class="dz-upload-grid">
+          <article class="digitalizacao-upload-card" data-dz-drop="supplier-datasheet">
+            <span class="dz-file-icon is-pdf" aria-hidden="true">{{ ui.icon('file') }}<b>PDF</b></span>
+            <div class="dz-upload-copy">
+              <strong>Datasheet do fornecedor</strong>
+              <p>Fonte técnica do novo datasheet. Até 30 MiB e 100 páginas.</p>
+              <small id="supplier-datasheet-name">Nenhum arquivo selecionado</small>
+            </div>
+            <label class="prm-btn prm-btn-sm">{{ ui.icon('upload') }}<span>Selecionar PDF</span><input id="supplier-datasheet" type="file" accept=".pdf" hidden></label>
+            <span class="dz-upload-done" aria-hidden="true">{{ ui.icon('check') }}</span>
+          </article>
+          <article class="digitalizacao-upload-card" data-dz-drop="drawing-3d">
+            <span class="dz-file-icon is-3d" aria-hidden="true">{{ ui.icon('cube') }}<b>3D</b></span>
+            <div class="dz-upload-copy">
+              <strong>Desenho 3D <span class="dz-optional">opcional</span></strong>
+              <p>Arquivo tridimensional do fabricante, copiado para o pacote.</p>
+              <small id="drawing-3d-name">Nenhum arquivo selecionado</small>
+            </div>
+            <label class="prm-btn prm-btn-sm">{{ ui.icon('upload') }}<span>Selecionar arquivo</span><input id="drawing-3d" type="file" hidden></label>
+            <span class="dz-upload-done" aria-hidden="true">{{ ui.icon('check') }}</span>
+          </article>
         </div>
-
-      </div>
-
-    </div>
-
-  </section>
-
-
-  <!-- ETAPA 3 -->
-  <section class="panel digitalizacao-panel" id="digitalizacao-documentos-etapa">
-
-    <div class="digitalizacao-section-heading">
-
-      <div class="digitalizacao-section-number">3</div>
-
-      <div>
-        <p class="eyebrow">Etapa 3</p>
-        <h2>Datasheet e documentos</h2>
-        <p>
-          Adicione os materiais técnicos disponibilizados pelo fabricante.
-        </p>
-      </div>
-
-    </div>
-
-
-    <div class="digitalizacao-document-grid">
-
-
-      <article class="digitalizacao-upload-card">
-
-        <span class="digitalizacao-document-type">
-          PDF
-        </span>
-
-
-        <div class="digitalizacao-upload-content">
-
-          <strong>Datasheet do fornecedor</strong>
-
-          <p>
-            Documento original utilizado como fonte técnica
-            para geração do novo datasheet.
-          </p>
-
-
-          <label class="button-secondary">
-
-            Selecionar arquivo
-
-            <input
-              id="supplier-datasheet"
-              type="file"
-              accept=".pdf"
-              hidden
-            >
-
-          </label>
-
-
-          <small id="supplier-datasheet-name">
-            Nenhum arquivo selecionado
-          </small>
-
-        </div>
-
-      </article>
-
-
-      <article class="digitalizacao-upload-card">
-
-        <span class="digitalizacao-document-type">
-          3D
-        </span>
-
-
-        <div class="digitalizacao-upload-content">
-
-          <strong>Desenho 3D</strong>
-
-          <p>
-            Arquivo técnico tridimensional disponibilizado
-            pelo fabricante.
-          </p>
-
-
-          <label class="button-secondary">
-
-            Selecionar arquivo
-
-            <input
-              id="drawing-3d"
-              type="file"
-              hidden
-            >
-
-          </label>
-
-
-          <small id="drawing-3d-name">
-            Nenhum arquivo selecionado
-          </small>
-
-        </div>
-
-      </article>
-
-    </div>
-
-
-    <div class="digitalizacao-specifications">
-
-      <div class="digitalizacao-spec-header">
-
-        <div>
-          <strong>Especificações adicionais</strong>
-
-          <p>
-            Informações que não estejam presentes no datasheet
-            podem ser adicionadas manualmente.
-          </p>
-        </div>
-
-      </div>
-
-
-      <textarea
-        id="digitalizacao-specs"
-        rows="8"
-        placeholder="As especificações extraídas do datasheet aparecerão aqui. Você pode revisar e editar antes de continuar..."
-      ></textarea>
-
-
-      <small id="digitalizacao-extraction-status">
-        Ao selecionar um PDF, o sistema extrairá todo o texto técnico
-        e preencherá este campo automaticamente. O Claude analisará também o PDF e as fotos originais.
-      </small>
-
-    </div>
-
-  </section>
-
-
-  <!-- QWEN -->
-  <section class="panel digitalizacao-ai-panel" id="digitalizacao-analise-etapa">
-
-    <div class="digitalizacao-section-heading">
-
-      <div class="digitalizacao-ai-icon">
-        AI
-      </div>
-
-      <div>
-        <p class="eyebrow">Inteligência artificial</p>
-        <h2>Análise técnica com Claude</h2>
-
-        <p>
-          O sistema utilizará as informações disponíveis
-          para estruturar os dados técnicos do produto.
-        </p>
-      </div>
-
-      <span class="status-badge">
-        Revisão humana obrigatória
-      </span>
-
-    </div>
-
-
-    <div class="digitalizacao-source-list">
-
-      <div>
-        <span
-          class="source-state"
-          data-source="datasheet"
-        >
-          ○
-        </span>
-
-        <div>
-          <strong>Datasheet</strong>
-          <small>Fonte usada para preencher automaticamente as especificações</small>
-        </div>
-      </div>
-
-
-      <div>
-        <span
-          class="source-state"
-          data-source="specs"
-        >
-          ○
-        </span>
-
-        <div>
-          <strong>Informações adicionais</strong>
-          <small>Especificações inseridas manualmente</small>
-        </div>
-      </div>
-
-
-      <div>
-        <span
-          class="source-state"
-          data-source="images"
-        >
-          ○
-        </span>
-
-        <div>
-          <strong>Imagens</strong>
-          <small>Enviadas ao Claude para classificação e usadas no datasheet final</small>
-        </div>
-      </div>
-
-    </div>
-
-
-    <div class="digitalizacao-ai-action">
-
-      <button
-        id="digitalizacao-analisar"
-        type="button"
-      >
-        Analisar produto com Claude
-      </button>
-
-    </div>
-
-  </section>
-
-
-  <!-- REVISÃO -->
-  <section
-    class="panel digitalizacao-review"
-    id="digitalizacao-review"
-    hidden
-  >
-
-    <div class="digitalizacao-section-heading">
-
-      <div class="digitalizacao-section-number success">
-        ✓
-      </div>
-
-      <div>
-        <p class="eyebrow">Revisão</p>
-        <h2>Informações encontradas</h2>
-        <p>
-          Confira os dados antes da geração do material final.
-        </p>
-      </div>
-
-    </div>
-
-
-    <div id="digitalizacao-review-content"></div>
-
-    <div class="digitalizacao-ai-action">
-      <button
-        id="digitalizacao-gerar-datasheet"
-        type="button"
-        disabled
-      >
-        Gerar Datasheet
-      </button>
-    </div>
-
-    <small id="digitalizacao-datasheet-status">
-      Disponível após a análise e revisão dos dados do produto.
-    </small>
-
-    <div
-      id="digitalizacao-datasheet-result"
-      class="digitalizacao-ai-action"
-      hidden
-    >
-      <a
-        id="digitalizacao-datasheet-download"
-        class="button-secondary"
-        href="#"
-        download
-      >
-        Baixar Datasheet PDF
-      </a>
-    </div>
-    <div id="digitalizacao-preview-pages" class="digitalizacao-review-grid" aria-label="Prévia das páginas do PDF"></div>
-    <div class="digitalizacao-ai-action">
-      <button id="digitalizacao-aprovar" type="button" disabled>Aprovar datasheet revisado</button>
-    </div>
-
-  </section>
-
-
-  <!-- ETAPA 4 -->
-  <section class="panel digitalizacao-package" id="digitalizacao-pacote-etapa">
-
-    <div class="digitalizacao-section-heading">
-
-      <div class="digitalizacao-section-number">4</div>
-
-      <div>
-        <p class="eyebrow">Etapa 4</p>
-        <h2>Pacote final</h2>
-
-        <p>
-          Confira a estrutura que será utilizada
-          na pasta final do produto.
-        </p>
-      </div>
-
-    </div>
-
-
-    <div class="digitalizacao-package-layout">
-
-
-      <div class="digitalizacao-tree">
-
-        <strong id="package-code">
-          CODIGO/
-        </strong>
-
-
-        <ul>
-
-          <li>
-            <span>📄</span>
-
-            <span id="package-datasheet">
-              CODIGO_Datasheet.pdf
-            </span>
-
-            <small>Datasheet final</small>
-          </li>
-
-
-          <li>
-
-            <span>◈</span>
-
-            <span id="package-3d">
-              CODIGO_Desenho_3D
-            </span>
-
-            <small>Desenho técnico 3D</small>
-
-          </li>
-
-
-          <li>
-            <span>▧</span>
-            <span>1.jpg</span>
-            <small>Foto principal</small>
-          </li>
-
+      </section>
+
+      <!-- 4 · ESPECIFICAÇÕES EXTRAÍDAS -->
+      <section class="dz-card dz-specs" id="digitalizacao-especificacoes-etapa" aria-labelledby="dz-title-4" data-extraction="idle">
+        <header class="dz-card-head">
+          <span class="dz-card-index" aria-hidden="true">04</span>
+          <div class="dz-card-title"><h3 id="dz-title-4">Especificações extraídas do datasheet</h3><p>O texto do PDF é lido localmente, sem IA. Revise, complete ou cole especificações manualmente.</p></div>
+          <span class="prm-pill" data-dz-extraction-pill>Aguardando PDF</span>
+        </header>
+
+        <ul class="dz-checklist" aria-label="Situação da extração">
+          <li data-dz-check="pdf">{{ ui.icon('check') }}<span>PDF recebido</span></li>
+          <li data-dz-check="text">{{ ui.icon('check') }}<span>Texto extraído</span></li>
+          <li data-dz-check="review">{{ ui.icon('check') }}<span>Pronto para revisão</span></li>
         </ul>
 
-      </div>
+        <div class="dz-editor">
+          <div class="dz-editor-bar">
+            <label for="digitalizacao-specs">{{ ui.icon('list') }}Texto técnico <span class="dz-optional">editável</span></label>
+            <span class="dz-editor-meta" data-dz-spec-meta>Vazio</span>
+          </div>
+          <div class="dz-editor-body">
+            <textarea id="digitalizacao-specs" rows="12" spellcheck="false" placeholder="As especificações extraídas do datasheet aparecerão aqui. Você também pode digitar ou colar informações técnicas que não estejam no PDF."></textarea>
+            <div class="dz-editor-loading" aria-hidden="true">
+              <span class="prm-skeleton" style="width: 34%"></span><span class="prm-skeleton" style="width: 78%"></span><span class="prm-skeleton" style="width: 64%"></span>
+              <span class="prm-skeleton" style="width: 28%"></span><span class="prm-skeleton" style="width: 82%"></span><span class="prm-skeleton" style="width: 57%"></span><span class="prm-skeleton" style="width: 71%"></span>
+            </div>
+          </div>
+        </div>
+        <p class="prm-status" id="digitalizacao-extraction-status" role="status" aria-live="polite">Ao selecionar um PDF, o sistema extrai todo o texto técnico e preenche este campo. O Claude também analisa o PDF e as fotos originais.</p>
+      </section>
 
+      <!-- 5 · ANÁLISE -->
+      <section class="dz-card dz-ai" id="digitalizacao-analise-etapa" aria-labelledby="dz-title-5" data-analysis="idle">
+        <header class="dz-card-head">
+          <span class="dz-card-index dz-ai-mark" aria-hidden="true">{{ ui.icon('sparkle') }}</span>
+          <div class="dz-card-title"><h3 id="dz-title-5">Análise técnica com Claude</h3><p>Estrutura modelo, categoria, destaques, características e especificações a partir das fontes enviadas.</p></div>
+          <span class="prm-pill is-warn is-plain">{{ ui.icon('shield') }}Revisão humana obrigatória</span>
+        </header>
 
-      <div class="digitalizacao-package-actions">
+        <div class="digitalizacao-source-list" aria-label="Fontes enviadas para a análise">
+          <div><span class="source-state" data-source="datasheet">○</span><div><strong>Datasheet</strong><small>PDF original do fornecedor</small></div></div>
+          <div><span class="source-state" data-source="specs">○</span><div><strong>Especificações</strong><small>Texto extraído e informações manuais</small></div></div>
+          <div><span class="source-state" data-source="images">○</span><div><strong>Imagens</strong><small>Classificação das fotos para o datasheet</small></div></div>
+        </div>
 
-        <span class="digitalizacao-ready-label">
-          Saída
-        </span>
+        <div class="dz-ai-action">
+          <button id="digitalizacao-analisar" class="prm-btn-primary prm-btn-lg" type="button">{{ ui.icon('sparkle') }}<span data-dz-label>Analisar produto com Claude</span></button>
+          <small>Requer empresa, código, nome e ao menos uma fonte.</small>
+        </div>
 
-        <h3>Preparar arquivos</h3>
+        <div class="dz-progress" data-dz-progress="analysis" hidden>
+          <div class="dz-progress-head"><span class="prm-spinner" aria-hidden="true"></span><strong data-dz-progress-message>Analisando produto…</strong><span class="dz-progress-time" data-dz-progress-time>00:00</span></div>
+          <div class="prm-indeterminate" aria-hidden="true"></div>
+          <ol class="dz-progress-steps" aria-hidden="true">
+            <li>Enviando fontes</li><li>Analisando produto</li><li>Organizando especificações técnicas</li><li>Estruturando dados</li>
+          </ol>
+          <small>As etapas são indicativas: a análise é uma única chamada ao Claude e costuma levar de alguns segundos a poucos minutos.</small>
+        </div>
+      </section>
 
-        <p>
-          O backend salvará o datasheet revisado, fotos processadas e documentos na pasta da empresa e do Código CIGAM.
-        </p>
+      <!-- 6 · REVISÃO -->
+      <section class="dz-card dz-review" id="digitalizacao-review" aria-labelledby="dz-title-6" hidden>
+        <header class="dz-card-head">
+          <span class="dz-card-index is-done" aria-hidden="true">{{ ui.icon('check') }}</span>
+          <div class="dz-card-title"><h3 id="dz-title-6">Revisão dos dados encontrados</h3><p>Confira cada seção antes de gerar o material final. Ajustes são feitos no JSON técnico.</p></div>
+          <span class="prm-pill is-ok">Análise concluída</span>
+        </header>
+        <div id="digitalizacao-review-content"></div>
+      </section>
 
-        <div class="digitalizacao-field"><label for="digitalizacao-manuais">Manuais (PDF, opcionais)</label><input id="digitalizacao-manuais" type="file" accept=".pdf" multiple></div>
-        <div class="digitalizacao-field"><label for="digitalizacao-certificados">Certificados (PDF, opcionais)</label><input id="digitalizacao-certificados" type="file" accept=".pdf" multiple></div>
-        <div class="digitalizacao-field"><label for="digitalizacao-outros">Outros documentos (opcionais)</label><input id="digitalizacao-outros" type="file" accept=".pdf,.zip,.step,.stp,.dwg,.dxf" multiple></div>
+      <!-- 7 · GERAÇÃO DO DATASHEET -->
+      <section class="dz-card" id="digitalizacao-geracao-etapa" aria-labelledby="dz-title-7" data-generation="idle">
+        <header class="dz-card-head">
+          <span class="dz-card-index" aria-hidden="true">07</span>
+          <div class="dz-card-title"><h3 id="dz-title-7">Geração do datasheet</h3><p>Gera o PDF no padrão da empresa, com fotos tratadas e prévia das páginas para aprovação.</p></div>
+          <span class="prm-pill" data-dz-step-state>Pendente</span>
+        </header>
 
+        <div class="dz-generate-row">
+          <button id="digitalizacao-gerar-datasheet" class="prm-btn-primary prm-btn-lg" type="button" disabled>{{ ui.icon('file') }}<span data-dz-label>Gerar Datasheet</span></button>
+          <p class="prm-status" id="digitalizacao-datasheet-status">Disponível após a análise e revisão dos dados do produto.</p>
+        </div>
 
-        <button
-          id="digitalizacao-gerar"
-          type="button"
-        >
-          Finalizar digitalização e gerar pacote
-        </button>
-        <button id="digitalizacao-baixar-pacote" type="button" disabled>Baixar Pacote Completo</button>
-        <p id="digitalizacao-pacote-status" role="status" aria-live="polite">Aguardando datasheet revisado e validação da pasta.</p>
-        <div class="digitalizacao-field"><label for="digitalizacao-run-id">Identificador da execução (para recuperar depois)</label><input id="digitalizacao-run-id" type="text" autocomplete="off" placeholder="Será exibido após gerar o datasheet"></div>
-        <button id="digitalizacao-recuperar" type="button">Recuperar execução</button>
+        <div class="dz-progress" data-dz-progress="generation" hidden>
+          <div class="dz-progress-head"><span class="prm-spinner" aria-hidden="true"></span><strong data-dz-progress-message>Gerando datasheet…</strong><span class="dz-progress-time" data-dz-progress-time>00:00</span></div>
+          <div class="prm-indeterminate" aria-hidden="true"></div>
+          <ol class="dz-progress-steps" aria-hidden="true">
+            <li>Tratando fotos</li><li>Montando páginas</li><li>Renderizando PDF</li><li>Criando prévias</li>
+          </ol>
+          <small>O servidor trata as imagens, monta o PDF e salva um rascunho com prévias.</small>
+        </div>
 
-      </div>
+        <div id="digitalizacao-datasheet-result" class="dz-success" hidden>
+          <span class="dz-success-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.2 4.2L19 7"/></svg></span>
+          <div class="dz-success-copy">
+            <strong>Datasheet gerado</strong>
+            <span data-dz-datasheet-filename>Rascunho salvo no servidor</span>
+          </div>
+          <div class="dz-success-actions">
+            <a class="prm-btn" data-dz-datasheet-open href="#" target="_blank" rel="noopener">{{ ui.icon('external') }}<span>Abrir</span></a>
+            <a id="digitalizacao-datasheet-download" class="prm-btn prm-btn-primary" href="#" download>{{ ui.icon('download') }}<span>Baixar Datasheet PDF</span></a>
+          </div>
+        </div>
 
+        <div id="digitalizacao-preview-pages" class="dz-preview" aria-label="Prévia das páginas do PDF"></div>
+
+        <div class="dz-approve-row">
+          <div><strong>Aprovação</strong><small>Confira todas as páginas. A aprovação libera a criação da pasta CIGAM.</small></div>
+          <button id="digitalizacao-aprovar" class="prm-btn" type="button" disabled>{{ ui.icon('shield') }}<span>Aprovar datasheet revisado</span></button>
+        </div>
+      </section>
+
+      <!-- 8 · PACOTE FINAL -->
+      <section class="dz-card" id="digitalizacao-pacote-etapa" aria-labelledby="dz-title-8">
+        <header class="dz-card-head">
+          <span class="dz-card-index" aria-hidden="true">08</span>
+          <div class="dz-card-title"><h3 id="dz-title-8">Pacote final</h3><p>Estrutura salva na pasta da empresa e do código CIGAM, com datasheet, fotos e documentos.</p></div>
+          <span class="prm-pill" data-dz-step-state>Pendente</span>
+        </header>
+
+        <div class="dz-package">
+          <div class="digitalizacao-tree">
+            <div class="dz-tree-root">{{ ui.icon('package') }}<strong id="package-code">CODIGO/</strong></div>
+            <ul>
+              <li><span>📄</span><span id="package-datasheet">CODIGO_Datasheet.pdf</span><small>Datasheet final</small></li>
+              <li><span>◈</span><span id="package-3d">CODIGO_Desenho_3D</span><small>Desenho técnico 3D</small></li>
+              <li><span>▧</span><span>1.jpg</span><small>Foto principal</small></li>
+            </ul>
+          </div>
+
+          <div class="dz-package-actions">
+            <div class="dz-docs">
+              <strong class="dz-docs-title">Documentos adicionais <span class="dz-optional">opcionais</span></strong>
+              <div class="prm-field"><label for="digitalizacao-manuais">Manuais (PDF)</label><input id="digitalizacao-manuais" type="file" accept=".pdf" multiple></div>
+              <div class="prm-field"><label for="digitalizacao-certificados">Certificados (PDF)</label><input id="digitalizacao-certificados" type="file" accept=".pdf" multiple></div>
+              <div class="prm-field"><label for="digitalizacao-outros">Outros documentos</label><input id="digitalizacao-outros" type="file" accept=".pdf,.zip,.step,.stp,.dwg,.dxf" multiple></div>
+            </div>
+
+            <div class="dz-package-buttons">
+              <button id="digitalizacao-gerar" class="prm-btn-primary prm-btn-lg" type="button">{{ ui.icon('package') }}<span>Finalizar e gerar pacote</span></button>
+              <button id="digitalizacao-baixar-pacote" class="prm-btn prm-btn-lg" type="button" disabled>{{ ui.icon('download') }}<span>Baixar pacote completo</span></button>
+            </div>
+            <p id="digitalizacao-pacote-status" class="prm-status is-boxed" role="status" aria-live="polite">Aguardando datasheet revisado e validação da pasta.</p>
+
+            <div class="dz-recover">
+              <div class="prm-field"><label for="digitalizacao-run-id">Identificador da execução</label><input id="digitalizacao-run-id" class="dz-mono" type="text" autocomplete="off" spellcheck="false" placeholder="Exibido após gerar o datasheet"></div>
+              <button id="digitalizacao-recuperar" class="prm-btn" type="button">{{ ui.icon('refresh') }}<span>Recuperar execução</span></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- APÓS O PACOTE · CADASTRO -->
+      <section class="dz-card dz-registration" id="cadastro-automatizado" aria-labelledby="cadastro-heading">
+        <header class="dz-card-head">
+          <span class="dz-card-index" aria-hidden="true">{{ ui.icon('store') }}</span>
+          <div class="dz-card-title"><p class="eyebrow">Após o pacote</p><h3 id="cadastro-heading">Cadastro automatizado</h3><p>Revise o produto estruturado, gere arquivos locais e aprove cada saída antes de qualquer cadastro externo.</p></div>
+        </header>
+
+        <div class="dz-form-grid">
+          <div class="prm-field dz-span-3"><label for="cadastro-titulo">Título comercial</label><input id="cadastro-titulo" type="text" placeholder="Nome exibido no WooCommerce"></div>
+          <div class="prm-field"><label for="cadastro-fornecedor">Fornecedor/fabricante</label><input id="cadastro-fornecedor" type="text"></div>
+          <div class="prm-field dz-span-2"><label for="cadastro-categoria">Categoria hierárquica</label><input id="cadastro-categoria" type="text" placeholder="Categoria > Subcategoria"></div>
+          <div class="prm-field dz-span-3"><label for="cadastro-descricao-curta">Descrição curta</label><textarea id="cadastro-descricao-curta" rows="3"></textarea></div>
+          <div class="prm-field dz-span-3"><label for="cadastro-descricao">Descrição completa <span class="dz-optional">HTML revisável</span></label><textarea id="cadastro-descricao" class="dz-mono" rows="9"></textarea></div>
+          <div class="prm-field dz-span-3"><label for="cadastro-atributos">Atributos <span class="dz-optional">JSON: nome e valores</span></label><textarea id="cadastro-atributos" class="dz-mono" rows="5" placeholder='[{"name":"Tipo","values":["Painel"]}]'></textarea></div>
+          <div class="prm-field"><label for="cadastro-export">Export WooCommerce atualizado</label><input id="cadastro-export" type="file" accept=".csv"><small>Opcional. Por padrão usa o ZIP Choice/SAG/Portwell instalado no servidor.</small></div>
+          <div class="prm-field"><label for="cadastro-cigam-modelo">Modelo CIGAM</label><input id="cadastro-cigam-modelo" type="file" accept=".xlsx"></div>
+          <div class="prm-field"><label for="cadastro-planilha">Planilha de lote</label><input id="cadastro-planilha" type="file" accept=".xlsx,.csv"><small>XLSX ou CSV.</small></div>
+        </div>
+
+        <div class="dz-registration-actions">
+          <div class="dz-action-group" role="group" aria-label="Preparar">
+            <span>Preparar</span>
+            <button type="button" class="prm-btn" id="cadastro-descricao-gerar" disabled>{{ ui.icon('sparkle') }}<span>Gerar descrição fundamentada</span></button>
+            <button type="button" class="prm-btn" id="cadastro-lote-previa">{{ ui.icon('sheet') }}<span>Prévia do lote</span></button>
+            <button type="button" class="prm-btn" id="cadastro-arquivos-previa">{{ ui.icon('search') }}<span>Localizar arquivos do SKU</span></button>
+            <button type="button" class="prm-btn" id="cadastro-woo-previa" disabled>{{ ui.icon('eye') }}<span>Prévia ao vivo no WooCommerce</span></button>
+          </div>
+          <div class="dz-action-group" role="group" aria-label="Baixar">
+            <span>Baixar</span>
+            <button type="button" class="prm-btn" id="cadastro-cigam-baixar">{{ ui.icon('download') }}<span>CIGAM</span></button>
+            <button type="button" class="prm-btn" id="cadastro-woo-baixar" disabled>{{ ui.icon('download') }}<span>Cadastro WooCommerce (CSV)</span></button>
+            <button type="button" class="prm-btn" id="cadastro-pacote-baixar" disabled>{{ ui.icon('download') }}<span>Pacote validado</span></button>
+          </div>
+        </div>
+        <label class="prm-check dz-approval"><input id="cadastro-aprovado" type="checkbox"> Revisei o produto e aprovo a geração do CSV WooCommerce</label>
+        <p id="cadastro-status" class="prm-status is-boxed" role="status">Nenhuma saída gerada. Cadastro direto na loja permanece desativado até configuração e validação.</p>
+        <pre id="cadastro-previa" class="digitalizacao-registration-preview" hidden></pre>
+      </section>
     </div>
 
-  </section>
-
-  <section class="panel digitalizacao-panel" id="cadastro-automatizado" aria-labelledby="cadastro-heading">
-    <div class="digitalizacao-section-heading">
-      <div class="digitalizacao-section-number">5</div>
-      <div>
-        <p class="eyebrow">Preparação para cadastro</p>
-        <h2 id="cadastro-heading">Cadastro automatizado</h2>
-        <p>Revise o produto estruturado, gere arquivos locais e aprove cada saída antes de qualquer cadastro externo.</p>
-      </div>
-    </div>
-    <div class="digitalizacao-form-grid">
-      <div class="digitalizacao-field digitalizacao-field-wide">
-        <label for="cadastro-titulo">Título comercial</label>
-        <input id="cadastro-titulo" type="text" placeholder="Nome exibido no WooCommerce">
-      </div>
-      <div class="digitalizacao-field">
-        <label for="cadastro-fornecedor">Fornecedor/fabricante</label>
-        <input id="cadastro-fornecedor" type="text">
-      </div>
-      <div class="digitalizacao-field">
-        <label for="cadastro-categoria">Categoria hierárquica</label>
-        <input id="cadastro-categoria" type="text" placeholder="Categoria > Subcategoria">
-      </div>
-      <div class="digitalizacao-field digitalizacao-field-wide">
-        <label for="cadastro-descricao-curta">Descrição curta</label>
-        <textarea id="cadastro-descricao-curta" rows="3"></textarea>
-      </div>
-      <div class="digitalizacao-field digitalizacao-field-wide">
-        <label for="cadastro-descricao">Descrição completa (HTML revisável)</label>
-        <textarea id="cadastro-descricao" rows="9"></textarea>
-      </div>
-      <div class="digitalizacao-field digitalizacao-field-wide">
-        <label for="cadastro-atributos">Atributos (JSON: nome e valores)</label>
-        <textarea id="cadastro-atributos" rows="5" placeholder='[{"name":"Tipo","values":["Painel"]}]'></textarea>
-      </div>
-      <div class="digitalizacao-field">
-        <label for="cadastro-export">Export WooCommerce atualizado (opcional; por padrão usa o ZIP Choice/SAG/Portwell instalado no servidor)</label>
-        <input id="cadastro-export" type="file" accept=".csv">
-      </div>
-      <div class="digitalizacao-field">
-        <label for="cadastro-cigam-modelo">Modelo CIGAM</label>
-        <input id="cadastro-cigam-modelo" type="file" accept=".xlsx">
-      </div>
-      <div class="digitalizacao-field digitalizacao-field-wide">
-        <label for="cadastro-planilha">Planilha de lote (XLSX/CSV)</label>
-        <input id="cadastro-planilha" type="file" accept=".xlsx,.csv">
-      </div>
-    </div>
-    <div class="digitalizacao-ai-action">
-      <button type="button" id="cadastro-descricao-gerar" disabled>Gerar descrição fundamentada</button>
-      <button type="button" id="cadastro-lote-previa">Prévia do lote</button>
-      <button type="button" id="cadastro-arquivos-previa">Localizar arquivos do SKU</button>
-      <button type="button" id="cadastro-cigam-baixar">Baixar CIGAM</button>
-      <button type="button" id="cadastro-woo-previa" disabled>Prévia ao vivo no WooCommerce</button>
-      <button type="button" id="cadastro-woo-baixar" disabled>Gerar cadastro WooCommerce (CSV)</button>
-      <button type="button" id="cadastro-pacote-baixar" disabled>Baixar pacote validado</button>
-    </div>
-    <label><input id="cadastro-aprovado" type="checkbox"> Revisei o produto e aprovo a geração do CSV WooCommerce</label>
-    <p id="cadastro-status" role="status">Nenhuma saída gerada. Cadastro direto na loja permanece desativado até configuração e validação.</p>
-    <pre id="cadastro-previa" class="digitalizacao-registration-preview" hidden></pre>
-  </section>
-    </div>
     <aside class="digitalizacao-context" id="workspace-product-context" aria-label="Contexto da digitalização">
       <div class="digitalizacao-context-card">
         <p class="eyebrow">Produto em preparação</p>
         <strong id="context-product-name">Novo produto</strong>
+        <div class="dz-context-progress">
+          <div class="dz-context-progress-head"><span>Progresso</span><strong data-dz-progress-label>0 de 8 etapas</strong></div>
+          <div class="dz-context-bar" aria-hidden="true"><span data-dz-progress-fill></span></div>
+        </div>
         <dl>
           <div><dt>Empresa</dt><dd id="context-company">Não selecionada</dd></div>
-          <div><dt>Código CIGAM</dt><dd id="context-code">—</dd></div>
+          <div><dt>Código CIGAM</dt><dd id="context-code" class="dz-mono">—</dd></div>
           <div><dt>Fotos</dt><dd id="context-images">0</dd></div>
           <div><dt>PDF original</dt><dd id="context-source">Pendente</dd></div>
         </dl>
-        <div class="context-divider"></div>
-        <p class="context-next-label">Próxima ação</p>
-        <p id="context-next-action" role="status" aria-live="polite">Selecione uma empresa e identifique o produto.</p>
-        <nav aria-label="Ir para uma etapa">
-          <a href="#digitalizacao-produto-etapa">01 · Produto</a>
-          <a href="#digitalizacao-fotos-etapa">02 · Fotos</a>
-          <a href="#digitalizacao-documentos-etapa">03 · Documentos</a>
-          <a href="#digitalizacao-analise-etapa">04 · Análise</a>
-          <a href="#digitalizacao-review">05 · Revisão</a>
-          <a href="#digitalizacao-pacote-etapa">06 · Pacote</a>
-          <a href="#cadastro-automatizado">07 · Cadastro</a>
+        <div class="dz-next">
+          <p class="dz-next-label">Próxima ação</p>
+          <p id="context-next-action" role="status" aria-live="polite">Selecione uma empresa e identifique o produto.</p>
+        </div>
+        <nav class="dz-context-nav" aria-label="Ir para uma etapa">
+          <a href="#digitalizacao-produto-etapa"><span>01</span>Produto</a>
+          <a href="#digitalizacao-fotos-etapa"><span>02</span>Imagens</a>
+          <a href="#digitalizacao-documentos-etapa"><span>03</span>Datasheet</a>
+          <a href="#digitalizacao-especificacoes-etapa"><span>04</span>Especificações</a>
+          <a href="#digitalizacao-analise-etapa"><span>05</span>Análise</a>
+          <a href="#digitalizacao-review"><span>06</span>Revisão</a>
+          <a href="#digitalizacao-geracao-etapa"><span>07</span>Geração</a>
+          <a href="#digitalizacao-pacote-etapa"><span>08</span>Pacote</a>
+          <a href="#cadastro-automatizado"><span>+</span>Cadastro</a>
         </nav>
       </div>
     </aside>
   </div>
+
   <dialog id="digitalizacao-image-dialog" class="digitalizacao-image-dialog" aria-label="Visualização ampliada da foto">
-    <div class="digitalizacao-image-dialog-header"><strong id="digitalizacao-image-dialog-title">Foto</strong><button type="button" id="digitalizacao-image-dialog-close">Fechar</button></div>
+    <div class="digitalizacao-image-dialog-header"><strong id="digitalizacao-image-dialog-title">Foto</strong><button type="button" class="prm-btn prm-btn-sm" id="digitalizacao-image-dialog-close">Fechar</button></div>
     <img id="digitalizacao-image-dialog-preview" alt="Foto ampliada do produto">
   </dialog>
 </div>

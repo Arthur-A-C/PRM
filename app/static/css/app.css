@@ -26,10 +26,6 @@ button:hover { background: var(--navy); }
 :focus-visible { outline: 3px solid #f5b700; outline-offset: 2px; }
 .muted, .fine-print { color: var(--muted); }
 .eyebrow { margin: 0 0 .35rem; color: var(--blue); font-size: .76rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
-
-.login-layout { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; background: radial-gradient(circle at 10% 10%, #dbeafe, transparent 38%), var(--canvas); }
-.login-card { width: min(100%, 27rem); padding: 2.5rem; background: var(--surface); border: 1px solid var(--line); border-radius: 1rem; box-shadow: 0 18px 50px rgba(16, 42, 67, .11); }
-.login-card h1 { margin: .2rem 0 .5rem; color: var(--navy); }
 .brand-mark { display: grid; place-items: center; width: 4rem; height: 4rem; margin-bottom: 1.5rem; color: white; background: var(--navy); border-radius: .9rem; font-weight: 900; letter-spacing: .08em; }
 .brand-mark-small { width: 2.7rem; height: 2.7rem; margin: 0; border-radius: .65rem; font-size: .78rem; }
 .stack { display: grid; gap: .55rem; margin-top: 1.5rem; }
@@ -252,8 +248,7 @@ button:hover { background: var(--navy); }
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filter-search, .filters fieldset { grid-column: 1 / -1; }
   .status-badge { display: none; }
-  .compare-bar.has-selection { left: 14rem; }
-}
+  .compare-bar.has-selection { left: 14rem; }}
 @media (max-width: 600px) {
   .app-shell { display: block; }
   .sidebar { position: static; height: auto; }
@@ -276,5 +271,4 @@ button:hover { background: var(--navy); }
   .compare-bar.has-selection { left: .5rem; right: .5rem; }
   .notice { display: block; }
   .company { grid-template-columns: auto 1fr; }
-  .company a { grid-column: 2; }
-}
+  .company a { grid-column: 2; }}

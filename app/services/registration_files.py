@@ -46,25 +46,43 @@ def find_product_folder(root: Path, sku: str) -> Path | None:
     return found[0] if found else None
 
 
-def classify_files(folder: Path) -> dict:
+def classify_files(folder: Path, *, portable=False, sku=None, company=None) -> dict:
     """Classify only; never upload or infer that a document matches the product."""
     manifest_path = folder / "manifest.json"
     if manifest_path.is_file():
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            if manifest.get("status") != "validated" or manifest.get("folder_path") != str(folder):
+            if manifest.get("status") != "validated" or (not portable and manifest.get("folder_path") != str(folder)):
                 raise ValueError("Manifesto não corresponde à pasta validada.")
+            if portable and (manifest.get("sku")!=sku or manifest.get("cigam_code")!=sku or manifest.get("company")!=company):
+                raise ValueError("SKU/empresa do manifesto diverge da pasta/loja.")
             def existing(relative: str) -> str:
+                from app.services.datasheet_batches import relative_name
+                relative_name(relative)
                 path = (folder / relative).resolve()
-                if not path.is_relative_to(folder.resolve()) or not path.is_file():
+                if not path.is_relative_to(folder.resolve()) or not path.is_file() or path.is_symlink():
                     raise ValueError(f"Arquivo do manifesto ausente ou fora da pasta: {relative}.")
                 return str(path)
+            if portable:
+                import hashlib
+                declared={}
+                for item in manifest["files"]:
+                    relative=item["path"]
+                    if relative.casefold() in declared: raise ValueError("Arquivo duplicado no manifesto.")
+                    declared[relative.casefold()]=item
+                    path=Path(existing(relative))
+                    if hashlib.sha256(path.read_bytes()).hexdigest()!=item.get("sha256"):
+                        raise ValueError("Hash do arquivo diverge do manifesto.")
+                if any(r.casefold() not in declared for r in manifest["ordered_images"]):
+                    raise ValueError("Imagem não declarada no manifesto.")
+                if len(set(manifest["ordered_images"]))!=len(manifest["ordered_images"]):
+                    raise ValueError("Imagem duplicada no manifesto.")
             ordered = [existing(relative) for relative in manifest["ordered_images"]]
-            if not ordered or ordered[0] != manifest["main_image_path"]:
+            if not ordered or (not portable and ordered[0] != manifest["main_image_path"]):
                 raise ValueError("Imagem principal diverge da ordem do manifesto.")
             documents = [
                 {"role": item["role"], "path": existing(item["path"])}
-                for item in manifest["files"] if item["role"] not in {"main_image", "gallery"}
+                for item in manifest["files"] if item["role"] not in {"main_image", "gallery", "technical_analysis"}
             ]
             return {"main_image": ordered[0], "gallery": ordered[1:], "documents": documents, "warnings": []}
         except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:

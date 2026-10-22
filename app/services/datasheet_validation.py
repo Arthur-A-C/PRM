@@ -41,4 +41,10 @@ def validate_analysis(data: Any, *, name: str, attachments: set[str] | None = No
         specs = data.get("especificacoes")
         if not isinstance(specs, list):
             raise ValueError("Datasheet completo exige a lista especificacoes.")
+        for row in specs:
+            if not isinstance(row, dict):
+                raise ValueError('Cada especificação deve ser uma seção ou uma linha com chave e valor.')
+            keys = set(row)
+            if keys not in ({'secao'}, {'chave', 'valor'}) or any(not isinstance(v, str) or not v.strip() for v in row.values()):
+                raise ValueError('Especificação inválida: use secao ou chave e valor, como textos não vazios.')
     return data

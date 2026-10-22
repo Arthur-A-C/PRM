@@ -1,0 +1,19 @@
+/* Cadastro via API — layout da página. Controles, painéis e tabelas vêm de prm-ui.css. */
+#api-registration { min-width: 0; overflow-wrap: anywhere; }
+#api-registration-upload { grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+#api-registration-summary { font-variant-numeric: tabular-nums; }
+#api-registration .table-scroll { margin-top: 1rem; }
+#api-registration table { min-width: 780px; }
+#api-registration-history { display: flex; flex-wrap: wrap; gap: .5rem; }
+#api-registration-history:empty::after { content: "Nenhum lote importado."; color: var(--cc-ink-3); font-size: .78rem; }
+:root .prm-ui #api-registration-history button { min-height: 2rem; padding: .3rem .7rem; font: 500 .72rem var(--cc-mono); }
+@media (max-width: 1100px) { #api-registration-upload { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { #api-registration-upload { grid-template-columns: minmax(0, 1fr); } }
+#api-registration .api-dry-run { display: grid; gap: .5rem; }
+#api-registration .api-dry-run > summary { cursor: pointer; font-weight: 600; }
+#api-registration .api-dry-run h4 { margin: .75rem 0 .25rem; font-size: .8rem; }
+#api-registration .api-dry-run ul { margin: 0; padding-left: 1.1rem; font-size: .78rem; }
+#api-registration .api-dry-run table { min-width: 640px; font-size: .76rem; }
+#api-registration .api-dry-run pre { max-height: 24rem; overflow: auto; font-size: .7rem; white-space: pre-wrap; }
+#api-registration .api-choices { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+#api-registration .api-choice { display: inline-flex; gap: .4rem; align-items: center; font-size: .78rem; }

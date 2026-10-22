@@ -1,4 +1,18 @@
 .env
+.env.*
+!.env.example
+*.env
+credenciais*.json
+credentials*.json
+secrets*.json
+chrome-profile*/
+playwright/.auth/
+data/integrations/
+data/store_publish/
+data/meetings/
+.venv-asr/
+trabalho/
+data/datasheet_batches/
 .pytest_cache/
 pytest-cache-files-*/
 tests/.generated-*.xlsx
@@ -17,3 +31,8 @@ data/imports/*
 data/products/*
 data/analysis/staging/*
 *.log
+backups-docker/
+data/fotos/
+*.dump
+*.sqlite3
+*.sqlite3-*
