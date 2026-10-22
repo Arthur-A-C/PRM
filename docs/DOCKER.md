@@ -25,6 +25,8 @@ Workers são opt-in (`--profile workers`). O wrapper Linux limita o banco a `db/
 
 Requisitos: Docker Desktop com containers Linux e Compose >= 2.24.4. Execute na raiz do clone.
 
+Se o Windows bloquear scripts, execute somente o script revisado com política temporária do processo (não altera a política do sistema): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/docker/prm.ps1 build`. Troque `build` pela ação desejada nos comandos abaixo.
+
 ```powershell
 .\scripts\docker\prm.ps1 build
 .\scripts\docker\prm.ps1 init   # migra SOMENTE o novo banco prm_docker
