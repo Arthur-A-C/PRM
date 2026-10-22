@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-22 — Teste de deduplicação de publicação em lote determinístico
+
+- Corrigida fixture ZIP 3D que variava com o relógio e causava 10 uploads em vez de 9 no CI. Metadados fixos e regressões com avanço de tempo; expectativa de 9 preservada, sem alteração da deduplicação ou dos serviços de produção.
+
 ## 2026-10-22 — Autonomia operacional do Desenvolvedor na remoção (PR #4)
 
 - Desenvolvedor ativo pode aprovar, executar e restaurar suas próprias operações, com dispensa automática auditada de quatro olhos; gestores continuam exigindo outro aprovador autorizado e vendedores não podem operar.
