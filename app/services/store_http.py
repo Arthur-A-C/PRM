@@ -23,7 +23,8 @@ def http_client(base_url, namespace, auth=None, timeout=20, transport=None):
 
 
 def read_json(client, path, params=None):
-    if not re.fullmatch(r"(?:products(?:/\d+|/categories|/attributes)?|users/me|media|)", path):
+    # product/<id> is the WordPress REST view of a product (featured_media), read-only like the rest.
+    if not re.fullmatch(r"(?:products(?:/\d+|/categories|/attributes)?|product/\d+|users/me|media|)", path):
         raise ValueError("Endpoint de leitura não permitido.")
     started = time.monotonic()
     try:
