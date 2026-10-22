@@ -4,6 +4,52 @@
 
 Infraestrutura isolada na porta 8001, sem migração do banco/filas Windows. Build, pytest Linux, quatro workers e persistência verificados; proteção da main depende de plano GitHub compatível. Resultados e limites em [INFRA_STATUS.md](INFRA_STATUS.md); operação em [DOCKER.md](DOCKER.md). Alterações funcionais anteriores preservadas fora dos commits de infraestrutura.
 
+## Remoção de arquivos de produtos — 22/10/2026
+
+- `remover_dashboard.py` não foi encontrado no computador; usada como referência a automação Playwright `arquivos-prm/automação cadastro/Remover_fotos/remover.py` (não executada).
+- Novo módulo `store_file_removal.py` + página `/digitalizacao/remocao-arquivos` + worker `scripts/store_removal_worker.py`: modos remover tudo, galeria, documentos e foto principal. Reaproveita executor (senha de aplicativo, permissões, liberação), journal, auditoria, hash de campos protegidos e padrão de fila do Cadastro via API, sem alterá-lo.
+- Foto principal: API WooCommerce promove `images[0]`; a remoção usa `featured_media: 0` (WordPress REST) e a leitura usa `featured_media` para separar principal e galeria. Leitura `product/<id>` liberada no cliente somente leitura.
+- Liberações `remove_<modo>`/`restore_<modo>` (`issue-removal`) ligadas a loja, SKU, produto, modo e hash do Dry Run; allowlist inalterada (só 119002000072). Restauração `scripts/store_removal_restore.py`.
+- Dry Run real somente leitura do 119002000072 nos quatro modos (principal #21915 confirmada por `featured_media`; galeria vazia; 3 documentos WCDA). Nenhuma gravação.
+- Verificação: **563 testes aprovados** (31 novos em `tests/test_store_file_removal.py`, mock com a semântica real de imagens WooCommerce/WordPress). Página verificada no Edge headless a 1440 e 390 px sem overflow nem erros de JS.
+
+## Resolução de imagens em pasta — 22/10/2026
+
+- Nova página `/digitalizacao/resolucao-imagens` (gestores) e API `/api/v1/imagens`: seleção de pasta pelo servidor (raízes em `PRM_IMAGE_TOOL_ROOTS`, padrão pasta do usuário), prévia, confirmação, progresso, parada segura e restauração.
+- `fit_square` em `registration_package.py`, ao lado de `process_image` (mesma verificação, orientação EXIF e fundo branco; saída da Digitalização inalterada): quadrado exato, proporção preservada, formato JPEG/PNG/WEBP mantido.
+- `image_resolution.py`: temporário → backup verificado por hash em `Backup-fotos` (criação exclusiva, versão `.backup-N` em conflito, reaproveitamento de backup idêntico) → `os.replace` atômico; registro `.prm-resolucao.json` para retomada e para não reconverter; restauração sem sobrescrever imagens alteradas; links/junctions e `Backup-fotos` ignorados; checagem de espaço.
+- Verificação: **532 testes aprovados** (23 novos em `tests/test_image_resolution.py`, só em diretórios temporários, incluindo junction real do Windows). Fluxo ponta a ponta no Edge headless contra servidor descartável em pasta temporária: prévia, conversão, nova prévia sem pendências e restauração. Nenhum arquivo real alterado. WooCommerce, CSV e Digitalização não modificados.
+
+## Digitalização e Publicação em Lote — 21/10/2026
+
+- Nova página `/digitalizacao/publicacao-lote` (6 etapas, tabela por SKU com filtros, ações individuais/em lote, logs). Orquestrador `batch_publication.py` liga Geração em Lote e Cadastro via API por pacote validado em memória; nenhum pipeline duplicado. Não gera nome, descrições, categorias, atributos ou CSV; módulos atuais preservados.
+- Extensões mínimas: processar itens selecionados e pausar (BatchStore); estado `awaiting_product` ("Aguardando cadastro por CSV") retomável; confirmação por SKU; manifesto portátil sem imagens; liberação com escopo para vários SKUs (`issue_scope`, até 50, tudo ou nada) ainda restrita a `HOMOLOGATION_TARGETS` (só 119002000072).
+- Verificação: **505 testes aprovados** (16 novos em `tests/test_batch_publication.py`), 3 avisos conhecidos. Edge headless 1440/768/390 px sem overflow nem erros de JS, com lote simulado em estados mistos. Nenhuma gravação real, upload ou IA paga; sem push.
+
+## Datasheet do fornecedor fora dos pacotes exportados — 21/10/2026
+
+- Mesmo pipeline, sem novo exportador. Geração em Lote: `fontes/` do ZIP deixa de levar os assets `source_datasheet` (imagens, 3D e auxiliares mantidos). Digitalização (`finalize_draft`): original guardado em `_runs/<run>/fontes/` e em `record.json` (`source_files`), fora da pasta, ZIP e manifesto. Pacote `/pacote/zip`: campo aceito, conteúdo não exportado. A IA continua recebendo o original; descrições, atributos, CSV e datasheets não mudaram. Pacotes existentes intocados (`data/products/choice/119002000072` com horário 11:39).
+- Cadastro via API: em pacotes com datasheet gerado, o original de pacotes antigos é listado em `ignored` e não é enviado. Dry Runs anteriores com o original são recusados na emissão da liberação, no worker e no executor.
+- **Envio real já executado antes desta regra**, às 15:47, pelo operador: lote `08a5edc9`, liberação `d5dd5be6` consumida, mídias 21915 (principal), 21916 (Datasheet), 21917 (Datasheet_Original), 21918 (Desenho 3D), PUT só com `images`/`_wcda_arquivos`, verificado. O datasheet do fornecedor está publicado no WCDA do 16321; correção na loja depende de autorização (não executada).
+- Verificação: **489 testes aprovados**, 3 avisos conhecidos. Sem alterações nas lojas, sem push.
+
+
+## Auditoria final antes da primeira gravação real — 21/10/2026
+
+- Lote real `08a5edc9`: 4 arquivos com hash idêntico no plano, disco, ZIP e manifesto; ações do Dry Run casam 1:1; aprovação com o hash atual; nenhuma outra fila pendente; zero liberações. Nenhuma credencial real nos arquivos da fila.
+- Corrigido: `--once` reivindicava o item pendente mais antigo de qualquer lote; agora `--batch/--sku` restringe ao item autorizado. Corrigido: metadados reescritos por plugins a cada salvamento (Yoast IndexNow, oEmbed) causariam falso "não confirmado" após um PUT aplicado; passam a ser ignorados explicitamente, com campos comerciais e demais metadados estritos.
+- Limite conhecido: WooCommerce não oferece compare-and-swap; alteração externa entre a última leitura e o PUT só é detectada na releitura (erro + recuperação).
+- **487 testes aprovados** (18 da auditoria em `tests/test_publish_audit.py`, validados por mutação). Nenhuma liberação, upload ou alteração na loja; sem push.
+
+## Liberação de uso único para homologação do Cadastro via API — 21/10/2026
+
+- Implementada e testada só com mocks; **nenhuma liberação criada, nenhum upload ou alteração no produto 16321**. Sem push.
+- `store_publish_grant.py`: alvo fixo Choice/`https://choicetech.com.br`/119002000072/16321, vínculo ao `dry_run_sha256` aprovado, finalidade `publish` ou `rollback`, validade ≤ 120 min, consumo atômico antes do primeiro upload, revogação e auditoria. CLIs `scripts/homologation_grant.py` e `scripts/store_registration_rollback.py`. Política `PRM_PUBLISH_*` inalterada; demais gravações em produção seguem bloqueadas.
+- Executor: leituras/escritas WooCommerce pela senha de aplicativo WordPress, com verificação prévia de capacidades (`users/me`) e de `Allow` (OPTIONS) para `PUT products/{id}` e `POST media`. Título da mídia passa a carregar a identidade `prm-<sha16>`, pois a busca REST usa o título (defeito achado na verificação de permissões).
+- Verificação somente leitura da Choice: usuário `brindeflyadmin` com upload e edição de produtos; `Allow` com PUT no 16321 e POST em mídia; limite de upload 1 GB; nenhum dos 4 arquivos já na biblioteca. Permissão leitura/escrita da chave WooCommerce não verificável sem gravação, por isso o PUT usa a senha de aplicativo.
+- Fila real: um lote da interface (`08a5edc9`, 119002000072) aprovado e pronto; tabela `grants` criada pelo código novo e vazia.
+- Verificação: **469 testes aprovados** (21 novos em `tests/test_homologation_grant.py`), 3 avisos conhecidos.
+
 ## Cadastro via API: escopo exclusivo de arquivos — 21/10/2026
 
 - **Escopo corrigido:** o módulo só adiciona imagens e documentos WCDA a produtos existentes. Nome, descrições, categorias, atributos, SKU, preço, estoque, status e demais metadados continuam no fluxo CSV. O mapeamento comercial `prepare_content` foi removido do plano de publicação via API; os serviços de descrição, datasheet e CSV (`registration_description`, `registration_woo_csv` etc.) não foram alterados. Versões anteriores copiadas no scratchpad.
