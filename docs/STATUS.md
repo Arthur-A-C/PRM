@@ -1,5 +1,46 @@
 # Status do projeto
 
+## Revisão consolidada — 23/10/2026
+
+Base inspecionada: `179c702` (merge do PR #5, pauta semanal), na branch local `feature/arthur-desenvolvimento`. O checkout estava sem alterações antes da atualização documental. Esta revisão consultou código, migrações, testes e documentação local; não consultou o estado remoto atual de CI, proteção de branches ou implantação.
+
+### Implementação disponível
+
+| Área | Estado no repositório |
+|---|---|
+| Catálogos | Snapshots refinados, qualidade, busca/filtros e comparação de 2–8 produtos; histórico legado preservado |
+| Atributos | Normalização e comparação de memória, armazenamento, USB e SO; equivalência comercial não confirmada automaticamente |
+| Dashboard | Centro operacional e inteligência de portfólio com base atual; resultados do matcher legado não são cobertura do snapshot refinado |
+| Digitalização | Datasheets individuais/lotes, arquivos por SKU, filas persistentes e exportações |
+| Arquivos | Envio de pastas pelo navegador, resolução de imagens, publicação e remoção com auditoria/recuperação |
+| Colaboração | Reuniões, revisão/comentários em cards, Planner, atribuição e alertas internos |
+| Pauta semanal | GitHub + Planner, edição, aprovação, PDF, histórico e agendamento pelo worker de alertas |
+| Acesso e infraestrutura | Perfis, permissões de remoção por loja, Docker isolado e CI; nenhum deploy automático |
+
+A migração final disponível é **`20261023_0014`**, que une `20261022_0012` (permissões de remoção) e `20261023_0013` (pauta semanal). Isso não comprova aplicação no banco oficial. A ativação de cards/alertas em `20261021_0011`, registrada abaixo, é evidência histórica de outro ambiente.
+
+### Verificações desta revisão
+
+- Análise sintática via `ast.parse` dos **243 arquivos Python** em `app`, `scripts`, `docker`, `migrations` e `tests`: **sem erros**. Não equivale a importação da aplicação ou execução de testes.
+- **52 arquivos de testes** presentes; CI configurada para Python 3.14, pytest, dependências, build Docker, migrações, health, persistência e segredos.
+- Suíte não executada neste checkout: Python disponível **3.15**, sem pytest; `.venv` e `.env` ausentes; daemon Docker indisponível na consulta.
+- Banco, sessão no navegador, APIs de lojas, filas, workers e implantação não foram verificados nesta revisão.
+- O resultado de **630 aprovados, 26 ignorados e 1 aviso**, abaixo, pertence à validação documentada do PR #4 em 22/10; antecede a integração da pauta e não deve ser apresentado como teste do commit atual.
+
+### Pendências e continuidade
+
+1. Preparar ambiente Python 3.14 ou Docker e verificar a suíte integrada; conferir `alembic current` no destino contra o head `20261023_0014` antes de qualquer implantação.
+2. Confirmar servidor/workers e configuração da pauta, incluindo token de leitura e evidência de commit implantado. O Compose base usa rede interna e não fornece automaticamente credenciais de integrações.
+3. Homologar matching/cobertura da base refinada com revisão técnica; a comparação por atributo já implementada não conclui esse aceite.
+4. Concluir homologação autorizada de escrita/WCDA e recuperação. A remoção em produção possui habilitação própria; não inferir lojas ativas da existência do código.
+5. Seguir as pendências de qualidade, escala e operação das reuniões e demais módulos no [Backlog](BACKLOG.md).
+
+As contagens de **89.693 registros e 500.016 observações de atributos** são da carga refinada documentada em 09/10, não de consulta atual. [README](../README.md) apresenta o escopo consolidado; [Backlog](BACKLOG.md) separa implementação de homologação pendente.
+
+## Histórico de verificações
+
+Os registros a seguir preservam contexto, ambiente, commit e resultados das respectivas etapas. Expressões como “atual”, “pendente”, visibilidade do repositório ou revisão do banco devem ser lidas na data de cada registro; não substituem a revisão consolidada acima. O mesmo vale para [INFRA_STATUS.md](INFRA_STATUS.md), que retrata a entrega de infraestrutura anterior às integrações funcionais.
+
 ## PR #4 — estabilização do teste de deduplicação — 22/10/2026
 
 - Falha investigada: `test_same_file_in_several_products_is_uploaded_once` esperava 9 uploads e intermitentemente recebia 10. `inner_zip()` criava um novo ZIP por SKU com timestamp do relógio; ao cruzar a resolução de 2 segundos do ZIP, os bytes/SHA-256 mudavam apesar do mesmo conteúdo STEP. A deduplicação por bytes estava correta; a fixture não representava o mesmo arquivo.

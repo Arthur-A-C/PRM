@@ -99,7 +99,7 @@ passam por remoção de padrões de segredo (tokens, chaves, senhas em URL) ante
 ## Implantação
 
 1. Backup do PostgreSQL.
-2. `docker compose run --rm migrate` (migração `20261023_0013`, somente tabelas novas).
+2. `docker compose run --rm migrate` (aplica até o head `20261023_0014`, que une a migração da pauta `20261023_0013` e a de permissões de remoção `20261022_0012`).
 3. Definir `PRM_GITHUB_TOKEN` (e, quando houver, `PRM_DEPLOYED_COMMIT`) no arquivo de ambiente do servidor
    para `api` e `worker-alerts`; recriar somente esses dois serviços.
 4. Abrir a Pauta Semanal, ajustar a configuração e usar "Testar acesso ao GitHub".
