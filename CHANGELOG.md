@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-23 — documentação consolidada
+
+- README atualizado para o escopo atual; backlog reorganizado por módulo e status consolidado sobre a base `179c702`, preservando evidências históricas.
+- Diferenciadas implementação, homologação e implantação; corrigidas referências ao dashboard legado, permissões de remoção e head de migrações `20261023_0014`.
+- Registrados os limites do checkout local: análise sintática sem erros, mas sem execução da suíte, banco ou interface nesta revisão.
+
 ## 2026-10-23 — Pauta Semanal de Desenvolvimento
 
 - Nova seção em Reuniões (`/reunioes/pauta-semanal`, gestores e desenvolvedores): pauta de segunda a sexta (America/Sao_Paulo) com commits, PRs, issues, Checks do GitHub (metadados, somente leitura, token só no backend) e tarefas do Planner, com link de origem em cada item.

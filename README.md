@@ -1,47 +1,43 @@
 # PRM
 
-## Docker e colaboração
+Product Relationship Manager: aplicação interna do grupo SAG para inteligência de catálogos, digitalização de produtos, operações de arquivos nas lojas e colaboração da equipe. Reúne Choice Tech, Portwell e SAG, com análise de concorrentes como Eco Automação e Dimensional.
 
-Ambiente isolado na porta **8001**, preservando o PRM Windows: [guia Docker](docs/DOCKER.md), [resultados da infraestrutura](docs/INFRA_STATUS.md) e [fluxo de Pull Requests Kaue/Arthur](CONTRIBUTING.md). Sem deploy automático ou migração dos dados atuais.
+## Estado atual — 23/10/2026
 
-Product Relationship Manager: aplicação interna para analisar catálogos de produtos do grupo SAG, com foco nas ofertas da Choice Tech e da Portwell e comparação com concorrentes como a Eco Automação.
+A base de código revisada é o commit `179c702`, que inclui os PRs de remoção em produção e pauta semanal. A versão declarada da API ainda é `0.1.0`; o [marco da primeira entrega](docs/ENTREGA_0_1.md) é um registro histórico, não o escopo completo atual. Consulte [Status](docs/STATUS.md) para evidências e limites e [Backlog](docs/BACKLOG.md) para pendências.
 
-Este repositório contém o código e a documentação da primeira entrega (`0.1.0`). O [marco da entrega](docs/ENTREGA_0_1.md) resume o que funciona e seus limites; o [estado operacional](docs/STATUS.md) registra as verificações mais recentes.
+**Implementado não significa implantado:** a migração mais recente no repositório é `20261023_0014`. A revisão aplicada no servidor, os workers ativos e a habilitação das lojas precisam ser conferidos no ambiente de destino.
 
-A [nova base refinada](docs/CATALOGOS_REFINADOS.md), publicada em 09/10/2026, reúne os quatro arquivos atuais em snapshots separados do histórico: 89.693 registros e 500.016 observações de atributos. Catálogos abre a nova fotografia, com acesso ao histórico preservado. **Comparação técnica/cobertura dessa nova base ainda não foram homologadas**; os próximos gates estão documentados.
+## Funcionalidades implementadas
 
-## O que já funciona
+| Área | Escopo e documentação |
+|---|---|
+| Catálogos atuais | [Snapshots refinados](docs/CATALOGOS_REFINADOS.md) de Portwell, Choice, Eco e Dimensional, busca, filtros, procedência, qualidade e histórico preservado |
+| Comparação | Seleção de 2–8 produtos, matriz de preços e características, [normalização de atributos](docs/NORMALIZACAO_ATRIBUTOS.md) e interpretação de memória, armazenamento, USB e sistema operacional |
+| Dashboard | Centro operacional com filtros, indicadores de digitalização e inteligência do portfólio baseada no snapshot atual; [workspace visual](docs/WORKSPACE_VISUAL.md) |
+| Digitalização | Datasheets por empresa, [lotes por pastas SKU/CIGAM ou CSV](docs/DATASHEETS_EM_LOTE.md), inventário, fila persistente e exportação de PDFs, análises e fontes |
+| Arquivos e imagens | Envio de pastas pelo navegador com progresso/retomada; [resolução de imagens](docs/RESOLUCAO_IMAGENS.md) para 1500 × 1500 px com backup e restauração |
+| Cadastro e lojas | Fluxo CSV de dados comerciais; [diagnóstico WooCommerce/WordPress](docs/INTEGRACOES_LOJAS.md), [cadastro via API de arquivos](docs/CADASTRO_API_STAGING.md) e [publicação em lote](docs/PUBLICACAO_EM_LOTE.md) com Dry Run, aprovação e releitura |
+| Remoção | [Desvinculação de fotos/documentos](docs/REMOCAO_ARQUIVOS.md) com permissões por loja, backup verificado, auditoria e restauração; não exclui a mídia da biblioteca |
+| Colaboração | [Reuniões e Planner](docs/REUNIOES_PLANNER.md), revisão e comentários em cards, atribuição e [alertas internos](docs/CARDS_E_ALERTAS.md) |
+| Pauta semanal | [GitHub + Planner](docs/PAUTA_SEMANAL.md), situação baseada em evidências, redação opcional por IA, edição, aprovação, histórico, PDF e agendamento pelo worker de alertas |
+| Acesso | [Contas e perfis](docs/NIVEIS_DE_ACESSO.md), sessões, isolamento por organização e acesso restrito do vendedor; remoção possui regras distintas para gestor e desenvolvedor |
 
-- [Níveis de acesso e contas](docs/NIVEIS_DE_ACESSO.md): desenvolvedor e gestor com permissões administrativas equivalentes, vendedor restrito a produtos e reuniões/cards. Criação de contas protegida em Gestão.
+A base refinada publicada em 09/10/2026 registrou **89.693 registros e 500.016 observações de atributos**. São contagens históricas da carga documentada, não uma consulta ao banco nesta revisão. Dashboard e comparador usam o snapshot atual; o pareador legado `lexical-v1.3`, importações XLSX e enriquecimento do pipeline permanecem no código e no histórico.
 
-- [Pauta Semanal de Desenvolvimento](docs/PAUTA_SEMANAL.md): pauta automática de sexta com commits, PRs, issues e Planner, situação comprovada (branch, PR, integrado, implantado), IA verificada, edição, aprovação, PDF e histórico.
-- [Remoção de arquivos de produtos](docs/REMOCAO_ARQUIVOS.md): desvincula foto principal, galeria e/ou documentos WCDA de produtos existentes por SKU, com Dry Run, aprovação, auditoria e restauração; nunca exclui mídia nem altera dados comerciais.
-- [Resolução de imagens em pasta](docs/RESOLUCAO_IMAGENS.md): converte as fotos de uma pasta e subpastas para 1500 × 1500 px com fundo branco, mantendo nomes e formatos, com originais em `Backup-fotos`, retomada e restauração.
-- [Digitalização e Publicação em Lote](docs/PUBLICACAO_EM_LOTE.md): ZIP por SKU → datasheets → Dry Run → aprovação → imagens e documentos em produtos existentes, sem baixar/reenviar ZIP. Não gera nomes, descrições, categorias, atributos ou CSV. Lojas atuais bloqueadas sem liberação.
-- [Cadastro via API — arquivos](docs/CADASTRO_API_STAGING.md): imagens e documentos `_wcda_arquivos` de produtos já existentes, a partir de ZIPs do PRM por SKU (CSV opcional). Dry Run, aprovação, journal, auditoria e releitura; dados comerciais continuam no fluxo CSV. Escrita nas lojas atuais bloqueada.
-- [Documentos `_wcda_arquivos`](docs/WCDA_HOMOLOGACAO.md): estrutura observada nas três lojas, serviço de preparação, Dry Run, preservação de documentos, payload e plano de rollback. Sem escrita real; teste futuro exige autorização específica de loja/SKU.
+**Matching técnico e cobertura competitiva da base refinada ainda dependem de homologação.** Coincidências de atributos ou presença na mesma família não confirmam equivalência comercial. O funil legado não deve ser interpretado como resultado da nova base.
 
-- [Integrações WooCommerce e WordPress](docs/INTEGRACOES_LOJAS.md): diagnósticos autenticados somente leitura para as três lojas, restritos a gestores/desenvolvedores. Autenticação das seis APIs confirmada em 20/10/2026; escrita e contrato de documentos ainda não homologados. Playwright preservado.
+A escrita de arquivos nas lojas depende das liberações do respectivo fluxo e da homologação descrita nos guias, incluindo o reconhecimento dos [documentos WCDA](docs/WCDA_HOMOLOGACAO.md). Remoção em produção tem trava própria, HTTPS, permissões e confirmações; sua implementação não comprova ativação em uma loja.
 
-- [Geração de Datasheets em Lote](docs/DATASHEETS_EM_LOTE.md): ZIP por pastas CIGAM/SKU (CSV opcional) ou modo CSV/PDFs anterior, prévia com inventário, fila persistente e exportação de PDFs/análises/fontes por empresa. Acesse `/digitalizacao/lotes`; requer iniciar o worker separado descrito no guia. Sem publicação automática nas lojas.
+## Arquitetura e execução
 
-- Login individual, sessões e páginas protegidas.
-- Importação auditável de planilhas XLSX da Eco Automação, Portwell e Choice Tech, com prévia, validação e proteção contra reimportação idêntica.
-- Tratamento automático conservador de novos produtos (família, modelo e especificações detectáveis) e enriquecimento opcional com as saídas tratadas do `PRM_Pipeline`, sem perder as fontes originais.
-- Dashboard com nossos catálogos em primeiro plano, cobertura do tratamento por empresa, funil de correspondência da concorrente e destaques nominais de preço; catálogo com busca por vários termos, filtros combináveis, origem de cada oferta e 100 produtos por página por padrão.
-- Análise automática do catálogo concorrente inteiro contra o portfólio próprio, com sugestões, candidatos, cobertura e posição nominal de preços.
-- Comparador com visualização de possíveis lacunas: marcas sem oferta própria identificada e famílias de produtos concorrentes sem candidato, com exemplos e listagem paginada para revisão.
-- Retrato adicional de amplitude de famílias Choice + Portwell frente à Eco, gerado dos CSVs normalizados conciliados ao banco; a presença numa família não confirma equivalência de produtos.
-- No catálogo, faixa de preço funciona também com “Todas as modalidades”. É possível selecionar de 2 a 8 produtos, inclusive entre páginas, para comparação direta de preços e características, separada da análise automática do concorrente.
-- Para testes remotos pontuais da equipe, há uma prévia HTTPS temporária com senha adicional e login individual do PRM; veja [Operação no Windows](docs/OPERACAO_WINDOWS.md#prévia-pública-temporária-para-a-equipe).
-- Marcas canônicas com aliases revisáveis; `ELFIN` e `NEW ELFIN SRL` são reconhecidas como a mesma marca, preservando o texto original da fonte.
-- API `/api/v1`, migrações Alembic e testes automatizados.
+Backend Python/FastAPI, SQLAlchemy e PostgreSQL, migrações Alembic, interface Jinja2 com CSS/JavaScript e API `/api/v1`. Há filas persistentes e workers separados para os fluxos operacionais; iniciar apenas o servidor web não inicia todos os processamentos.
 
-As correspondências são sugestões para revisão humana. A cobertura exibida não representa equivalência comercial confirmada. Preços de modalidades diferentes são comparados apenas nominalmente.
+O [ambiente Docker](docs/DOCKER.md) usa a porta **8001** por padrão, PostgreSQL e volumes isolados, com serviços para cadastro, remoção, datasheets e alertas. Não migra automaticamente os dados Windows nem faz deploy de produção. Consulte os [resultados históricos da infraestrutura](docs/INFRA_STATUS.md) e o [fluxo de colaboração](CONTRIBUTING.md).
 
 ## Executar localmente no Windows
 
-Requisitos: Python 3.14, PostgreSQL e acesso à pasta do projeto. O banco operacional é PostgreSQL; o pgAdmin é apenas uma ferramenta de administração. A aplicação não depende de chave de IA nem de n8n.
+Requisitos: Python 3.14, PostgreSQL e acesso à pasta do projeto. O banco operacional é PostgreSQL; o pgAdmin é apenas uma ferramenta de administração. Catálogos e comparação não exigem chave de IA nem n8n. Recursos de geração/análise por IA exigem configuração própria; áudio local usa dependências e modelos separados, conforme os guias dos módulos.
 
 No PowerShell, a partir da raiz do repositório:
 
@@ -65,6 +61,8 @@ Edite **somente o `.env` local** com a URL e a senha do seu banco. Não comparti
 Se sua política do PowerShell permitir, há atalhos em `scripts/*.ps1`. Os comandos acima funcionam sem executar arquivos `.ps1`.
 
 ## Carregar os catálogos
+
+Para a base atual, siga o fluxo de snapshots em [Catálogos refinados](docs/CATALOGOS_REFINADOS.md). Os comandos abaixo pertencem ao fluxo XLSX e ao enriquecimento legado; não publicam nem homologam automaticamente o snapshot refinado.
 
 Os arquivos originais são dados locais e não acompanham o repositório. Coloque em `data/imports/` os arquivos `produtos_ecoautomacao.xlsx`, `produtos-portwell.xlsx` e `produtos-choice.xlsx`. Para cada empresa, faça a prévia antes da publicação:
 
@@ -100,7 +98,11 @@ O último comando recalcula a análise; sem `--commit`, a operação é apenas u
 .\.venv\Scripts\python.exe -m scripts.reconcile_catalogs
 ```
 
-O último conjunto verificado em 23/09/2026 teve 21 testes aprovados, migração `20260923_0007` e 35.786 ofertas no banco local. Esses números dependem dos catálogos importados e não aparecem em um banco recém-criado.
+A CI configurada verifica dependências, compilação/importação, pytest, build Docker, migrações, health, persistência e segredos. O registro de 22/10/2026 do PR #4 informa **630 testes aprovados, 26 ignorados e 1 aviso**; esse resultado antecede a integração da pauta semanal e não valida sozinho o commit atual.
+
+Na revisão local de 23/10/2026, os **243 arquivos Python** de aplicação, scripts, Docker, migrações e testes foram analisados sintaticamente sem erros; existem **52 arquivos de testes**. A suíte não foi executada: o checkout não tinha `.env`/`.venv`, o Python disponível era 3.15 sem pytest e o daemon Docker estava indisponível. Banco, interface e implantação não foram validados nessa revisão. O ambiente de referência do projeto e da CI é Python 3.14.
+
+Use `alembic heads` para consultar a revisão disponível (`20261023_0014`) e `alembic current` para a revisão efetivamente aplicada. A reconciliação acima pertence ao catálogo legado; para snapshots atuais, siga as verificações do guia de catálogos refinados.
 
 ## Documentação
 
@@ -113,7 +115,7 @@ O último conjunto verificado em 23/09/2026 teve 21 testes aprovados, migração
 | [Dados](docs/DADOS.md) | Fontes, importação, marcas e correspondência |
 | [Comparação normalizada](docs/COMPARACAO_NORMALIZADA.md) | Auditoria dos novos CSVs/XLSX, metodologia, limites e regeneração do retrato |
 | [Operação no Windows](docs/OPERACAO_WINDOWS.md) | Execução local, backup e limites de implantação |
-| [Backlog](docs/BACKLOG.md) | Trabalho concluído e pendente por fase |
+| [Backlog](docs/BACKLOG.md) | Implementações e pendências por módulo |
 | [Changelog](CHANGELOG.md) | Histórico funcional da versão |
 | [Especificação original](PRM_ESPECIFICACAO_CODEX.md) | Objetivo e fases planejadas |
 

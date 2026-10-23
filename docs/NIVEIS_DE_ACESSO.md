@@ -11,7 +11,7 @@
 | Integrações de lojas e cadastro via API | Sim | Sim | Não |
 | Criação de contas na própria organização | Sim | Sim | Não |
 
-Gestor é um nível separado, mas tem **as mesmas permissões do desenvolvedor nesta etapa**, inclusive criar contas dos três níveis. Isso não remove as restrições de organização, titularidade dos lotes, CSRF, configuração ou homologação das lojas. Vendedor é redirecionado de `/` e `/comparador` para `/catalogos`; a comparação de produtos selecionados continua disponível. Calendário e alertas fazem parte de reuniões/cards.
+Gestor e desenvolvedor podem acessar os módulos administrativos e criar contas dos três níveis. Desde a atualização de remoção de 22/10/2026, **não possuem permissões operacionais idênticas**: desenvolvedor ativo pode aprovar, executar e restaurar suas próprias remoções com dispensa auditada de quatro olhos; gestor depende de permissões por loja e outro aprovador autorizado. A administração dos ambientes de remoção exige concessão explícita. Consulte [Remoção de arquivos](REMOCAO_ARQUIVOS.md). Isso não remove as restrições de organização, titularidade dos lotes, CSRF, configuração ou homologação das lojas. Vendedor é redirecionado de `/` e `/comparador` para `/catalogos`; a comparação de produtos selecionados continua disponível. Calendário e alertas fazem parte de reuniões/cards.
 
 As duas contas existentes foram convertidas de gestor para desenvolvedor no banco `prm_mvp`, sem trocar senha, organização, ID ou sessão. Não foram criados usuários fictícios no banco oficial.
 
@@ -42,7 +42,7 @@ Exemplo de auditoria, substituindo por IDs efetivamente consultados no ambiente:
 .\.venv\Scripts\python.exe scripts/configure_access_levels.py --organization UUID_ORGANIZACAO --user UUID_USUARIO
 ```
 
-Na entrega dos níveis, `prm_mvp` ficou em `20261021_0010`, com duas contas desenvolvedor. Na etapa seguinte de cards/alertas (21/10/2026), foram aplicadas `20261016_0009` e a união `20261021_0011`; esta é a revisão oficial atual. Nenhum dado de staging foi copiado. Consulte `CARDS_E_ALERTAS.md` para o agendador e os limites da publicação.
+Na entrega dos níveis, `prm_mvp` ficou em `20261021_0010`, com duas contas desenvolvedor. Na etapa seguinte de cards/alertas (21/10/2026), foram aplicadas `20261016_0009` e a união `20261021_0011`; essa é a última revisão oficial registrada naquela etapa. O head hoje disponível no repositório é `20261023_0014`; sua aplicação no destino não foi confirmada na revisão documental de 23/10/2026. Nenhum dado de staging foi copiado. Consulte `CARDS_E_ALERTAS.md` para o agendador e os limites da publicação.
 
 ## Verificação
 
