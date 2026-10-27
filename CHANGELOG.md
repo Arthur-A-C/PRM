@@ -1,52 +1,10 @@
 # Changelog
 
-## 2026-10-27 — Deploy: Novo fornecedor com IA
+## 2026-10-23 — documentação consolidada
 
-- Backup `PRM-deploy-backups/novo-fornecedor-ia-20261027/prm_docker.dump` (47,5 MB, `pg_restore --list` validado, SHA-256 e contagens ao lado). Migração `20261027_0016` → `20261027_0017` (somente `ALTER COLUMN supplier_id DROP NOT NULL`); runs existentes conferidos por checksum.
-- Imagem `prm:catalog-publication-supplier-ai-20261027c` (943 testes na imagem); só a tag de `compose.fornecedores-ia.yaml` mudou; somente `api` recriada. Verificações sem Anthropic e sem visitar sites: páginas 200, botões presentes, validações/SSRF/descarte, nenhum fornecedor/análise criada, sem 500. Rollback: voltar a tag para `...20261027b` e recriar só `api` (a coluna opcional é compatível).
-
-## 2026-10-27 — Fornecedores: Novo fornecedor com IA
-
-- Novo botão **✨ Novo fornecedor com IA**: ficha e/ou site → prévia editável → **Cadastrar fornecedor**. Nenhum fornecedor existe antes da confirmação; criação atômica com contatos, ficha anexada, histórico e vínculo da análise. Duplicidade (CNPJ, registro exterior, domínio, nome) verificada antes e dentro da criação.
-- Reutiliza a análise existente (fontes, SSRF, extração determinística, Haiku, evidências, conflitos, contatos). Migração pequena `20261027_0017` (`supplier_ai_runs.supplier_id` opcional). Preencher com IA e cadastro manual preservados.
-- Testes: 944 aprovados, 27 ignorados (container sem rede); 25 JavaScript. Sem deploy, sem chamada real à Anthropic.
-
-## 2026-10-27 — Correção: Preencher com IA retornava 400
-
-- Causa: o JSON Schema aninhado enviado em `output_config.format` gerava gramática grande demais (400 `invalid_request_error`: "The compiled grammar is too large"). Chave, modelo `claude-haiku-5-5`, `effort` e SDK 1.8.0 estavam corretos.
-- Correção: schema plano na API + conversão e validação local (evidências e grounding inalterados); log/auditoria com diagnóstico sanitizado. Imagem `prm:catalog-publication-supplier-ai-20261027b`, somente `api` recriada. 920 testes aprovados. Prévia real concluída sem aplicar campos.
-
-## 2026-10-27 — Deploy consolidado: publicação da base + Preencher com IA
-
-- Backup `PRM-deploy-backups/catalog-publication-supplier-ai-20261027/prm_docker.dump` (20,7 MB, `pg_restore --list` validado, SHA-256 ao lado; contagens anteriores em `contagens-antes.txt`). Migração `20261026_0015` → `20261027_0016` (somente `supplier_ai_runs`).
-- Imagem `prm:catalog-publication-supplier-ai-20261027` (917 testes aprovados dentro da imagem). Overlay `compose.fornecedores-ia.yaml` acrescentado após `compose.catalogos-csrf.yaml`; somente `api` recriada (`--no-deps`), demais containers com os mesmos IDs. Chave/modelo lidos de `PRM_SUPPLIER_ANTHROPIC_*` do `.env` como fallback de `PRM_SUPPLIER_AI_*`.
-- Verificado: páginas 200, sem 500 nos logs, contagens idênticas ao backup, prévia de publicação (Portwell 10.955 · Eco 7.944) sem publicar, CSRF da importação ativo, IA configurada (`claude-haiku-5-5`) sem chamada real. Base ainda não publicada. Rollback: retirar o overlay e recriar só `api` (volta a `prm:catalog-csrf-20261027`); a tabela nova pode permanecer.
-
-## 2026-10-27 — Catálogos: publicação explícita da base importada
-
-- Ponte revisada `Offer` → `RefinedCatalogRun`/`RefinedCatalogItem` (prévia sem gravar, confirmação com hash, lock por organização, rollback preserva a análise anterior, auditoria no manifesto). Importação continua sem publicar automaticamente. Atributos de enriquecimento por regra entram no snapshot.
-- Dashboard, catálogo publicado e comparação usam o registro de origens do snapshot (Nossa base × Concorrência), sem códigos fixos. Visão geral mostra o estado real do catálogo e mantém o mapa de atividades sem snapshot.
-- Sem migração. Testes: 918 aprovados, 27 ignorados (container sem rede); 22 JavaScript. Prévia somente leitura no banco Docker: 18.899 itens (Portwell 10.955 · Eco 7.944). Sem publicação real, commit, push, merge ou deploy. Detalhes em `docs/CATALOGOS_ORIGENS.md`.
-
-## 2026-10-27 — Fornecedores: Preencher com IA
-
-- No detalhe do fornecedor, **✨ Preencher com IA** (ficha cadastral, site oficial ou ambos) e **✨ Ler com IA** na pasta Ficha cadastral. A análise só gera prévia; a ficha muda apenas ao aplicar os itens revisados. Nada é sobrescrito sem escolha explícita, conflitos exigem decisão, contatos múltiplos viram sugestões separadas.
-- Configuração própria `PRM_SUPPLIER_AI_*` (chave e modelo independentes da IA de reuniões/datasheets; recomendado `claude-haiku-5-5`). Extração determinística (mailto/tel/WhatsApp/JSON-LD/redes) antes da IA, saída em JSON Schema, evidência literal obrigatória por campo (sem evidência na fonte = descartado), auditoria/cache em `supplier_ai_runs` (migração aditiva `20261027_0016`), concorrência por campo (409), histórico `ai_fields_applied`.
-- Coleta do site com proteção SSRF (resolução + checagem no momento da conexão, redirects revalidados, só http/https 80/443, só o mesmo site, sem cookies/credenciais) e limites de páginas, bytes, tempo, caracteres e análises por hora. Upload aceita XLS. Ficha ganhou campos opcionais internacionais (país, registro estrangeiro, província, celular, WhatsApp, e-mails comercial/financeiro, produtos, moeda, redes sociais).
-- Testes sem API real nem rede: 906 aprovados, 28 ignorados (container `--network none`); 22 testes JavaScript. Sem commit/push/merge, deploy ou análise real de fornecedores. Detalhes em `docs/FORNECEDORES_IA.md`.
-
-## 2026-10-23 — Ativação autorizada da remoção por cargo
-
-- API e worker-removal do ambiente principal (8001) atualizados para a imagem testada `prm:removal-roles-20261023`, com overlay isolado e sem alterar o Compose original.
-- Backup do PostgreSQL/fila e imagem anterior preservados. Saúde e código servido verificados, filas intactas; nenhuma operação real nas lojas. Demais serviços não reiniciados. Detalhes em `docs/DEPLOY_REMOCAO_CARGOS.md`.
-
-## 2026-10-23 — Remoção com autorização por cargo
-
-- Gestores e desenvolvedores ativos da organização configurada têm acesso automático às três lojas para aprovar, executar e restaurar, inclusive operações próprias; sem grants, cadastro manual por loja, SKU liberado ou ativação de produção. Escopo confirmado pelo usuário, exclusivo do módulo de remoção.
-- Preservados login, CSRF, isolamento, confirmação digitada, Dry Run aprovado, backup obrigatório/verificado, auditoria, concorrência e releitura. Worker revalida executor/aprovador e escopo antes das escritas; novas prévias incluem hash dos campos protegidos.
-- Tela simplificada, botões dependentes do estado, mensagens FastAPI textuais/listas legíveis. Endpoints antigos de configuração retornam 410; CLI antiga de restauração orienta usar a interface autenticada.
-- Sem migrations novas, limpeza de histórico, mudanças no Compose ou políticas de outros publicadores. Lotes antigos não recebem autorização automática.
-- Testes isolados sem rede: 713 aprovados, 27 ignorados; 4 testes JavaScript aprovados no host. Sem commit/push/merge, deploy ou operações reais nesta entrega. Guia atualizado em `docs/REMOCAO_ARQUIVOS.md`.
+- README atualizado para o escopo atual; backlog reorganizado por módulo e status consolidado sobre a base `179c702`, preservando evidências históricas.
+- Diferenciadas implementação, homologação e implantação; corrigidas referências ao dashboard legado, permissões de remoção e head de migrações `20261023_0014`.
+- Registrados os limites do checkout local: análise sintática sem erros, mas sem execução da suíte, banco ou interface nesta revisão.
 
 ## 2026-10-23 — Pauta Semanal de Desenvolvimento
 
