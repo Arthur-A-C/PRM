@@ -41,6 +41,7 @@ def products(
     auth: CurrentAuth,
     db: DbSession,
     q: str | None = Query(default=None, max_length=200),
+    source_group: str | None = Query(default=None, pattern="^(internal|competitor)$"),
     company: list[str] = Query(default=[]),
     brand: list[str] = Query(default=[]),
     availability: list[str] = Query(default=[]),
@@ -61,6 +62,7 @@ def products(
     if include_excluded and auth.user.role not in {"gestor", "desenvolvedor"}:
         raise HTTPException(status_code=403, detail="Somente gestores podem incluir exclusões analíticas.")
     filters = CatalogFilters(
+        source_group=source_group,
         search=q,
         companies=tuple(value for value in company if value),
         brands=tuple(value for value in brand if value),

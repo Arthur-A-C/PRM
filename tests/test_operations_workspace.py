@@ -61,10 +61,18 @@ def test_workspace_tabs_and_snapshot_data(title, initial):
             assert f'href="/catalogos?source={source}&group={group}"' in html
 
 
-def test_no_snapshot_never_renders_dashboard_or_legacy_data():
+def test_no_snapshot_keeps_activity_map_but_never_renders_catalog_data():
+    # Visão geral: digitalization activity (heatmap, feed) does not depend on a catalog snapshot.
     html = render(published=False)
-    assert "Base atual indisponível" in html
-    assert 'data-operations' not in html and 'id="ops-data"' not in html
+    assert 'data-operations' in html and 'data-cc-heatmap' in html and 'data-cc-feed' in html
+    assert 'Base de catálogo não publicada' in html and 'data-catalog-unpublished' in html
+    assert 'cc-coverage-row' not in html and 'Base publicada' not in html and 'id="ops-families"' in html
+    families = json.loads(html.split('id="ops-families">')[1].split('</script>')[0])
+    assert families == {'families': {}, 'totals': {'group': 0}, 'sources': {}, 'own': [], 'rivals': []}
+    # Analysis pages still refuse to show anything without the official snapshot.
+    for title in ("Comparador", "Importações e qualidade"):
+        page = render(title, published=False)
+        assert "Base atual indisponível" in page and 'data-operations' not in page
 
 
 def test_cards_visual_style_is_scoped_and_preserves_action_hooks():

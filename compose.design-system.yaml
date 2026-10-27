@@ -1,0 +1,8 @@
+# Aplicar POR ÚLTIMO (após compose.fornecedores-crm.yaml): design system único do PRM (26/10/2026).
+# Somente interface (templates, CSS e JS): menu agrupado, cabeçalho limpo, Visão geral com resumo, abas da
+# Digitalização, selos de estado, Fornecedores/Planner/Catálogo nos mesmos tokens. Sem migration, sem mudança de API.
+# Só a api muda; workers, banco, volumes e gateway intactos.
+# Retorno: recriar a api sem este arquivo (volta a prm:fornecedores-crm-test).
+services:
+  api:
+    image: prm:design-system-20261026b

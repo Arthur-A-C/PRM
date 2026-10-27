@@ -15,6 +15,9 @@ from app.routers import store_file_removal
 from app.routers import accounts
 from app.routers import local_uploads
 from app.routers import weekly_agenda
+from app.routers import suppliers
+from app.routers import supplier_ai
+from app.routers import catalog_imports
 from app.dependencies import require_module_access
 
 
@@ -31,4 +34,7 @@ for protected in (catalog, digitalizacao, datasheet_batches, store_integrations,
                   store_registration, batch_publication, image_resolution, local_uploads, store_file_removal, registration, operations, meetings, meeting_demo, weekly_agenda):
     app.include_router(protected.router, dependencies=[Depends(require_module_access)])
 app.include_router(accounts.router)
+app.include_router(suppliers.router, dependencies=[Depends(require_module_access)])
+app.include_router(supplier_ai.router, dependencies=[Depends(require_module_access)])
+app.include_router(catalog_imports.router, dependencies=[Depends(require_module_access)])
 app.include_router(pages.router)  # Catch-all page route must follow the API routes.

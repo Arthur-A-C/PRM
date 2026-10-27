@@ -1,0 +1,5 @@
+# Aplicar após todos os overlays ativos, inclusive compose.design-system.yaml.
+# Apenas API/frontend. Sem migration, workers ou alterações de volumes.
+services:
+  api:
+    image: prm:catalog-origin-test

@@ -658,5 +658,6 @@ def test_alembic_history_has_a_single_head():
     from alembic.config import Config
     from alembic.script import ScriptDirectory
     script = ScriptDirectory.from_config(Config(str(Path(__file__).parents[1] / "alembic.ini")))
-    assert script.get_heads() == ["20261023_0014"]
+    assert len(script.get_heads()) == 1
+    assert "20261023_0014" in {revision.revision for revision in script.walk_revisions()}
     assert set(script.get_revision("20261023_0014").down_revision) == {"20261022_0012", "20261023_0013"}

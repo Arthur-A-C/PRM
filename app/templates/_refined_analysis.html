@@ -1,8 +1,9 @@
+{% set analysis_sources = analysis_sources if analysis_sources is defined else refined_analysis.source_registry or {'portwell': {'name': 'Portwell', 'kind': 'own'}, 'choice': {'name': 'Choice', 'kind': 'own'}, 'eco': {'name': 'ECO', 'kind': 'competitor'}, 'dimensional': {'name': 'Dimensional', 'kind': 'competitor'}} %}
 <section class="panel comparable-report" aria-labelledby="refined-heading">
-  <div class="panel-heading"><p class="eyebrow">Nova base de referência · {{ refined_analysis.created_at[:10] }}</p><h2 id="refined-heading">Portwell e Choice — catálogos refinados</h2></div>
+  <div class="panel-heading"><p class="eyebrow">Nova base de referência · {{ refined_analysis.created_at[:10] }}</p><h2 id="refined-heading">{{ analysis_sources.values()|selectattr('kind', 'equalto', 'own')|map(attribute='name')|join(' e ') }} — catálogos refinados</h2></div>
   <p>Fotografia analítica publicada após ingestão em staging. Originais e histórico preservados. Os exports próprios são <strong>parciais</strong>: ausência significa “não encontrado na base analisada”, não ausência no portfólio da empresa.</p>
   <div class="overlap-metrics">
-    {% for code, label in [('portwell','Portwell'), ('choice','Choice'), ('eco','ECO'), ('dimensional','Dimensional')] %}
+    {% for code, source in analysis_sources.items() %}{% set label = source.name %}
     <div><strong>{{ "{:,}".format(refined_analysis.counts[code].accepted).replace(',', '.') }}</strong><span>{{ label }} · registros aceitos</span></div>
     {% endfor %}
   </div>
@@ -10,7 +11,7 @@
   <details {% if title == 'Importações e qualidade' %}open{% endif %}>
     <summary>Qualidade e procedência da nova base</summary>
     <div class="table-scroll"><table class="technical-matrix"><thead><tr><th>Origem</th><th>Recebidos</th><th>Aceitos</th><th>Quarentena</th><th>Visão pública</th><th>Com atributos</th><th>Atributos padronizados</th><th>Atributos não mapeados</th><th>Atributos conflitantes</th><th>Família pendente</th></tr></thead><tbody>
-      {% for code, label in [('portwell','Portwell'), ('choice','Choice'), ('eco','ECO'), ('dimensional','Dimensional')] %}
+      {% for code, source in analysis_sources.items() %}{% set label = source.name %}
       {% set c = refined_analysis.counts[code] %}
       <tr><th scope="row">{{ label }}</th><td>{{ c.received }}</td><td>{{ c.accepted }}</td><td>{{ c.get('quarantine',0) }}</td><td>{{ c.public_catalog }}</td><td>{{ c.with_attributes }}</td><td>{{ c.attributes - c.unmapped_attributes if 'attributes' in c and 'unmapped_attributes' in c else 'Não disponível' }}</td><td>{{ c.unmapped_attributes|default('Não disponível') }}</td><td>{{ c.conflicting_attributes }}</td><td>{{ c.unknown_family }}</td></tr>
       {% endfor %}
@@ -22,9 +23,9 @@
   </details>
   <details {% if title == 'Comparador' %}open{% endif %}>
     <summary>Distribuição por família proposta — não é equivalência</summary>
-    <div class="table-scroll"><table class="technical-matrix"><thead><tr><th>Família</th><th>Portwell</th><th>Choice</th><th>Grupo</th><th>ECO</th><th>Dimensional</th><th>Proximidade proposta</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="technical-matrix"><thead><tr><th>Família</th>{% for code, source in analysis_sources.items() if source.kind == 'own' %}<th>{{ source.name }}</th>{% endfor %}<th>Grupo</th>{% for code, source in analysis_sources.items() if source.kind != 'own' %}<th>{{ source.name }}</th>{% endfor %}<th>Proximidade proposta</th></tr></thead><tbody>
       {% for id, f in refined_analysis.families|dictsort %}
-      <tr><th scope="row">{{ f.label }}</th><td>{{ f.counts.get('portwell',0) }}</td><td>{{ f.counts.get('choice',0) }}</td><td>{{ f.counts.get('portwell',0) + f.counts.get('choice',0) }}</td><td>{{ f.counts.get('eco',0) }}</td><td>{{ f.counts.get('dimensional',0) }}</td><td>{{ {'core':'Foco próximo','adjacent':'Adjacente','distant':'Distante','undecided':'Pendente'}.get(f.proximity,'Pendente') }}</td></tr>
+      <tr><th scope="row">{{ f.label }}</th>{% set group = namespace(total=0) %}{% for code, source in analysis_sources.items() if source.kind == 'own' %}{% set group.total = group.total + f.counts.get(code,0) %}<td>{{ f.counts.get(code,0) }}</td>{% endfor %}<td>{{ group.total }}</td>{% for code, source in analysis_sources.items() if source.kind != 'own' %}<td>{{ f.counts.get(code,0) }}</td>{% endfor %}<td>{{ {'core':'Foco próximo','adjacent':'Adjacente','distant':'Distante','undecided':'Pendente'}.get(f.proximity,'Pendente') }}</td></tr>
       {% endfor %}
     </tbody></table></div>
     <p class="gap-caveat">Distribuição de registros, não demanda ou oportunidade comercial validada. Uma família compartilhada não comprova cobertura. Próximas etapas: perfis técnicos, recuperação de candidatos, revisão e cobertura estrita/ampliada.</p>

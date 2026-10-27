@@ -20,10 +20,12 @@ from app.models import (
     OfferPrice,
 )
 from app.services.catalog_treatment import plain
+from app.services.catalog_origin import GROUP_TYPES, source_group
 
 
 @dataclass(frozen=True)
 class CatalogFilters:
+    source_group: str | None = None
     search: str | None = None
     companies: tuple[str, ...] = field(default_factory=tuple)
     brands: tuple[str, ...] = field(default_factory=tuple)
@@ -71,13 +73,20 @@ def price_range_condition(amount, minimum: Decimal | None, maximum: Decimal | No
 
 def filter_conditions(organization_id: uuid.UUID, filters: CatalogFilters) -> list:
     conditions = [Offer.organization_id == organization_id, Offer.active.is_(True)]
+    if filters.source_group:
+        if filters.source_group not in GROUP_TYPES:
+            raise ValueError("Origem inválida")
+        conditions.append(Offer.company_id.in_(select(Company.id).where(
+            Company.organization_id == organization_id,
+            Company.company_type == GROUP_TYPES[filters.source_group],
+        ).correlate(None)))
     if not filters.include_excluded:
         conditions.append(Offer.excluded_from_analytics.is_(False))
     if filters.companies:
         conditions.append(
             Offer.company_id.in_(
                 select(Company.id)
-                .where(Company.code.in_(filters.companies))
+                .where(Company.organization_id == organization_id, Company.code.in_(filters.companies))
                 .correlate(None)
             )
         )
@@ -194,6 +203,7 @@ def list_offers(
                 "company_code": row.company_code,
                 "company_name": row.company_name,
                 "company_type": row.company_type,
+                "source_group": source_group(row.company_type),
                 "external_code": offer.external_code,
                 "name": offer.name_raw,
                 "brand": row.brand_name or offer.brand_raw,
@@ -249,6 +259,7 @@ def get_offer_detail(db: Session, organization_id: uuid.UUID, offer_id: uuid.UUI
             "code": company.code,
             "name": company.name,
             "type": company.company_type,
+            "source_group": source_group(company.company_type),
         },
         "external_code": offer.external_code,
         "manufacturer_code": offer.manufacturer_code,
@@ -373,7 +384,8 @@ def dashboard_summary(db: Session, organization_id: uuid.UUID) -> dict:
 
 def filter_options(db: Session, organization_id: uuid.UUID) -> dict:
     companies = [
-        {"code": row.code, "name": row.name, "type": row.company_type}
+        {"code": row.code, "name": row.name, "type": row.company_type,
+         "source_group": source_group(row.company_type)}
         for row in db.execute(
             select(Company.code, Company.name, Company.company_type)
             .where(Company.organization_id == organization_id, Company.active.is_(True))

@@ -10,64 +10,99 @@
 
 {% block body %}
 <div class="app-shell workspace-shell">
+  {# Navegação agrupada. Só organiza os itens que o backend já liberou para o cargo (nav_items); nada novo é exposto.
+     Itens sem grupo caem em "Outros" para nunca sumirem do menu. #}
+  {% set is_manager = user.role in ['gestor', 'desenvolvedor'] %}
+  {% set nav_icons = {'/': 'grid', '/fornecedores': 'users', '/catalogos': 'catalog', '/digitalizacao': 'scan', '/integracoes-woocommerce': 'store', '/comparador': 'compare', '/aplicacoes-regioes': 'map', '/cards': 'cards', '/reunioes': 'calendar', '/planner': 'clock', '/alertas': 'bell', '/gestao': 'shield', '/importacoes': 'upload'} %}
+  {% set nav_short = {'Integrações WooCommerce': 'Integrações', 'Importações e qualidade': 'Importações'} %}
+  {% set nav_groups = [('', ['/']), ('Operação', ['/digitalizacao', '/integracoes-woocommerce']), ('Relacionamento', ['/fornecedores']), ('Gestão', ['/reunioes', '/cards', '/planner', '/alertas']), ('Dados', ['/catalogos', '/comparador', '/aplicacoes-regioes', '/importacoes']), ('Administração', ['/gestao'])] %}
+  {% set nav_children = {'/digitalizacao': [('Resolução de imagens', '/digitalizacao/resolucao-imagens'), ('Cadastro via API', '/digitalizacao/cadastro-api'), ('Remoção de arquivos', '/digitalizacao/remocao-arquivos'), ('Geração em lote', '/digitalizacao/lotes'), ('Publicação em lote', '/digitalizacao/publicacao-lote')], '/reunioes': [('Pauta semanal', '/reunioes/pauta-semanal')]} if is_manager else {} %}
+  {% set grouped = [] %}{% for _, hrefs in nav_groups %}{% for h in hrefs %}{% set _ = grouped.append(h) %}{% endfor %}{% endfor %}
+  {% set nav_parent = namespace(label='', href='') %}
+  {% for label, href in nav_items %}{% for child_label, child_href in nav_children.get(href, []) %}{% if active_path == child_href %}{% set nav_parent.label = label %}{% set nav_parent.href = href %}{% endif %}{% endfor %}{% endfor %}
+  {% macro nav_link(label, href) -%}
+    {% set children = nav_children.get(href, []) %}
+    {% set within = active_path.startswith(href ~ '/') and children %}
+    <a href="{{ href }}" title="{{ label }}" data-nav-label="{{ label }}"{% if active_path == href %} aria-current="page"{% endif %}{% if within %} class="is-within"{% endif %}><span class="nav-icon" aria-hidden="true">{{ ui.icon(nav_icons.get(href, 'activity')) }}</span><span class="nav-label">{{ nav_short.get(label, label) }}</span></a>
+    {% if children and (active_path == href or within) %}
+    <div class="nav-children">
+      {% for child_label, child_href in children %}<a href="{{ child_href }}" data-nav-label="{{ child_label }}"{% if active_path == child_href %} aria-current="page"{% endif %}><span class="nav-label">{{ child_label }}</span></a>{% endfor %}
+    </div>
+    {% endif %}
+  {%- endmacro %}
   <aside class="sidebar">
     <a class="product-brand" href="/" aria-label="PRM — início">
       <span class="brand-mark brand-mark-small" aria-hidden="true">PRM</span>
-      <span class="brand-copy"><strong>PRM</strong><small>Industrial Command Center</small></span>
+      <span class="brand-copy"><strong>PRM</strong><small>Portwell · Choice · SAG</small></span>
     </a>
-    <button class="sidebar-compact-toggle" type="button" data-prm-sidebar-compact aria-label="Recolher navegação" aria-expanded="true"><span aria-hidden="true">‹</span><span class="sidebar-compact-label">Recolher</span></button>
-    <p class="sidebar-caption">Navegação</p>
-    <nav aria-label="Navegação principal">
-      {% set nav_icons = {'/': 'grid', '/catalogos': 'catalog', '/digitalizacao': 'scan', '/comparador': 'compare', '/aplicacoes-regioes': 'map', '/cards': 'cards', '/alertas': 'bell', '/gestao': 'users', '/importacoes': 'upload'} %}
-      {% for label, href in nav_items %}
-      <a href="{{ href }}" title="{{ label }}" data-nav-label="{{ label }}" {% if active_path == href %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">{{ ui.icon(nav_icons.get(href, 'activity')) }}</span><span class="nav-label">{{ label }}</span></a>
+    <nav class="sidebar-nav" aria-label="Navegação principal">
+      {% for group, hrefs in nav_groups %}
+        {% set links = [] %}{% for label, href in nav_items %}{% if href in hrefs %}{% set _ = links.append((label, href)) %}{% endif %}{% endfor %}
+        {% if links %}
+        <div class="nav-group">
+          {% if group %}<p class="sidebar-caption">{{ group }}</p>{% endif %}
+          {% for href in hrefs %}{% for label, item_href in links %}{% if item_href == href %}{{ nav_link(label, href) }}{% endif %}{% endfor %}{% endfor %}
+        </div>
+        {% endif %}
       {% endfor %}
+      {% set others = [] %}{% for label, href in nav_items %}{% if href not in grouped %}{% set _ = others.append((label, href)) %}{% endif %}{% endfor %}
+      {% if others %}<div class="nav-group"><p class="sidebar-caption">Outros</p>{% for label, href in others %}{{ nav_link(label, href) }}{% endfor %}</div>{% endif %}
     </nav>
-    <div class="sidebar-group brand-on-dark">{{ logos.lockup('brand-trio-sidebar') }}</div>
-    <div class="sidebar-footer">
-      <span class="sidebar-user-name">{{ user.name }}</span>
-      <small class="sidebar-user-role">{{ user.role|capitalize }}</small>
-      <form action="/logout" method="post">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="button-link" type="submit">Sair</button>
-      </form>
+    <div class="sidebar-bottom">
+      <button class="sidebar-compact-toggle" type="button" data-prm-sidebar-compact aria-label="Recolher navegação" aria-expanded="true"><span aria-hidden="true">‹</span><span class="sidebar-compact-label">Recolher</span></button>
+      <div class="sidebar-group brand-on-dark">{{ logos.lockup('brand-trio-sidebar') }}</div>
+      <div class="sidebar-footer">
+        <span class="sidebar-user-name">{{ user.name }}</span>
+        <small class="sidebar-user-role">{{ user.role|capitalize }}</small>
+        <form action="/logout" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="button-link" type="submit">Sair</button>
+        </form>
+      </div>
     </div>
   </aside>
   <main class="content{% if title not in ['Visão geral', 'Comparador', 'Importações e qualidade', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %} prm-ui{% endif %}" id="conteudo">
-    {% set page_subtitles = {'Visão geral': 'Operação, portfólio e mapa competitivo', 'Digitalização': 'Do documento técnico ao pacote de cadastro', 'Catálogos': 'Fotografia atual das quatro fontes', 'Comparador': 'Atributos e compatibilidade', 'Importações e qualidade': 'Procedência e qualidade da base', 'Comparação atual': 'Produtos lado a lado'} %}
+    {% set page_subtitles = {'Visão geral': 'Resumo da operação, do portfólio e das atividades', 'Fornecedores': 'Funil de relacionamento, contatos, documentos e próximos passos', 'Catálogos': 'Ofertas das empresas monitoradas, com filtros e comparação', 'Digitalização': 'Do documento técnico ao pacote de cadastro', 'Resolução de Imagens': 'Tamanho e formato padronizados para as fotos dos produtos', 'Cadastro via API': 'Imagens e documentos enviados a produtos que já existem na loja', 'Remoção de Arquivos': 'Desvínculo de imagens e documentos com Dry Run, aprovação e restauração', 'Geração em Lote': 'Datasheets gerados a partir de pastas de produtos', 'Publicação em Lote': 'Pacotes gerados em lote enviados ao cadastro via API', 'Integrações WooCommerce': 'Conexão e situação das lojas Choice, SAG e Portwell', 'Comparador': 'Atributos e compatibilidade lado a lado', 'Aplicações e regiões': 'Aplicações dos produtos e cobertura por região', 'Cards': 'Tarefas e decisões extraídas das reuniões', 'Reuniões': 'Transcrições, propostas e compromissos', 'Pauta Semanal': 'O que avançou no desenvolvimento do PRM na semana', 'Planner': 'Prazos de tarefas e reuniões em calendário', 'Meus alertas': 'Prazos e pendências atribuídos a você', 'Gestão': 'Contas e níveis de acesso da organização', 'Importações e qualidade': 'Procedência e qualidade da base', 'Comparação atual': 'Produtos lado a lado', 'Comparação direta': 'Produtos lado a lado'} %}
     <header class="page-header workspace-header cc-header">
       <div class="page-header-main">
         <div class="page-heading">
           <button class="mobile-nav-toggle" type="button" data-prm-nav-toggle aria-label="Abrir menu" aria-expanded="false">{{ ui.icon('menu') }}</button>
-          <div><p class="eyebrow">PRM <span aria-hidden="true">/</span> {{ title }}</p><h1>{{ title }}</h1><p class="cc-header-subtitle">{{ page_subtitles.get(title, 'Inteligência de produto e operação') }}</p></div>
+          <div>
+            <nav class="prm-breadcrumb eyebrow" aria-label="Você está em"><a href="/">PRM</a>{% if nav_parent.href %}<span aria-hidden="true">›</span><a href="{{ nav_parent.href }}">{{ nav_parent.label }}</a>{% endif %}<span aria-hidden="true">›</span><span aria-current="page">{{ title }}</span></nav>
+            <h1>{{ title }}</h1><p class="cc-header-subtitle">{{ page_subtitles.get(title, 'Produto, relacionamento e operação') }}</p>
+          </div>
         </div>
       </div>
       <div class="page-header-actions">
         <div class="cc-clock" role="group" aria-label="Relógio operacional, horário de Brasília" data-operational-clock>
           <time class="workspace-clock" data-workspace-clock><span class="cc-clock-hm" data-clock-hm>--:--</span><span class="cc-clock-s" data-clock-s>:--</span></time>
-          <span class="cc-clock-meta"><span data-workspace-date>—</span><span class="cc-clock-zone">BRT · UTC−3</span></span>
+          <span class="cc-clock-meta"><span data-workspace-date>—</span><span class="cc-clock-zone">BRT</span></span>
         </div>
-        {% if user.role in ['gestor', 'desenvolvedor'] and title not in ['Digitalização', 'Visão geral', 'Comparador', 'Importações e qualidade'] %}<a class="cc-header-action" href="/digitalizacao" title="Nova digitalização">{{ ui.icon('plus') }}<span>Nova digitalização</span></a>{% endif %}
         <button class="theme-toggle" type="button" data-prm-theme-toggle aria-label="Alternar tema"><span class="theme-toggle-icon" aria-hidden="true">{{ ui.icon('moon') }}{{ ui.icon('sun') }}</span><span class="sr-only" data-prm-theme-label>Tema escuro</span></button>
         <span class="cc-user" title="{{ user.name }} · {{ user.role|capitalize }}"><span class="cc-avatar" aria-hidden="true">{{ (user.name or '?')[:1]|upper }}</span><span class="cc-user-copy"><strong>{{ user.name }}</strong><small>{{ user.role|capitalize }}</small></span></span>
-        {{ logos.lockup('brand-trio-header') }}
       </div>
     </header>
 
+    {% if catalog_publication is defined and title != 'Visão geral' and user.role in ['gestor', 'desenvolvedor'] %}{% include '_catalog_publication.html' %}{% endif %}
+    {% if title == 'Visão geral' %}{% include "_overview.html" %}{% endif %}
+    {% if is_manager and title in ['Digitalização', 'Resolução de Imagens', 'Cadastro via API', 'Remoção de Arquivos', 'Geração em Lote', 'Publicação em Lote'] %}{% include "_digitalization_tabs.html" %}{% endif %}
     {% if title in ['Visão geral', 'Comparador', 'Importações e qualidade'] %}
-      {% if refined_analysis %}
+      {% if refined_analysis or title == 'Visão geral' %}
         {% include "_operations_dashboard.html" %}
-      {% else %}
-        <section class="panel"><h2>Base atual indisponível</h2><p>Não há snapshot oficial publicado para esta organização. Nenhuma análise anterior será usada em seu lugar.</p></section>
+      {% elif title != 'Visão geral' %}
+        <section class="notice prm-notice-compact" role="status"><strong>Base atual indisponível.</strong><span>Não há snapshot oficial publicado para esta organização. Nenhuma análise anterior será usada em seu lugar.</span></section>
       {% endif %}
     {% elif title == "Catálogos" and refined_catalog %}
     {% include "_refined_catalog.html" %}
     {% elif title == "Comparação atual" %}
     {% include "_current_comparison.html" %}
     {% elif title == "Catálogos" %}
-    <section class="notice"><strong>Catálogo operacional legado.</strong><span>Dados anteriores preservados; <a href="/catalogos">abrir a nova base analisada</a>. Comparações diretas deste histórico não usam o novo snapshot.</span></section>
+    <section class="notice"><strong>Catálogo cadastrado.</strong><span>Produtos importados por empresa, incluindo o histórico preservado. <a href="/catalogos">Ver análise publicada</a>. As comparações diretas não alteram a análise publicada.</span></section>
+    {% include "_catalog_import.html" %}
     {% if filter_error %}<section class="notice catalog-filter-error" role="alert">{{ filter_error }}</section>{% endif %}
     <form class="filters panel" method="get" action="/catalogos">
+      <input type="hidden" name="view" value="legacy">
+      <label>Origem<select name="source_group"><option value="">Todos</option><option value="internal" {% if selected_filters.source_group == 'internal' %}selected{% endif %}>Nossa base</option><option value="competitor" {% if selected_filters.source_group == 'competitor' %}selected{% endif %}>Concorrência</option></select></label>
       <div class="filter-search"><label for="q">Pesquisar produtos</label><input id="q" name="q" type="search" maxlength="200" placeholder="Código, modelo, marca, família ou descrição" value="{{ search_input }}"><small>Até oito palavras, que podem aparecer em campos diferentes.</small></div>
       <fieldset><legend>Empresa</legend><span class="filter-group-label">Nossas empresas</span>
       {% for company in filter_options.companies %}
@@ -75,7 +110,7 @@
         <label class="check"><input type="checkbox" name="company" value="{{ company.code }}" {% if company.code in selected_filters.companies %}checked{% endif %}> {{ company.name }}</label>
         {% endif %}
       {% endfor %}
-      <span class="filter-group-label filter-group-other">Outras empresas</span>
+      <span class="filter-group-label filter-group-other">Concorrência</span>
       {% for company in filter_options.companies %}
         {% if company.type != 'nossa' %}
         <label class="check"><input type="checkbox" name="company" value="{{ company.code }}" {% if company.code in selected_filters.companies %}checked{% endif %}> {{ company.name }}</label>
@@ -89,14 +124,14 @@
       <div><label for="price_min">Preço mínimo (R$)</label><input id="price_min" name="price_min" type="text" inputmode="decimal" value="{{ price_inputs.min }}" placeholder="0,00"></div>
       <div><label for="price_max">Preço máximo (R$)</label><input id="price_max" name="price_max" type="text" inputmode="decimal" value="{{ price_inputs.max }}" placeholder="500,00"></div>
       <div><label for="page_size">Produtos por página</label><select id="page_size" name="page_size"><option value="100" {% if catalog.page_size == 100 %}selected{% endif %}>100</option><option value="200" {% if catalog.page_size == 200 %}selected{% endif %}>200</option><option value="48" {% if catalog.page_size == 48 %}selected{% endif %}>48</option><option value="24" {% if catalog.page_size == 24 %}selected{% endif %}>24</option></select></div>
-      <div class="filter-actions"><button type="submit">Pesquisar e filtrar</button><a href="/catalogos">Limpar filtros</a></div>
+      <div class="filter-actions"><button type="submit">Pesquisar e filtrar</button><a href="/catalogos?view=legacy">Limpar filtros</a></div>
     </form>
     <div class="catalog-heading"><p><strong>{{ "{:,}".format(catalog.total).replace(',', '.') }}</strong> ofertas encontradas · {{ catalog['items']|length }} nesta página</p><span>Página {{ catalog.page }} de {{ catalog.pages }} · {{ catalog.page_size }} por página</span></div>
     <p class="catalog-compare-help">Marque de 2 a 8 produtos para comparar preços e características lado a lado. A seleção permanece ao navegar entre páginas do catálogo.</p>
     <section class="catalog-grid" aria-label="Ofertas">
       {% for offer in catalog["items"] %}
       <article class="product-card company-{{ offer.company_code }}">
-        <div class="product-company"><span class="dot" aria-hidden="true"></span>{{ offer.company_name }} {% if offer.company_type == 'nossa' %}<span class="company-focus-badge">Nossa empresa</span>{% endif %}</div>
+        <div class="product-company"><span class="dot" aria-hidden="true"></span>{{ offer.company_name }} <span class="company-focus-badge">{{ 'Nossa base' if offer.company_type == 'nossa' else 'Concorrência' }}</span></div>
         <label class="compare-check"><input type="checkbox" data-compare-offer value="{{ offer.id }}" aria-label="Selecionar {{ offer.name }} para comparação direta"> Comparar este produto</label>
         <h2>{{ offer.name }}</h2>
         <dl><div><dt>Código</dt><dd>{{ offer.external_code }}</dd></div><div><dt>Marca</dt><dd>{{ offer.brand or 'Não informada' }}</dd></div><div><dt>Disponibilidade</dt><dd>{{ offer.availability|replace('_', ' ')|capitalize }}</dd></div></dl>
@@ -132,7 +167,7 @@
     <section class="comparison-grid" aria-label="Produtos em comparação">
       {% for item in direct['items'] %}
       <article class="comparison-card company-{{ item.company.code }}">
-        <div class="product-company">{{ item.company.name }} {% if item.company.type == 'nossa' %}<span class="company-focus-badge">Nossa empresa</span>{% endif %}{% if item.is_reference %}<span class="reference-badge">Referência</span>{% endif %}</div>
+        <div class="product-company">{{ item.company.name }} <span class="company-focus-badge">{{ 'Nossa base' if item.company.type == 'nossa' else 'Concorrência' }}</span>{% if item.is_reference %}<span class="reference-badge">Referência</span>{% endif %}</div>
         <h2>{{ item.name }}</h2>
         <dl><div><dt>Código</dt><dd>{{ item.external_code }}</dd></div><div><dt>Marca</dt><dd>{{ item.brand or 'Não informada' }}</dd></div><div><dt>Categoria</dt><dd>{{ item.category or 'Não informada' }}</dd></div><div><dt>Disponibilidade</dt><dd>{{ item.availability|replace('_', ' ')|capitalize }}</dd></div></dl>
         <div class="price-comparison-list">
@@ -157,6 +192,8 @@
     </section>
     {% elif title in ['Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
       {% include '_meeting_pages.html' %}
+    {% elif title == "Fornecedores" %}
+      {% include "suppliers.html" %}
     {% elif title == "Pauta Semanal" %}
       {% include "weekly_agenda.html" %}
     {% elif title == "Digitalização" %}
@@ -190,21 +227,22 @@
 {% endblock %}
 
 {% block scripts %}
-  {% if title in ("Cadastro via API", "Resolução de Imagens", "Publicação em Lote", "Geração em Lote") %}<script src="{{ url_for('static', path='/js/local-files.js') }}?v=20261022-1" defer></script>{% endif %}
-  {% if title == "Cadastro via API" %}<script src="{{ url_for('static', path='/js/store-registration.js') }}?v=20261022-envio" defer></script>{% endif %}
+  {% if title in ("Cadastro via API", "Resolução de Imagens", "Publicação em Lote", "Geração em Lote") %}<script src="{{ url_for('static', path='/js/local-files.js') }}?v=20261023-svg" defer></script>{% endif %}
+  {% if title == "Cadastro via API" %}<script src="{{ url_for('static', path='/js/store-registration.js') }}?v=20261026-ds1" defer></script>{% endif %}
   {% if title == "Pauta Semanal" %}<script src="{{ url_for('static', path='/js/weekly-agenda.js') }}?v=20261023-1" defer></script>{% endif %}
-  {% if title == "Remoção de Arquivos" %}<script src="{{ url_for('static', path='/js/store-file-removal.js') }}?v=20261022-roles" defer></script>{% endif %}
-  {% if title == "Resolução de Imagens" %}<script src="{{ url_for('static', path='/js/image-resolution.js') }}?v=20261022-envio" defer></script>{% endif %}
-  {% if title == "Publicação em Lote" %}<script src="{{ url_for('static', path='/js/batch-publication.js') }}?v=20261022-envio" defer></script>{% endif %}
+  {% if title == "Remoção de Arquivos" %}<script src="{{ url_for('static', path='/js/store-file-removal.js') }}?v=20261026-sem-copia" defer></script>{% endif %}
+  {% if title == "Resolução de Imagens" %}<script src="{{ url_for('static', path='/js/image-resolution.js') }}?v=20261023-svg" defer></script>{% endif %}
+  {% if title == "Publicação em Lote" %}<script src="{{ url_for('static', path='/js/batch-publication.js') }}?v=20261023-erros" defer></script>{% endif %}
   {% if title == "Integrações WooCommerce" %}<script src="{{ url_for('static', path='/js/store-integrations.js') }}?v=20261020-1" defer></script>{% endif %}
   {% if title == "Geração em Lote" %}<script src="{{ url_for('static', path='/js/datasheet-batches.js') }}?v=20261022-envio" defer></script>{% endif %}
   {% if title in ['Visão geral', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
   <script src="{{ url_for('static', path='/js/meetings.js') }}?v=20261021-assign" defer></script>
   {% endif %}
-  <script src="{{ url_for('static', path='/js/ui.js') }}?v=20261008-2" defer></script>
-  <script src="{{ url_for('static', path='/js/workspace.js') }}?v=20261015-cc2" defer></script>
+  <script src="{{ url_for('static', path='/js/ui.js') }}?v=20261026-ds1" defer></script>
+  {% if title == 'Visão geral' %}<script src="{{ url_for('static', path='/js/overview.js') }}?v=20261026-ds1" defer></script>{% endif %}
+  <script src="{{ url_for('static', path='/js/workspace.js') }}?v=20261026-ds1" defer></script>
   {% if refined_analysis and title in ['Visão geral', 'Comparador', 'Importações e qualidade'] %}
-  <script src="{{ url_for('static', path='/js/command-center.js') }}?v=20261015-cc2" defer></script>
+  <script src="{{ url_for('static', path='/js/command-center.js') }}?v=20261027-registry" defer></script>
   {% endif %}
   {% if title == "Digitalização" %}
   <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20261022-envio" defer></script>

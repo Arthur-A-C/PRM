@@ -36,6 +36,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 NAV_ITEMS = (
+    ("Fornecedores", "/fornecedores"),
     ("Visão geral", "/"),
     ("Catálogos", "/catalogos"),
     ("Digitalização", "/digitalizacao"),
@@ -94,6 +95,11 @@ def render_shell(request: Request, settings: AppSettings, title: str, extra_cont
         }
         page_context.update(extra_context or {})
         refined_manifest = database_manifest(db, auth.user.organization_id) if inspect(engine).has_table("refined_catalog_runs") else None
+        if title in {'Catálogos', 'Visão geral', 'Comparador', 'Importações e qualidade'}:
+            from app.services.catalog_publication import publication_status
+            page_context['catalog_publication'] = publication_status(db, auth.user.organization_id)
+            from app.services.refined_catalog_database import source_registry
+            page_context['analysis_sources'] = source_registry(refined_manifest)
         page_context["refined_analysis"] = refined_manifest if title in {"Visão geral", "Comparador", "Importações e qualidade"} else None
         if title in {"Visão geral", "Comparador", "Importações e qualidade"}:
             page_context["current_analysis"] = summarize_current(refined_manifest)
@@ -124,6 +130,7 @@ def render_shell(request: Request, settings: AppSettings, title: str, extra_cont
                     family=query.get("family", ""), search=query.get("q", ""), page=refined_page,
                     internal=query.get("internal") == "1" and auth.user.role in {"gestor", "desenvolvedor"},
                     group=query.get("group", ""),
+                    source_group=query.get("source_group", ""),
                 )
                 if query.get("reference"):
                     try:
@@ -163,6 +170,7 @@ def render_shell(request: Request, settings: AppSettings, title: str, extra_cont
                 filter_error = "Use no máximo oito termos na pesquisa."
                 search = ""
             catalog_filters = CatalogFilters(
+                source_group=query.get("source_group") if query.get("source_group") in {"internal", "competitor"} else None,
                 search=search or None,
                 companies=tuple(value for value in query.getlist("company") if value),
                 brands=tuple(value for value in query.getlist("brand") if value),

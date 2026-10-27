@@ -1,0 +1,13 @@
+{# Catalog panels without a published snapshot: real state from Offer counts, never a previous analysis. #}
+{% set pub = catalog_publication if catalog_publication is defined else {} %}
+<section class="cc-panel cc-empty cc-reveal" data-catalog-unpublished>
+  {% if pub.internal or pub.competitor %}
+  <h3>Há produtos importados, mas a base ainda não foi publicada.</h3>
+  <p>{{ '{:,}'.format(pub.internal).replace(',', '.') }} produtos da nossa base · {{ '{:,}'.format(pub.competitor).replace(',', '.') }} da concorrência. Indicadores de catálogo e o Comparador usam somente a base publicada.</p>
+  {% if user.role in ['gestor', 'desenvolvedor'] %}<a class="cc-link" href="/importacoes#publicacao">Revisar e publicar a base</a>{% else %}<p>Solicite a um gestor a publicação da base.</p>{% endif %}
+  {% else %}
+  <h3>Nenhum catálogo importado</h3>
+  <p>Importe os catálogos da nossa base e da concorrência para habilitar indicadores e comparações.</p>
+  {% if user.role in ['gestor', 'desenvolvedor'] %}<a class="cc-link" href="/catalogos?view=legacy">Importar catálogo</a>{% endif %}
+  {% endif %}
+</section>
