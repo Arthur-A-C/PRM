@@ -10,7 +10,13 @@
   function el(tag,text,className){const node=document.createElement(tag);if(text!=null)node.textContent=text;if(className)node.className=className;return node;}
   async function request(url,body,method="POST"){
     const r=await fetch(url,body?{method,credentials:"same-origin",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(body)}:{credentials:"same-origin",cache:"no-store"});
-    const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(typeof data.detail==="string"?data.detail:"Falha na solicitação");return data;
+    const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(errorText(data.detail,r.status));return data;
+  }
+  // FastAPI sends a string or a list of {loc,msg}: show the real reason (422/403/401), never a generic text.
+  function errorText(detail,status){
+    if(typeof detail==="string")return detail;
+    if(Array.isArray(detail)&&detail.length)return detail.map(d=>typeof d==="string"?d:[(d?.loc||[]).filter(x=>x!=="body").join("."),d?.msg].filter(Boolean).join(": ")).join("; ");
+    return `HTTP ${status}: o servidor não retornou uma mensagem de erro legível.`;
   }
   const options=(extra={})=>({subpastas:$("res-recursive").checked,tamanho:Number($("res-size").value),...extra});
   const serverOptions=(extra={})=>options({caminho:$("res-path").value.trim(),mover_para_backup:true,...extra});
@@ -66,8 +72,10 @@
   function show(task){
     $("res-progress-panel").hidden=false;$("res-progress").value=task.progress;
     $("res-done").textContent=`${task.done} concluídas`;$("res-skipped").textContent=`${task.skipped} ignoradas`;$("res-failed").textContent=`${task.failed} com erro`;
+    $("res-svg").textContent=`${task.svg_converted||0} SVG convertidos`;$("res-svg").hidden=task.kind==="restore";
     $("res-status").textContent={running:task.kind==="restore"?"Restaurando":"Convertendo",finished:"Concluído",stopped:"Interrompido",failed:"Falhou"}[task.status]||task.status;
-    $("res-current").textContent=task.current?`Arquivo atual: ${task.current}`:`${task.done+task.skipped+task.failed} de ${task.total} arquivos processados`;
+    $("res-current").textContent=task.current?`Arquivo atual: ${task.current}`:task.status==="running"?`${task.done+task.skipped+task.failed} de ${task.total} arquivos processados`
+      :`Processados: ${task.done+task.skipped+task.failed} de ${task.total} · ${task.kind==="restore"?"Restaurados":"Convertidos"}: ${task.done}`+(task.kind==="restore"?"":` · SVG convertidos: ${task.svg_converted||0}`)+` · Ignorados: ${task.skipped} · Erros: ${task.failed}`;
     $("res-stop").disabled=task.status!=="running";
     $("res-errors-wrap").hidden=!task.errors.length;
     $("res-errors").replaceChildren(...task.errors.map(e=>{const tr=el("tr");tr.append(el("td",e.file||"—"),el("td",e.error));return tr;}));

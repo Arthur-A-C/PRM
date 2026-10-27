@@ -1,0 +1,11 @@
+# Aplicar POR ÚLTIMO (após compose.svg-backup.yaml): Cadastro via API com escopo explícito
+# (Fotos da galeria / Documentos / Foto principal escolhida por SKU), assinado no Dry Run e revalidado no worker.
+# api e worker-registration na MESMA imagem (contrato da fila). Mesmo código de compose.svg-resvg.yaml
+# + escopo do cadastro + backup SVG da remoção. Banco, volumes, gateway e worker de remoção intactos.
+# Retorno: recriar api e worker-registration sem este arquivo (api -> prm:svg-backup-api-20261026,
+# worker-registration -> prm:upload-grande-20261023).
+services:
+  api:
+    image: prm:cadastro-escopo-20261026b
+  worker-registration:
+    image: prm:cadastro-escopo-20261026b

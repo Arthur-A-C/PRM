@@ -1,0 +1,4 @@
+# Somente interface/API; manter os overlays anteriores e workers existentes.
+services:
+  api:
+    image: prm:cadastro-selecao-20261023

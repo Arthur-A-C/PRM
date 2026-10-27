@@ -1,4 +1,9 @@
-"""Final audit of the production homologation publish path (mocks only, no network)."""
+"""Final audit of the role-based files publish path (mocks only, no network).
+
+Registration no longer uses grants: every write needs the approved, sealed Dry Run and an explicit
+confirmation by an active gestor/desenvolvedor. Identity is mocked here (file-processing tests);
+real role/organization checks live in test_store_registration_roles.py.
+"""
 import threading
 
 import httpx
@@ -10,12 +15,14 @@ from app.services.store_publish import PublishSettings
 from app.services.store_registration_jobs import Jobs, process_one, rollback_one
 from test_homologation_grant import CHOICE, PRODUCT, SKU, drain, grant, jobs, prepared, settings, store  # noqa: F401
 from test_store_registration_zip import EXISTING, Store, commercial, package
+from registration_identity_fixture import mocked_registration_identity  # noqa: F401
+
+pytestmark = pytest.mark.usefixtures("mocked_registration_identity")
 
 
 def queued(jobs, settings, s):
     identifier, item = prepared(jobs, settings, s)
-    grant(jobs, identifier, item)
-    jobs.confirm(identifier, "org", "owner", settings)
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     return identifier
 
 
@@ -27,9 +34,7 @@ def test_targeted_worker_processes_only_the_authorized_item(jobs, settings):
     target = jobs.create("choice", "org", "owner", None, package(sku=SKU), settings, identification="folder", archive_name=SKU + ".zip")
     assert process_one(jobs, settings, httpx.MockTransport(s.handle), batch=target, sku=SKU)
     jobs.approve(target, "org", "owner")
-    item = jobs.detail(target, "org", "owner")["items"][0]
-    grant(jobs, target, item)
-    jobs.confirm(target, "org", "owner", settings)
+    jobs.confirm(target, "org", "owner", settings, [SKU], confirmed=True)
     assert process_one(jobs, settings, httpx.MockTransport(s.handle), batch=target, sku=SKU)
     assert not process_one(jobs, settings, httpx.MockTransport(s.handle), batch=target, sku=SKU)  # nothing else for it
     assert jobs.detail(target, "org", "owner")["items"][0]["state"] == "done"
@@ -59,7 +64,7 @@ def test_two_workers_never_claim_the_same_item(jobs, settings):
     assert len([c for c in claims if c]) == 1
 
 
-def test_concurrent_change_between_uploads_and_put_blocks_update_under_grant(jobs, settings):
+def test_concurrent_change_between_uploads_and_put_blocks_update(jobs, settings):
     s = store(wcda=[])
     identifier = queued(jobs, settings, s)
     s.on_get = lambda shop: shop.posts and shop.product["images"].append({"id": 10, "src": shop.library[10]}) if not shop.product["images"] else None
@@ -114,16 +119,17 @@ def test_post_put_verification_detects_protected_field_changes(jobs, settings, e
     identifier = queued(jobs, settings, s)
     drain(jobs, settings, s)
     item = jobs.detail(identifier, "org", "owner")["items"][0]
-    assert item["state"] == "error" and "não confirmada" in item["error"] and len(s.puts) == 1
+    # The PUT was sent and the read-back does not match: never "done", and "uncertain" (manual reconciliation)
+    # rather than "error", which would suggest a safe blind retry.
+    assert item["state"] == "uncertain" and "não confirmada" in item["error"] and len(s.puts) == 1
 
 
 def test_every_write_touches_only_images_and_wcda(jobs, settings):
     s = store(images=[10], wcda=EXISTING)
     before = commercial(s.product)
     identifier, item = prepared(jobs, settings, s)
-    grant(jobs, identifier, item); jobs.confirm(identifier, "org", "owner", settings); drain(jobs, settings, s)
-    grant(jobs, identifier, item, purpose="rollback")
-    rollback_one(jobs, settings, identifier, SKU, actor="tester", transport=httpx.MockTransport(s.handle))
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True); drain(jobs, settings, s)
+    rollback_one(jobs, settings, identifier, SKU, actor="owner", confirmed=True, transport=httpx.MockTransport(s.handle))
     assert len(s.puts) == 2 and all(set(p) <= {"images", "meta_data"} for p in s.puts)
     assert all(m["key"] == "_wcda_arquivos" and m["id"] == 92930 for p in s.puts for m in p.get("meta_data", []))
     assert commercial(s.product) == before and [i["id"] for i in s.product["images"]] == [10]
@@ -135,12 +141,11 @@ def test_first_inclusion_publish_and_rollback_round_trip(jobs, settings):
     s = store(wcda=[])
     identifier, item = prepared(jobs, settings, s)
     assert item["dry_run"]["documents"]["mode"] == "first_inclusion"
-    grant(jobs, identifier, item); jobs.confirm(identifier, "org", "owner", settings); drain(jobs, settings, s)
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True); drain(jobs, settings, s)
     value = meta(s.product, "_wcda_arquivos")["value"]
     assert [d["label"] for d in value] == ["Datasheet", "Desenho 3D"]
     assert all(d["url"].startswith(s.library[101].rsplit("/", 1)[0]) for d in value)  # real URLs returned by the upload
-    grant(jobs, identifier, item, purpose="rollback")
-    result = rollback_one(jobs, settings, identifier, SKU, actor="tester", transport=httpx.MockTransport(s.handle))
+    result = rollback_one(jobs, settings, identifier, SKU, actor="owner", confirmed=True, transport=httpx.MockTransport(s.handle))
     assert result["status"] == "rolled_back" and meta(s.product, "_wcda_arquivos")["value"] == [] and s.product["images"] == []
     assert len(s.library) == 4  # uploaded media kept
 
@@ -161,3 +166,35 @@ def test_no_credential_reaches_storage_logs_or_output(tmp_path, capsys, caplog):
     for secret in secrets:
         assert secret not in detail and secret.encode() not in stored
         assert secret not in captured.out + captured.err and secret not in caplog.text
+
+
+class FlippingStore(Store):
+    """Portwell-like: two "Painel PC" categories listed in alternating order on each product response."""
+    PAINEL = [{"id": 506, "name": "Painel PC", "slug": "painel-pc-painel-pc"}, {"id": 444, "name": "Painel PC", "slug": "painel-pc"}]
+
+    def __init__(self, **kwargs):
+        super().__init__(sku=SKU, **kwargs)
+        self.product["id"] = PRODUCT
+        self.product["categories"] = [dict(c) for c in self.PAINEL]
+        self.responses = 0
+
+    def handle(self, request):
+        response = super().handle(request)
+        if "/wc/v3/products" in request.url.path and response.status_code == 200:
+            self.responses += 1
+            if self.responses % 2:
+                data = response.json()
+                for product in data if isinstance(data, list) else [data]:
+                    product["categories"] = list(reversed(product["categories"]))
+                return httpx.Response(200, json=data)
+        return response
+
+
+def test_store_reordering_categories_is_not_a_concurrent_change(jobs, settings):
+    s = FlippingStore(wcda=[])
+    before = commercial(s.product)
+    identifier = queued(jobs, settings, s)
+    drain(jobs, settings, s)
+    item = jobs.detail(identifier, "org", "owner")["items"][0]
+    assert item["state"] == "done", item["error"]
+    assert len(s.puts) == 1 and commercial(s.product) == before

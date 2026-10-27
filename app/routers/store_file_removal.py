@@ -1,9 +1,6 @@
-"""Remoção de arquivos de produtos (images/_wcda_arquivos). Managers only; mutations need CSRF; writes are worker-only.
+"""Removal API: authenticated roles, organization scope, CSRF and explicit confirmation.
 
-Production (per store, see app.services.store_removal_production): approving, executing and restoring
-require HTTPS, the user's permission for that store and a typed confirmation; executing also follows the
-four-eyes rule. Environment and permission administration requires the "desenvolvedor" role plus the
-administration permission. Every refusal is written to the audit trail.
+The worker independently revalidates the actor, approval and exact Dry Run before real writes.
 """
 import json
 from typing import Annotated, Literal
@@ -13,8 +10,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.dependencies import CurrentAuth, DbSession
-from app.routers.registration import require_manager
-from app.routers.store_integrations import authorized_settings
+from app.routers.registration import require_manager as _require_manager
+from app.routers.store_integrations import authorized_settings as _authorized_settings
 from app.services import removal_backup as backups
 from app.services import store_removal_production as production
 from app.services.store_config import COMPANIES
@@ -95,15 +92,22 @@ def guarded(jobs, batch, auth, action, work):
         raise
 
 
-def production_gate(request, environment, perms, company, action):
-    """True when the store is in production: then HTTPS and the user's permission are mandatory."""
-    if not environment["active"]:
-        return False
-    if not production.is_https(request):
-        raise production.PermissionDenied("Operações reais em produção exigem acesso ao PRM por HTTPS.")
+def authorized_settings(auth):
+    try:
+        production.require_role(auth.user)
+    except production.PermissionDenied as exc:
+        raise HTTPException(403, str(exc)) from None
+    return _authorized_settings(auth)
+
+
+def require_manager(auth, csrf_token):
+    authorized_settings(auth)
+    _require_manager(auth, csrf_token)
+
+
+def operation_gate(perms, company, action):
     if not perms[company][action]:
-        raise production.PermissionDenied(f"Sem permissão para {production.ACTION_LABELS[action]} remoções na {company.upper()}.")
-    return True
+        raise production.PermissionDenied(production.ROLE_DENIED)
 
 
 # --- Ambientes e permissões ------------------------------------------------------------------------
@@ -114,8 +118,8 @@ def environments(request: Request, auth: CurrentAuth, db: DbSession):
     perms, _ = context(auth, db)
     envs = production.Environments(Jobs())
     org = str(auth.user.organization_id)
-    return {"master_switch": production.master_switch(), "https": production.is_https(request), "role": auth.user.role,
-            "companies": [{**envs.get(org, c), "permissions": perms[c]} for c in COMPANIES]}
+    return {"authorization": "role-v1", "https": production.is_https(request), "role": auth.user.role,
+            "companies": [{**production.operation_status(c), "preflight": envs.get(org, c)["preflight"], "permissions": perms[c]} for c in COMPANIES]}
 
 
 @router.post("/ambientes/{empresa}/teste")
@@ -136,50 +140,12 @@ def test_store(empresa: Company, auth: CurrentAuth, db: DbSession,
     return guarded(jobs, "ambiente:" + empresa, auth, "preflight", work)
 
 
-@router.post("/ambientes/{empresa}/producao")
-def switch_production(empresa: Company, body: Switch, request: Request, auth: CurrentAuth, db: DbSession,
-                      csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
+@router.post("/ambientes/{empresa}/producao", deprecated=True)
+@router.post("/ambientes/{empresa}/quatro-olhos", deprecated=True)
+def retired_environment(empresa: Company, body: Switch, auth: CurrentAuth,
+                        csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
     require_manager(auth, csrf_token)
-    settings = authorized_settings(auth)
-    jobs = Jobs()
-
-    def work():
-        production.require(db, auth.user, empresa, "admin")
-        envs = production.Environments(jobs)
-        org = str(auth.user.organization_id)
-        if not body.ativar:
-            # Switching off is always allowed to an administrator: it is the emergency brake.
-            envs.set_production(org, empresa, False, str(auth.user.id))
-            return envs.get(org, empresa)
-        if not production.is_https(request):
-            raise production.PermissionDenied("Ativar produção exige acesso ao PRM por HTTPS.")
-        if not production.master_switch():
-            raise ValueError(f"Produção bloqueada no servidor: {production.MASTER_SWITCH} não está ativa.")
-        confirmation(body.confirmacao, phrase("producao", 0, empresa))
-        result = production.preflight(settings, empresa, transport=preflight_transport)
-        envs.record_preflight(org, empresa, result, str(auth.user.id))
-        envs.set_production(org, empresa, True, str(auth.user.id), preflight=result)
-        return envs.get(org, empresa)
-    return guarded(jobs, "ambiente:" + empresa, auth, "producao_ativar" if body.ativar else "producao_desativar", work)
-
-
-@router.post("/ambientes/{empresa}/quatro-olhos")
-def switch_four_eyes(empresa: Company, body: Switch, request: Request, auth: CurrentAuth, db: DbSession,
-                     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
-    require_manager(auth, csrf_token)
-    authorized_settings(auth)
-    jobs = Jobs()
-
-    def work():
-        production.require(db, auth.user, empresa, "admin")
-        if not production.is_https(request):
-            raise production.PermissionDenied("Alterar a regra de quatro olhos exige acesso ao PRM por HTTPS.")
-        if not body.ativar:
-            confirmation(body.confirmacao, phrase("quatro_olhos", 0, empresa))
-        envs = production.Environments(jobs)
-        envs.set_four_eyes(str(auth.user.organization_id), empresa, body.ativar, str(auth.user.id))
-        return envs.get(str(auth.user.organization_id), empresa)
-    return guarded(jobs, "ambiente:" + empresa, auth, "quatro_olhos", work)
+    raise HTTPException(410, "A autorização de remoção agora é definida pelo cargo. Revise e confirme a operação no lote.")
 
 
 @router.get("/permissoes")
@@ -192,22 +158,11 @@ def permissions(auth: CurrentAuth, db: DbSession):
             "admin_of": [c for c, p in perms.items() if p["admin"]]}
 
 
-@router.put("/permissoes")
-def change_permission(body: PermissionChange, request: Request, auth: CurrentAuth, db: DbSession,
+@router.put("/permissoes", deprecated=True)
+def change_permission(body: PermissionChange, auth: CurrentAuth,
                       csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
     require_manager(auth, csrf_token)
-    authorized_settings(auth)
-    jobs = Jobs()
-
-    def work():
-        if not production.is_https(request):
-            raise production.PermissionDenied("Alterar permissões exige acesso ao PRM por HTTPS.")
-        before, after = production.update(db, auth.user, body.usuario, body.empresa,
-                                           {"approve": body.aprovar, "execute": body.executar, "restore": body.restaurar, "admin": body.administrar})
-        jobs.audit("permissoes:" + body.empresa, "", str(auth.user.id), "permission_changed",
-                   {"user": body.usuario, "before": before, "after": after})
-        return {"user": body.usuario, "company": body.empresa, "permissions": after}
-    return guarded(jobs, "permissoes:" + body.empresa, auth, "permissoes", work)
+    raise HTTPException(410, "Gestores e desenvolvedores têm permissões automáticas. Não é necessário cadastrar permissões por loja.")
 
 
 # --- Lotes ---------------------------------------------------------------------------------------
@@ -259,7 +214,7 @@ def batch_action(identifier, auth, db, csrf_token, name, action):
 
     def work():
         record = removals.record(identifier, *scope(auth), companies)
-        environment = production.Environments(removals.jobs).get(record["org"], record["company"])
+        environment = production.operation_status(record["company"])
         return action(removals, settings, record, environment, perms, companies)
     result = guarded(removals.jobs, identifier, auth, name, work)
     return {"result": result, **run(lambda: view(identifier, auth, db, removals))}
@@ -278,7 +233,7 @@ def approve(identifier: str, request: Request, auth: CurrentAuth, db: DbSession,
     body = body or Selection()
 
     def action(removals, settings, record, environment, perms, companies):
-        production_gate(request, environment, perms, record["company"], "approve")
+        operation_gate(perms, record["company"], "approve")
         return removals.approve(identifier, *scope(auth), body.skus, companies=companies)
     return batch_action(identifier, auth, db, csrf_token, "aprovar", action)
 
@@ -286,15 +241,14 @@ def approve(identifier: str, request: Request, auth: CurrentAuth, db: DbSession,
 @router.post("/{identifier}/executar")
 def confirm(identifier: str, request: Request, auth: CurrentAuth, db: DbSession, body: Selection | None = None,
             csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
-    # Only queues approved items; the worker re-checks policy/grant, permissions, state and backup before any write.
+    # Only queues approved items; the worker re-checks identity, confirmation, state and backup.
     body = body or Selection()
 
     def action(removals, settings, record, environment, perms, companies):
-        confirmed = production_gate(request, environment, perms, record["company"], "execute")
-        if confirmed:
-            count = target_count(removals, identifier, auth, companies, body.skus, {"review"}, approved_only=True)
-            confirmation(body.confirmacao, phrase("executar", count, record["company"]))
-        return removals.confirm(identifier, *scope(auth), settings, body.skus, companies=companies, production_confirmed=confirmed, authorization_session=db)
+        operation_gate(perms, record["company"], "execute")
+        count = target_count(removals, identifier, auth, companies, body.skus, {"review"}, approved_only=True)
+        confirmation(body.confirmacao, phrase("executar", count, record["company"]))
+        return removals.confirm(identifier, *scope(auth), settings, body.skus, companies=companies, confirmed=True, authorization_session=db)
     return batch_action(identifier, auth, db, csrf_token, "executar", action)
 
 
@@ -304,12 +258,11 @@ def restore(identifier: str, request: Request, auth: CurrentAuth, db: DbSession,
     body = body or Selection()
 
     def action(removals, settings, record, environment, perms, companies):
-        confirmed = production_gate(request, environment, perms, record["company"], "restore")
-        if confirmed:
-            count = sum(1 for i in removals.detail(identifier, *scope(auth), companies)["items"]
-                        if i["restorable"] and (body.skus is None or i["sku"] in body.skus))
-            confirmation(body.confirmacao, phrase("restaurar", count, record["company"]))
-        return removals.request_restore(identifier, *scope(auth), body.skus, companies=companies, production_confirmed=confirmed, authorization_session=db)
+        operation_gate(perms, record["company"], "restore")
+        count = sum(1 for i in removals.detail(identifier, *scope(auth), companies)["items"]
+                    if i["restorable"] and (body.skus is None or i["sku"] in body.skus))
+        confirmation(body.confirmacao, phrase("restaurar", count, record["company"]))
+        return removals.request_restore(identifier, *scope(auth), body.skus, companies=companies, confirmed=True, authorization_session=db)
     return batch_action(identifier, auth, db, csrf_token, "restaurar", action)
 
 

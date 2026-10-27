@@ -71,7 +71,8 @@ def classify_files(folder: Path, *, portable=False, sku=None, company=None) -> d
                     if relative.casefold() in declared: raise ValueError("Arquivo duplicado no manifesto.")
                     declared[relative.casefold()]=item
                     path=Path(existing(relative))
-                    if hashlib.sha256(path.read_bytes()).hexdigest()!=item.get("sha256"):
+                    from app.services.upload_limits import file_hash
+                    if file_hash(path)!=item.get("sha256"):
                         raise ValueError("Hash do arquivo diverge do manifesto.")
                 if any(r.casefold() not in declared for r in manifest["ordered_images"]):
                     raise ValueError("Imagem não declarada no manifesto.")

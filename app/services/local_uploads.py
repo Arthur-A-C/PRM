@@ -22,12 +22,13 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from app.services.registration_files import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS
+from app.services.image_resolution import FORMATS
 
 PROJECT = Path(__file__).resolve().parents[2]
 MIB = 1024 * 1024
 # Same extensions the batch ZIP parsers accept; anything else is skipped by the browser and refused here.
 PROFILES = {
-    "imagens": frozenset(IMAGE_EXTENSIONS),
+    "imagens": frozenset(FORMATS),
     "lote": frozenset(IMAGE_EXTENSIONS | DOCUMENT_EXTENSIONS | {".csv"}),
 }
 BACKUP = "Backup-fotos"
@@ -57,6 +58,10 @@ def clean_path(value):
 
 def signature_ok(suffix, head):
     """Content must match the extension: a renamed executable is not accepted as a photo or PDF."""
+    if suffix == ".svg":
+        if head[:2] in {b"\xff\xfe", b"\xfe\xff"}:
+            head = head.decode("utf-16", "ignore").encode()
+        return b'\x00' not in head and b'<' in head  # Sanitized and rendered at conversion (app.services.safe_svg).
     if suffix in {".jpg", ".jpeg"}:
         return head.startswith(b"\xff\xd8\xff")
     if suffix == ".png":
@@ -163,8 +168,12 @@ class Uploads:
             if not isinstance(size, int) or isinstance(size, bool) or size < 1:
                 raise ValueError(f"Arquivo vazio ou tamanho inválido: {path}")
             if size > self.settings.upload_max_file_mib * MIB:
-                raise ValueError(f"Arquivo acima de {self.settings.upload_max_file_mib} MiB: {path}")
+                from app.services.upload_limits import check_size
+                check_size(size,self.settings.upload_max_file_mib)
             suffix = PurePosixPath(path).suffix.lower()
+            if suffix == ".svg":
+                from app.services.safe_svg import MAX_BYTES
+                if size > MAX_BYTES: raise ValueError(f"SVG acima de 20 MiB: {path}")
             if suffix not in PROFILES[profile]:
                 raise ValueError(f"Tipo de arquivo não permitido neste módulo: {path}")
             if profile == "imagens" and path.split("/")[0].casefold() == BACKUP.casefold():
@@ -251,6 +260,7 @@ class Uploads:
                 return received, False
             with open(part, "rb") as handle:
                 head = handle.read(4096)
+            # SVG content is sanitized at conversion, file by file: one bad SVG never blocks the whole envio.
             if not signature_ok(PurePosixPath(entry["path"]).suffix.lower(), head):
                 part.unlink()
                 raise ValueError(f"Conteúdo não corresponde à extensão: {entry['path']}")
@@ -293,17 +303,24 @@ class Uploads:
         os.utime(folder / "session.json")
         return folder / "files", record
 
-    def archive(self, identifier, org, owner, limit_mib):
+    def archive(self, identifier, org, owner, limit_mib, streaming=False):
         """The envio as the ZIP the batch modules already parse; returns (bytes, name like 'Pasta.zip')."""
         files, record = self.workspace(identifier, org, owner, "lote")
         if record["bytes"] > limit_mib * MIB:
             raise ValueError(f"Seleção acima do limite de {limit_mib} MiB deste módulo.")
-        stream = io.BytesIO()
-        with zipfile.ZipFile(stream, "w") as output:
-            for entry in record["files"]:
-                kind = zipfile.ZIP_STORED if PurePosixPath(entry["path"]).suffix.lower() in COMPRESSED else zipfile.ZIP_DEFLATED
-                output.write(files / entry["path"], entry["path"], compress_type=kind)
-        return stream.getvalue(), (record["folder"] or "envio") + ".zip"
+        import tempfile
+        if shutil.disk_usage(tempfile.gettempdir()).free < record['bytes'] + 64*MIB:
+            raise ValueError('Espaço em disco insuficiente para preparar ZIP.')
+        stream = tempfile.TemporaryFile() if streaming else io.BytesIO()
+        try:
+            with zipfile.ZipFile(stream, "w") as output:
+                for entry in record["files"]:
+                    kind = zipfile.ZIP_STORED if PurePosixPath(entry["path"]).suffix.lower() in COMPRESSED else zipfile.ZIP_DEFLATED
+                    output.write(files / entry["path"], entry["path"], compress_type=kind)
+            stream.seek(0)
+            return (stream if streaming else stream.getvalue()), (record["folder"] or "envio") + ".zip"
+        except BaseException:
+            stream.close();raise
 
 
 class OffsetMismatch(Exception):

@@ -1,0 +1,11 @@
+# Aplicar POR ÚLTIMO (após compose.svg-resvg.yaml): backup da Remoção de Arquivos aceita SVG original (sem rasterizar).
+# Imagens derivadas das que já rodam, trocando só app/services/removal_backup.py:
+#   api            = prm:svg-resvg-20261023               + removal_backup.py
+#   worker-removal = prm:cadastro-remocao-cargos-20261023b + removal_backup.py
+# Banco, volumes, gateway e demais workers intactos.
+# Retorno: subir api e worker-removal sem este arquivo (voltam às imagens acima).
+services:
+  api:
+    image: prm:svg-backup-api-20261026
+  worker-removal:
+    image: prm:svg-backup-removal-20261026

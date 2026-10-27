@@ -5,38 +5,62 @@
     <div>
       <p class="eyebrow">Digitalização / Cadastro via API</p>
       <h2>Arquivos de produtos existentes</h2>
-      <p>Adiciona imagens e documentos WCDA a produtos já cadastrados, localizados por SKU exato. Nome, descrições, categorias, atributos, preço, estoque e status continuam no fluxo CSV e nunca são enviados por aqui. A prévia só lê a loja; gravações nas três lojas atuais seguem bloqueadas. O Playwright permanece disponível.</p>
+      <p>Adiciona imagens e documentos WCDA a produtos já cadastrados, localizados por SKU exato. Nome, descrições, categorias, atributos, preço, estoque e status continuam no fluxo CSV e nunca são enviados por aqui. A prévia só lê a loja.</p>
     </div>
   </header>
+  <ol class="prm-steps" aria-label="Etapas do cadastro">
+    <li>Importar arquivos</li><li>Dry Run</li><li>Aprovação</li><li>Envio</li><li>Verificação</li>
+  </ol>
 
   <div class="panel">
-    <div class="prm-section-title"><div><h2>Importar arquivos</h2><p>ZIP com pastas por SKU ou arquivos diretamente em SKU.zip. Planilha opcional no modo pastas. Os arquivos vão ao PRM, não à loja.</p></div></div>
-    <form id="api-registration-upload" class="prm-form">
+    <div class="prm-section-title"><div><h2>Importar arquivos</h2><p>ZIP com pastas por SKU ou arquivos diretamente em SKU.zip. Os arquivos vão ao PRM, não à loja.</p></div></div>
+    <form id="api-registration-upload" class="prm-form prm-form-sections">
+      <fieldset class="prm-field is-wide prm-scope" id="api-registration-scope">
+        <legend>O que deseja cadastrar?</legend>
+        <div class="prm-scope-options">
+          <label class="api-choice"><input type="checkbox" id="api-registration-scope-all"><span>Tudo</span></label>
+          <label class="api-choice"><input type="checkbox" data-scope="gallery" checked><span>Fotos da galeria</span></label>
+          <label class="api-choice"><input type="checkbox" data-scope="documents" checked><span>Documentos</span></label>
+          <label class="api-choice"><input type="checkbox" data-scope="main"><span>Foto principal</span></label>
+        </div>
+        <small id="api-registration-scope-main-note" hidden>Padrão das imagens: &lt;SKU&gt;_1.ext é a principal (detectada automaticamente); &lt;SKU&gt;_2, _3, … vão para a galeria em ordem numérica. Sem _1, nada é escolhido sozinho: a principal fica para escolha manual no Dry Run do SKU. Se o produto já tiver principal, ela vai para a galeria.</small>
+        <small>Galeria: &lt;SKU&gt;_2.ext em diante, preservando a principal atual e acrescentando só imagens novas (mesmo hash é ignorado). Nomes fora do padrão não são classificados. Documentos: acrescenta ao <code>_wcda_arquivos</code> preservando os atuais.</small>
+        <input type="hidden" name="escopo" id="api-registration-scope-value">
+      </fieldset>
+      <p class="prm-form-group-title is-wide">Origem dos arquivos</p>
       <div class="prm-field"><label for="api-registration-company">Empresa</label><select id="api-registration-company" name="empresa"><option value="choice">Choice</option><option value="sag">SAG</option><option value="portwell">Portwell</option></select></div>
       <div class="prm-field"><label for="api-registration-mode">Identificação</label><select id="api-registration-mode" name="identificacao"><option value="folder">Utilizar nome da pasta como código CIGAM/SKU</option><option value="csv">Utilizar planilha CIGAM</option></select></div>
-      <div class="prm-field"><label for="api-registration-sheet">Planilha CIGAM (opcional no modo pastas)</label><input id="api-registration-sheet" name="planilha" type="file" accept=".csv,.xlsx,.xlsm"></div>
+      <div class="prm-field" id="api-registration-root-field"><label for="api-registration-root">Pasta raiz (opcional)</label><input id="api-registration-root" name="pasta_raiz" placeholder="Ex.: Choice"><small>Vazio reconhece SKUs na raiz ou Produtos/. Arquivos soltos usam o nome exato SKU.zip.</small></div>
       <div class="prm-field"><label for="api-registration-zip">ZIP do PRM (pasta por SKU, SKU.zip ou lote)</label><input id="api-registration-zip" name="arquivos" type="file" accept=".zip" required></div>
-      <div class="prm-field lf-field"><span class="lf-label">Ou selecione no seu computador</span><div data-local-files="lote" data-zip-input="api-registration-zip"></div><small>Sem compactar: a estrutura de subpastas é preservada (uma pasta com o nome do SKU vale como SKU.zip) e o envio pode ser retomado.</small></div>
-      <div class="prm-field" id="api-registration-root-field"><label for="api-registration-root">Pasta raiz dentro do ZIP ou da pasta selecionada (opcional)</label><input id="api-registration-root" name="pasta_raiz" placeholder="Ex.: Choice"><small>Vazio reconhece SKUs na raiz ou Produtos/. Arquivos soltos usam o nome exato SKU.zip.</small></div>
-      <div class="prm-form-actions"><button class="button-primary" type="submit">{{ ui.icon('upload') }}<span>Importar e preparar prévia</span></button></div>
+      <div class="prm-field"><label for="api-registration-sheet">Planilha CIGAM (opcional no modo pastas)</label><input id="api-registration-sheet" name="planilha" type="file" accept=".csv,.xlsx,.xlsm"></div>
+      <div class="prm-field lf-field is-wide"><span class="lf-label">Ou selecione no seu computador</span><div data-local-files="lote" data-zip-input="api-registration-zip"></div><small>Sem compactar: a estrutura de subpastas é preservada (uma pasta com o nome do SKU vale como SKU.zip) e o envio pode ser retomado.</small></div>
+      <div class="prm-form-actions is-wide"><button class="button-primary" type="submit">{{ ui.icon('upload') }}<span>Importar e preparar prévia</span></button></div>
     </form>
-    <p class="prm-note">{{ ui.icon('info') }}<span>Aceita o pacote validado da Digitalização (SKU.zip com manifesto), pastas por SKU e o ZIP da Geração em Lote (fontes apenas inventariadas). Imagens: principal atual preservada por padrão, novas na galeria. Documentos: acrescentados ao <code>_wcda_arquivos</code> preservando os existentes e a ordem. Nada é criado se o SKU não existir. O worker <code>scripts/store_registration_worker.py</code> prepara a prévia.</span></p>
     <p id="api-registration-message" class="prm-status" role="status" aria-live="polite"></p>
+    <details class="prm-help">
+      <summary>Limites e formatos aceitos</summary>
+      <p class="prm-note" id="api-registration-limit">Limite: até 1 GB por arquivo (1 GB = 1024 MB) e até 2 GB por pacote (ZIP ou pasta). A loja pode aceitar menos: o Dry Run mostra o limite de upload informado por ela e bloqueia o arquivo que seria recusado. Imagens continuam sujeitas ao limite de pixels.</p>
+      <p class="prm-note">{{ ui.icon('info') }}<span>Aceita o pacote validado da Digitalização (SKU.zip com manifesto), pastas por SKU e o ZIP da Geração em Lote (fontes apenas inventariadas). Imagens: principal atual preservada, a menos que Foto principal esteja marcada e o arquivo escolhido no Dry Run. Documentos: acrescentados ao <code>_wcda_arquivos</code> preservando os existentes e a ordem. Nada é criado se o SKU não existir. Gestores e desenvolvedores aprovam e confirmam o envio; o worker <code>scripts/store_registration_worker.py</code> prepara a prévia. O Playwright permanece disponível.</span></p>
+    </details>
   </div>
 
   <div class="panel">
     <div class="prm-section-title">
       <div><h2>Itens do lote</h2><p id="api-registration-summary" aria-live="polite"></p></div>
-      <div id="api-registration-actions" class="prm-page-actions" hidden>
-        <button type="button" class="button-primary" id="api-registration-confirm">{{ ui.icon('shield') }}<span>Enviar aprovados — somente staging autorizado</span></button>
-        <button type="button" class="button-secondary" id="api-registration-approve">{{ ui.icon('check') }}<span>Aprovar Dry Run (selecionados ou todos)</span></button>
-        <button type="button" class="button-secondary" id="api-registration-retry">{{ ui.icon('refresh') }}<span>Refazer prévia dos erros</span></button>
-        <a id="api-registration-report" class="prm-btn">{{ ui.icon('download') }}<span>Baixar relatório</span></a>
-        <a id="api-registration-dry-run" class="prm-btn">{{ ui.icon('download') }}<span>Baixar Dry Run JSON</span></a>
-      </div>
+    </div>
+    <div id="api-registration-actions" class="prm-toolbar" hidden>
+      <span id="api-registration-selection-count" class="prm-toolbar-count" role="status" aria-live="polite">0 selecionados de 0 elegíveis</span>
+      <button type="button" class="button-secondary" id="api-registration-approve">{{ ui.icon('check') }}<span>Aprovar Dry Run dos selecionados</span></button>
+      <button type="button" class="button-primary" id="api-registration-confirm">{{ ui.icon('shield') }}<span>Enviar aprovados</span></button>
+      <span class="prm-toolbar-spacer"></span>
+      <button type="button" class="button-secondary prm-btn-sm" id="api-registration-retry">{{ ui.icon('refresh') }}<span>Refazer prévia</span></button>
+      <button type="button" class="button-secondary prm-btn-sm" id="api-registration-scope-apply">{{ ui.icon('refresh') }}<span>Aplicar escopo marcado</span></button>
+      <button type="button" class="button-secondary prm-btn-sm" id="api-registration-restore" disabled>Restaurar selecionados</button>
+      <a id="api-registration-report" class="prm-btn prm-btn-ghost prm-btn-sm">{{ ui.icon('download') }}<span>Relatório</span></a>
+      <a id="api-registration-dry-run" class="prm-btn prm-btn-ghost prm-btn-sm">{{ ui.icon('download') }}<span>Dry Run JSON</span></a>
     </div>
     <progress id="api-registration-progress" max="100" value="0" aria-label="Progresso do lote"></progress>
-    <div class="table-scroll"><table><thead><tr><th>SKU</th><th>Status</th><th>Existentes</th><th>Arquivos encontrados</th><th>Avisos/erros</th></tr></thead><tbody id="api-registration-items" data-empty="Importe um lote para ver os itens."></tbody></table></div>
+    <div class="table-scroll"><table><thead><tr><th><label class="api-choice"><input type="checkbox" id="api-registration-select-all" aria-label="Selecionar todos os itens elegíveis" disabled><span>Seleção</span></label></th><th>SKU</th><th>Status</th><th>Existentes</th><th>Arquivos encontrados</th><th>Avisos/erros</th></tr></thead><tbody id="api-registration-items" data-empty="Importe um lote para ver os itens."></tbody></table></div>
   </div>
 
   <div class="panel">

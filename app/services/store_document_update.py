@@ -102,7 +102,7 @@ class DocumentPlan:
         return _hash([self.company, self.origin, self.product_id, self.sku, self.before, self.payload])
 
 
-def prepare_document_update(company, origin, product, sku, additions, *, allow_empty=False):
+def prepare_document_update(company, origin, product, sku, additions, *, allow_empty=False, allow_absent=False):
     if company not in COMPANIES:
         raise ValueError("Loja inválida.")
     origin = secure_url(origin)
@@ -110,7 +110,9 @@ def prepare_document_update(company, origin, product, sku, additions, *, allow_e
         raise ValueError("SKU exato não corresponde ao produto.")
     if type(product.get("id")) is not int or product["id"] <= 0:
         raise ValueError("Produto inválido.")
-    current = metadata_field(product, allow_empty=allow_empty)
+    metadata = product.get("meta_data")
+    absent = isinstance(metadata, list) and all(isinstance(m, dict) for m in metadata) and not any(m.get("key") == KEY for m in metadata)
+    current = {"key": KEY, "value": []} if allow_absent and absent else metadata_field(product, allow_empty=allow_empty)
     if not isinstance(additions, list) or len(additions) > 50:
         raise ValueError("Informe uma lista de até 50 documentos.")
     desired = deepcopy(current["value"])
@@ -134,7 +136,9 @@ def prepare_document_update(company, origin, product, sku, additions, *, allow_e
         else:
             desired.append(candidate)
             added += 1
-    payload = {"meta_data": [{"id": current["id"], "key": KEY, "value": desired}]}
+    if absent and not added:
+        raise ValueError("Criação exige documentos reais; não enviar metadado vazio.")
+    payload = {"meta_data": [{**({"id": current["id"]} if "id" in current else {}), "key": KEY, "value": desired}]}
     return DocumentPlan(company, origin, product["id"], sku, _json(product), _json(payload), added, duplicates,
                         not current["value"])
 

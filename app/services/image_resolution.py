@@ -31,7 +31,7 @@ from app.services.registration_package import fit_square
 BACKUP = "Backup-fotos"
 JOURNAL = ".prm-resolucao.json"
 TEMP = ".prm-tmp"
-FORMATS = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".webp": "WEBP"}
+FORMATS = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".webp": "WEBP", ".svg": "PNG"}
 SIZES = (1000, 1200, 1500, 1600, 2000)
 MAX_FILES = 20000
 
@@ -150,8 +150,8 @@ class Journal:
 
 def converted(root, rel, journal):
     """True when the file on disk is exactly the output PRM wrote for it."""
-    entry = journal.entries.get(rel)
-    target = root / rel
+    entry = journal.entries.get(rel) or next((e for e in journal.entries.values() if e.get("output") == rel), None)
+    target = root / (entry.get("output", rel) if entry else rel)
     return bool(entry and entry.get("state") == "done" and target.is_file() and sha256(target) == entry.get("output_sha256"))
 
 
@@ -226,8 +226,22 @@ def _copy_verified(source, target, expected_sha):
 def convert_one(root, rel, journal, size, stop=None):
     """Returns 'done', 'skipped' or raises ValueError. Never leaves two versions in the original folder."""
     source = root / rel
+    for original, saved in journal.entries.items():
+        if saved.get('output') in {rel} and saved.get('state') == 'replacing':
+            original_path = root / original
+            backup_path = root / saved['backup']
+            if (source.is_file() and sha256(source) == saved.get('output_sha256')
+                    and backup_path.is_file() and sha256(backup_path) == saved.get('original_sha256')):
+                if original_path.exists():
+                    if sha256(original_path) != saved['original_sha256']:
+                        raise ValueError('SVG alterado após interrupção; revisão necessária.')
+                    original_path.unlink()
+                journal.set(original, state='done', error='')
+                return 'skipped'
     if converted(root, rel, journal):
         return "skipped"
+    if source.suffix.lower() == ".svg":
+        return convert_svg(root, rel, journal, size, stop)
     entry = journal.entries.get(rel, {})
     image_format = FORMATS[source.suffix.lower()]
     original_sha = sha256(source)
@@ -287,6 +301,9 @@ def restore_one(root, rel, journal):
     if entry.get("state") not in {"done", "backed_up", "replacing"} or not entry.get("backup"):
         return "skipped"
     backup, target = root / entry["backup"], root / rel
+    output = root / entry["output"] if entry.get("output") else None
+    if output and output.exists() and sha256(output) != entry.get("output_sha256"):
+        raise ValueError("PNG alterado; restauração bloqueada.")
     if not backup.is_file() or sha256(backup) != entry.get("original_sha256"):
         raise ValueError("Backup ausente ou alterado; restauração deste arquivo interrompida.")
     if target.exists() and sha256(target) not in {entry.get("output_sha256"), entry.get("original_sha256")}:
@@ -302,8 +319,73 @@ def restore_one(root, rel, journal):
         if temporary.exists():
             temporary.unlink()
     backup.unlink()
+    if output and output.exists(): output.unlink()
     journal.set(rel, state="restored", output_sha256="")
     return "done"
+
+
+def _svg_output(source):
+    """foto.svg -> foto.png; a PNG of that name that PRM did not write is never touched: foto-svg.png, foto-svg-2.png…"""
+    for name in [source.stem + ".png", source.stem + "-svg.png", *(f"{source.stem}-svg-{n}.png" for n in range(2, 100))]:
+        candidate = source.with_name(name)
+        if not candidate.exists():
+            return candidate
+    raise ValueError("Erro ao converter SVG: nomes de saída PNG ocupados demais; original mantido.")
+
+
+def convert_svg(root, rel, journal, size, stop=None):
+    """SVG is always delivered as PNG: original moved to Backup-fotos, PNG created next to it (never overwriting)."""
+    from app.services.safe_svg import render_svg, MAX_BYTES
+    source = root / rel
+    if source.stat().st_size > MAX_BYTES:
+        raise ValueError("Erro ao converter SVG: arquivo acima de 20 MiB; original mantido.")
+    original_sha = sha256(source)
+    entry = journal.entries.get(rel, {})
+    if entry.get("state") == "replacing" and entry.get("original_sha256") == original_sha and entry.get("output"):
+        # Interrupted after the PNG was created: finish by removing the SVG, already in the backup.
+        target = root / entry["output"]
+        if target.is_file() and sha256(target) == entry.get("output_sha256") and sha256(root / entry["backup"]) == original_sha:
+            source.unlink()
+            journal.set(rel, state="done", error="")
+            return "done"
+    details = {}
+    try:
+        rendered = fit_square(render_svg(source.read_bytes(), size, details), size=size, image_format="PNG")
+        with Image.open(io.BytesIO(rendered)) as check:
+            if check.size != (size, size):
+                raise ValueError("tamanho final diferente do escolhido")
+    except ValueError as exc:
+        raise ValueError(f"Erro ao converter SVG: {exc}; original mantido.") from None
+    target = _svg_output(source)
+    backup, reused = _backup_target(root, rel, original_sha)
+    if not reused: _copy_verified(source, backup, original_sha)
+    digest = hashlib.sha256(rendered).hexdigest()
+    journal.set(rel, state='backed_up', backup=backup.relative_to(root).as_posix(), original_sha256=original_sha,
+                source=rel, output=target.relative_to(root).as_posix(), output_sha256=digest, size=size,
+                converted_from="svg", sanitized=details.get("sanitized", []),
+                renamed=target.name != source.stem + ".png")
+    if stop is not None and stop.is_set(): raise InterruptedError()
+    if sha256(source) != original_sha: raise ValueError("SVG alterado durante conversão.")
+    temporary = target.with_name('.' + target.name + uuid.uuid4().hex + TEMP)
+    try:
+        temporary.write_bytes(rendered)
+        journal.set(rel, state='replacing')
+        try:
+            os.link(temporary, target)  # Exclusive, atomic creation: never replace a pre-existing PNG.
+        except FileExistsError:
+            journal.set(rel, state='backed_up')
+            raise ValueError("PNG de mesmo nome surgiu durante a conversão; nada sobrescrito.") from None
+        except OSError:
+            if target.exists():  # volumes without hard links: rename refuses an existing name on Windows
+                journal.set(rel, state='backed_up')
+                raise ValueError("PNG de mesmo nome surgiu durante a conversão; nada sobrescrito.") from None
+            os.rename(temporary, target)
+        if sha256(source) != original_sha: raise ValueError("SVG alterado; original preservado.")
+        source.unlink()
+        journal.set(rel, state='done', error='')
+    finally:
+        if temporary.exists(): temporary.unlink()
+    return 'done'
 
 
 @dataclass
@@ -317,6 +399,7 @@ class Task:
     done: int = 0
     skipped: int = 0
     failed: int = 0
+    svg_converted: int = 0
     current: str = ""
     status: str = "running"
     errors: list = field(default_factory=list)
@@ -326,7 +409,8 @@ class Task:
 
     def public(self):
         return {"id": self.id, "kind": self.kind, "root": self.label or self.root, "total": self.total, "done": self.done,
-                "skipped": self.skipped, "failed": self.failed, "current": self.current, "status": self.status,
+                "skipped": self.skipped, "failed": self.failed, "svg_converted": self.svg_converted,
+                "processed": self.done + self.skipped + self.failed, "current": self.current, "status": self.status,
                 "errors": self.errors[-200:], "progress": round(100 * (self.done + self.skipped + self.failed) / self.total) if self.total else 100,
                 "started": self.started, "finished": self.finished}
 
@@ -388,13 +472,18 @@ def convert_root(root, *, recursive=True, size=1500, backup=True, confirmed=Fals
             task.current = rel
             try:
                 result = convert_one(root, rel, journal, size, task.stop)
-                if result == "done": task.done += 1
+                if result == "done":
+                    task.done += 1
+                    task.svg_converted += rel.lower().endswith(".svg")
                 else: task.skipped += 1
             except InterruptedError:
                 break
-            except ValueError as exc:
+            except (ValueError, OSError) as exc:
+                # One image never stops the batch: recorded, original kept, next file.
                 task.failed += 1
-                task.errors.append({"file": rel, "error": str(exc)})
+                error = str(exc) if isinstance(exc, ValueError) else "Falha de leitura/gravação; original mantido."
+                task.errors.append({"file": rel, "error": error})
+                exc = ValueError(error)
                 journal.set(rel, error=str(exc), **({} if journal.entries.get(rel, {}).get("state") else {"state": "error"}))
     return _start("convert", root, worker, background=background, owner=owner, label=label)
 

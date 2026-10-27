@@ -1,0 +1,5 @@
+{# Abas do módulo Digitalização: mesma navegação em todas as telas do fluxo (somente gestor/desenvolvedor). #}
+{% set dz_tabs = [('Nova digitalização', '/digitalizacao', 'scan'), ('Resolução de imagens', '/digitalizacao/resolucao-imagens', 'image'), ('Cadastro via API', '/digitalizacao/cadastro-api', 'store'), ('Remoção de arquivos', '/digitalizacao/remocao-arquivos', 'trash'), ('Geração em lote', '/digitalizacao/lotes', 'layers'), ('Publicação em lote', '/digitalizacao/publicacao-lote', 'package')] %}
+<nav class="prm-tabs" aria-label="Telas da Digitalização">
+  {% for label, href, icon in dz_tabs %}<a href="{{ href }}"{% if active_path == href %} aria-current="page"{% endif %}>{{ ui.icon(icon) }}<span>{{ label }}</span></a>{% endfor %}
+</nav>

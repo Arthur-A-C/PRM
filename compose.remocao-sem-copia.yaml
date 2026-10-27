@@ -1,0 +1,11 @@
+# Aplicar POR ÚLTIMO (após compose.cadastro-padrao-sku.yaml): remoção sem cópia física dos arquivos (26/10/2026).
+# Registro verificado do estado anterior (IDs e metadados) continua obrigatório; nada é baixado, link quebrado ou
+# host antigo não bloqueia; restauração revincula só mídias ainda na biblioteca. Choice, SAG e Portwell.
+# api e worker-removal nesta imagem; worker-registration, banco, volumes e gateway intactos (código do cadastro igual).
+# Retorno: recriar api e worker-removal sem este arquivo (api -> prm:cadastro-padrao-sku-20261026,
+# worker-removal -> prm:svg-backup-removal-20261026).
+services:
+  api:
+    image: prm:remocao-sem-copia-20261026
+  worker-removal:
+    image: prm:remocao-sem-copia-20261026

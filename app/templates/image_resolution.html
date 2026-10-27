@@ -11,7 +11,7 @@
   </header>
 
   <section class="panel">
-    <div class="prm-section-title"><div><h2>1. Imagens e opções</h2><p>Somente JPG, JPEG, PNG e WEBP são enviados e convertidos. PDFs, ZIPs, desenhos 3D e outros arquivos da pasta são ignorados.</p></div></div>
+    <div class="prm-section-title"><div><h2>1. Imagens e opções</h2><p>JPG, JPEG, PNG, WEBP e SVG são enviados e convertidos. SVG é sanitizado (declarações, scripts e referências externas removidos) e sempre entregue como PNG no tamanho escolhido; um SVG que não puder ser convertido não interrompe o lote. PDFs, ZIPs, desenhos 3D e outros arquivos da pasta são ignorados.</p></div></div>
     <form id="res-form" class="prm-form">
       <div class="prm-field res-path"><span>Pasta ou fotos do seu computador</span><div id="res-picker" data-local-files="imagens"></div></div>
       <div class="prm-field"><label for="res-size">Resolução</label><select id="res-size" name="tamanho"><option value="1000">1000 × 1000 px</option><option value="1200">1200 × 1200 px</option><option value="1500" selected>1500 × 1500 px (padrão)</option><option value="1600">1600 × 1600 px</option><option value="2000">2000 × 2000 px</option></select></div>
@@ -54,6 +54,7 @@
     <progress id="res-progress" max="100" value="0" aria-label="Progresso"></progress>
     <div class="res-counts">
       <span class="prm-pill is-ok" id="res-done">0 concluídas</span>
+      <span class="prm-pill is-ok" id="res-svg">0 SVG convertidos</span>
       <span class="prm-pill" id="res-skipped">0 ignoradas</span>
       <span class="prm-pill is-alert" id="res-failed">0 com erro</span>
       <span class="prm-pill is-info" id="res-status">—</span>

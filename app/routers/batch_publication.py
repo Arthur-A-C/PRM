@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from dotenv import dotenv_values
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictBool
 from starlette.concurrency import run_in_threadpool
 
 from app.dependencies import AppSettings, CurrentAuth
@@ -22,6 +22,7 @@ class Selection(BaseModel):
     skus: list[str] | None = None
     items: list[int] | None = None
     replace_main: list[str] = []
+    confirmado: StrictBool = False
 
 
 def scope(auth):
@@ -114,7 +115,8 @@ def approve(identifier: str, auth: CurrentAuth, settings: AppSettings, body: Sel
 @router.post("/{identifier}/publicar")
 def publish(identifier: str, auth: CurrentAuth, settings: AppSettings, body: Selection | None = None,
             csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None):
-    return mutate(identifier, auth, settings, csrf_token, lambda s: s.publish(identifier, *scope(auth), (body or Selection()).skus))
+    body = body or Selection()
+    return mutate(identifier, auth, settings, csrf_token, lambda s: s.publish(identifier, *scope(auth), body.skus, confirmed=body.confirmado))
 
 
 @router.post("/{identifier}/retomar")

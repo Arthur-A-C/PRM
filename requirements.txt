@@ -23,6 +23,7 @@ pydantic_core==2.46.5
 python-dotenv==1.2.3
 python-multipart==0.0.32
 openpyxl==3.1.5
+xlrd==2.0.2
 pytest==8.4.2
 PyYAML==6.0.3
 SQLAlchemy==2.0.54
@@ -44,3 +45,5 @@ reportlab>=4,<6
 opencv-python-headless==5.0.0.93
 # PDF reading in tests (and the unused Qwen path).
 pypdf==6.19.0
+# SVG -> PNG in image resolution (Rust resvg: no network loader, no scripts; self-contained wheels).
+resvg-py==0.5.0

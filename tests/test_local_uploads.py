@@ -86,13 +86,19 @@ def test_signature_must_match_extension():
     ("lote", [{"caminho": "a.pdf", "tamanho": 0}], "vazio"),
     ("lote", [{"caminho": "A/x.pdf", "tamanho": 5}, {"caminho": "a/X.PDF", "tamanho": 5}], "repetido"),
     ("imagens", [{"caminho": "Backup-fotos/a.jpg", "tamanho": 5}], "Backup-fotos"),
-    ("lote", [{"caminho": "a.pdf", "tamanho": 201 * MIB}], "acima"),
+    ("lote", [{"caminho": "a.pdf", "tamanho": 1024 * MIB + 1}], "Arquivo acima do limite permitido de 1 GB."),
     ("outro", [{"caminho": "a.pdf", "tamanho": 5}], "não suportado"),
     ("lote", [], "ao menos"),
 ])
 def test_create_validates_selection(uploads, profile, files, error):
     with pytest.raises(ValueError, match=error):
         uploads.create("org", "owner", profile, files, "Lote")
+
+
+def test_browser_selection_accepts_files_up_to_one_gib(uploads):
+    # Sizes are declared metadata here: nothing of this size is written or held in memory.
+    uploads.create("org", "owner", "lote", [{"caminho": "a.pdf", "tamanho": 100 * MIB},
+                                            {"caminho": "b.pdf", "tamanho": 1024 * MIB}], "Lote")
 
 
 def test_create_limits_count_total_and_open_envios(tmp_path):

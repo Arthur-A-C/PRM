@@ -7,7 +7,7 @@
    photos, the PRM datasheet and permitted technical documents. The supplier datasheet is a
    source only and is never packaged.
 3. The package is handed internally to the Cadastro via API queue (Jobs.create), which keeps
-   identification, manifest/hash validation, Dry Run, approval, grants, audit and recovery.
+   identification, manifest/hash validation, Dry Run, approval, role confirmation, audit and recovery.
 
 No commercial name, description, category, attribute or CSV is produced here.
 """
@@ -215,10 +215,10 @@ class Pipelines:
             return self.jobs.approve(store_batch, org, owner, ready, [s for s in replace_main if s in ready])
         return self.each(identifier, org, owner, skus, action)
 
-    def publish(self, identifier, org, owner, skus=None):
-        """Queues approved items. The publisher policy/grants still decide; production stays blocked without grants."""
+    def publish(self, identifier, org, owner, skus=None, *, confirmed=False):
+        """Same files-only queue: explicit confirmation and current PRM role, never grants."""
         return self.each(identifier, org, owner, skus,
-                         lambda store_batch, selection: self.jobs.confirm(store_batch, org, owner, self.store_settings, selection))
+                         lambda store_batch, selection: self.jobs.confirm(store_batch, org, owner, self.store_settings, selection, confirmed=confirmed))
 
     def resume(self, identifier, org, owner):
         """Re-runs Dry Run for errors and 'Aguardando cadastro por CSV'. Uploads already done are reused by identity."""
@@ -253,7 +253,7 @@ class Pipelines:
                 "uploads": sum(a["action"] == "upload" for a in dry.get("images", {}).get("actions", [])),
                 "documents_add": sum(a["action"] == "add" for a in dry.get("documents", {}).get("actions", [])),
                 "ignored": [i["name"] for i in dry.get("ignored", [])],
-                "approved": bool((store or {}).get("approval")), "grant": (store or {}).get("homologation_grant"),
+                "approved": bool((store or {}).get("approval")),
                 "write_gate": dry.get("write_gate"), "result": (store or {}).get("result"),
                 "audit": (store or {}).get("audit", [])[-8:], "issues": issues,
                 "stage": stage(item["state"], store["state"] if store else None, (store or {}).get("approval")),

@@ -13,7 +13,13 @@
   async function request(url,options={}){
     const r=await fetch(url,{cache:"no-store",credentials:"same-origin",...options});
     const body=await r.json().catch(()=>({}));
-    if(!r.ok)throw Error(typeof body.detail==="string"?body.detail:"Falha na solicitação");return body;
+    if(!r.ok)throw Error(errorText(body.detail,r.status));return body;
+  }
+  // FastAPI sends a string or a list of {loc,msg}: show the real reason (422/403/401), never a generic text.
+  function errorText(detail,status){
+    if(typeof detail==="string")return detail;
+    if(Array.isArray(detail)&&detail.length)return detail.map(d=>typeof d==="string"?d:[(d?.loc||[]).filter(x=>x!=="body").join("."),d?.msg].filter(Boolean).join(": ")).join("; ");
+    return `HTTP ${status}: o servidor não retornou uma mensagem de erro legível.`;
   }
   function visible(){
     const stage=$("pub-filter-stage").value,issue=$("pub-filter-issue").value,text=$("pub-filter-text").value.trim().toLowerCase();
@@ -25,7 +31,7 @@
     box.append(el("p",`Dry Run: ${item.uploads} imagem(ns) a enviar · ${item.documents_add} documento(s) a incluir no WCDA`+(item.product_id?` · produto ${item.product_id}`:"")));
     if(item.ignored.length)box.append(el("p","Ignorados (não publicados): "+item.ignored.join(", ")));
     if(item.write_gate)box.append(el("p",item.write_gate,"prm-note"));
-    if(item.grant)box.append(el("p",`Liberação de uso único ativa até ${new Date(item.grant.expires*1000).toLocaleString("pt-BR")}.`,"prm-note"));
+
     if(item.result)box.append(el("p",`Resultado: ${item.result.status}; verificado: ${item.result.verified?"sim":"não"}.`));
     if(item.store==="review"&&!item.approved&&item.uploads){
       const label=el("label",null,"pub-choice"),check=el("input");check.type="checkbox";check.checked=replace.has(item.sku);
@@ -78,7 +84,7 @@
   }
   const labels={processar:"Iniciar o processamento (usa a IA para gerar os datasheets)",pausar:"Pausar itens ainda na fila",reprocessar:"Reprocessar itens com erro (usa a IA)",
     preparar:"Gerar o Dry Run de publicação (somente leitura na loja)",aprovar:"Aprovar o Dry Run (não publica)",
-    publicar:"Enfileirar a publicação dos aprovados (somente com liberação válida)",retomar:"Refazer o Dry Run dos itens com erro ou aguardando cadastro por CSV"};
+    publicar:"Confirmar o envio dos arquivos aprovados para a loja",retomar:"Refazer o Dry Run dos itens com erro ou aguardando cadastro por CSV"};
   root.querySelectorAll("[data-action]").forEach(button=>button.addEventListener("click",async()=>{
     if(!data||busy)return;
     const action=button.dataset.action,skus=[...selected];
@@ -86,7 +92,7 @@
     const scope=skus.length?`${skus.length} produto(s) selecionado(s)`:"todos os produtos aptos";
     if(!confirm(`${labels[action]} — ${scope}?`))return;
     const body={pausar:null,retomar:null,processar:{items:items.length?items:null},reprocessar:{items:items.length?items:null},
-      preparar:{skus:skus.length?skus:null},aprovar:{skus:skus.length?skus:null,replace_main:[...replace]},publicar:{skus:skus.length?skus:null}}[action];
+      preparar:{skus:skus.length?skus:null},aprovar:{skus:skus.length?skus:null,replace_main:[...replace]},publicar:{skus:skus.length?skus:null,confirmado:true}}[action];
     busy=true;
     try{
       data=await request(`${api}/${data.id}/${action}`,{method:"POST",headers:{"X-CSRF-Token":csrf(),...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined});

@@ -1,0 +1,10 @@
+# Overlay de implantação (23/10/2026): cadastro e remoção por cargo na MESMA versão.
+# Usar junto ao Compose atual do ambiente, sem trocar volumes/configurações. Não altera prm:local.
+# API, worker-registration e worker-removal precisam rodar a mesma imagem (filas e confirmações role-v1).
+services:
+  api:
+    image: prm:cadastro-remocao-cargos-20261023b
+  worker-registration:
+    image: prm:cadastro-remocao-cargos-20261023b
+  worker-removal:
+    image: prm:cadastro-remocao-cargos-20261023b

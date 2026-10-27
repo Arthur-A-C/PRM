@@ -8,6 +8,8 @@ from copy import deepcopy
 
 import httpx
 import pytest
+from registration_identity_fixture import mocked_registration_identity
+pytestmark = pytest.mark.usefixtures("mocked_registration_identity")
 from PIL import Image
 
 from app.services.store_config import StoreSettings
@@ -118,7 +120,10 @@ class Store:
             self.product["images"] = [{"id": i["id"], "src": self.library[i["id"]]} for i in payload["images"]]
         for meta in payload.get("meta_data", []):
             assert meta["key"] == "_wcda_arquivos"
-            target = next(m for m in self.product["meta_data"] if m["id"] == meta["id"])
+            if "id" not in meta:
+                assert not any(m["key"] == meta["key"] for m in self.product["meta_data"])
+                self.product["meta_data"].append({"id": 92931, "key": meta["key"], "value": []})
+            target = next(m for m in self.product["meta_data"] if m["id"] == meta.get("id", 92931))
             target["value"] = meta["value"]
         if self.mutate_on_put: self.product["name"] = "Alterado por outro processo"
         if self.lose_put: raise httpx.ReadTimeout("perdida", request=request)
@@ -148,7 +153,7 @@ def preview(jobs, settings, store, raw=None, name=SKU + ".zip"):
 
 def publish(jobs, settings, store, identifier, **approval):
     jobs.approve(identifier, "org", "owner", **approval)
-    jobs.confirm(identifier, "org", "owner", settings)
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     drain(jobs, settings, store)
     return jobs.detail(identifier, "org", "owner")["items"][0]
 
@@ -197,8 +202,9 @@ def test_dry_run_prepared_before_the_rule_is_never_executed(jobs, settings):
                                                         "bytes": 1, "sha256": "0" * 64, "upload_name": "x.pdf", "action": "add", "wcda_entry": None})
         plan["downloads"].append({"path": "x", "name": "x.pdf", "role": "source_datasheet", "sha256": "0" * 64, "bytes": 1, "label": "x"})
         db.execute("UPDATE jobs SET plan=? WHERE batch=?", (_json.dumps(plan), identifier))
-    item = publish(jobs, settings, store, identifier)
-    assert item["state"] == "error" and "datasheet do fornecedor" in item["error"] and store.posts == 0 and not store.puts
+    with pytest.raises(ValueError, match="Hash do Dry Run"):
+        publish(jobs, settings, store, identifier)
+    assert store.posts == 0 and not store.puts  # Changed plan is now rejected even before queueing.
 
 
 def test_flat_zip_named_by_sku_keeps_leading_zeros(jobs, settings):
@@ -374,9 +380,47 @@ def test_first_inclusion_into_empty_wcda_with_rollback_to_empty(jobs, settings):
     assert done["result"]["rollback"]["media_deletion"] is False
 
 
-def test_missing_wcda_meta_blocks_documents(jobs, settings):
-    _, item = preview(jobs, settings, Store(wcda_meta=False))
-    assert item["state"] == "blocked" and any("_wcda_arquivos incompatível" in b for b in item["blockers"])
+def test_missing_wcda_meta_creates_documents(jobs, settings):
+    store = Store(wcda_meta=False)
+    before = commercial(store.product)
+    identifier, item = preview(jobs, settings, store)
+    assert item["state"] == "review" and item["dry_run"]["documents"]["mode"] == "absent"
+    item = publish(jobs, settings, store, identifier)
+    assert item["state"] == "done"
+    assert "id" not in store.puts[-1]["meta_data"][0]
+    assert commercial(store.product) == before
+    assert len([m for m in store.product["meta_data"] if m["key"] == "_wcda_arquivos"]) == 1
+
+
+def test_absent_wcda_created_externally_blocks(jobs, settings):
+    store = Store(wcda_meta=False)
+    identifier, _ = preview(jobs, settings, store)
+    store.product["meta_data"].append({"id": 90, "key": "_wcda_arquivos", "value": []})
+    item = publish(jobs, settings, store, identifier)
+    assert item["state"] == "error" and not store.puts and store.posts == 0
+
+
+@pytest.mark.parametrize("image", [False, True])
+def test_absent_wcda_pdf_package(jobs, settings, image):
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, "w") as z:
+        z.writestr(f"{SKU}/datasheet.pdf", b"%PDF-1.4 test")
+        if image: z.writestr(f"{SKU}/foto-01.jpg", jpeg())
+    store = Store(wcda_meta=False)
+    identifier, item = preview(jobs, settings, store, stream.getvalue())
+    assert item["state"] == "review"
+    assert publish(jobs, settings, store, identifier)["state"] == "done"
+    assert store.posts == 1 + int(image)
+    assert len(store.product["meta_data"][-1]["value"]) == 1
+
+
+@pytest.mark.parametrize("invalid", ["duplicate", "string", "null"])
+def test_invalid_wcda_never_replaced(jobs, settings, invalid):
+    store = Store(wcda=[])
+    if invalid == "duplicate": store.product["meta_data"].append({"id": 91, "key": "_wcda_arquivos", "value": []})
+    else: store.product["meta_data"][-1]["value"] = "invalid" if invalid == "string" else None
+    _, item = preview(jobs, settings, store)
+    assert item["state"] == "blocked" and not store.puts and not store.posts
 
 
 def test_wcda_label_conflict_blocks_and_linked_document_is_ignored(jobs, settings):
@@ -445,7 +489,7 @@ def test_commercial_field_change_during_put_is_never_accepted(jobs, settings):
     store = Store(wcda=[]); store.mutate_on_put = True
     identifier, _ = preview(jobs, settings, store)
     item = publish(jobs, settings, store, identifier)
-    assert item["state"] == "error" and "não confirmada" in item["error"] and len(store.puts) == 1
+    assert item["state"] == "uncertain" and "não confirmada" in item["error"] and len(store.puts) == 1
 
 
 def test_put_payload_never_contains_commercial_fields(jobs, settings):
@@ -463,7 +507,7 @@ def test_put_payload_never_contains_commercial_fields(jobs, settings):
 def test_confirm_requires_approval_of_exact_dry_run(jobs, settings):
     store = Store(wcda=[])
     identifier, _ = preview(jobs, settings, store)
-    with pytest.raises(ValueError, match="aprovado"): jobs.confirm(identifier, "org", "owner", settings)
+    with pytest.raises(ValueError, match="aprovado"): jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     assert jobs.approve(identifier, "org", "owner", skus=[SKU]) == [SKU]
     with pytest.raises(ValueError): jobs.approve(identifier, "org", "owner", skus=["outro"])
     with pytest.raises(LookupError): jobs.approve(identifier, "org", "intruder")
@@ -472,17 +516,17 @@ def test_confirm_requires_approval_of_exact_dry_run(jobs, settings):
 
 
 @pytest.mark.parametrize("host", ["choicetech.com.br", "sagloja.devsplcomunic.com.br", "portwell.com.br"])
-def test_production_stores_stay_read_only_even_when_policy_enabled(tmp_path, host):
+def test_role_confirm_is_independent_of_legacy_production_policy(tmp_path, host):
     settings = StoreSettings(_env_file=None, CHOICE_WC_URL="https://" + host, CHOICE_WC_KEY="ck", CHOICE_WC_SECRET="cs",
                              CHOICE_WP_USER="u", CHOICE_WP_APP_PASSWORD="p", PRM_STORE_ORGANIZATION_ID="org")
     jobs = Jobs(PublishSettings(_env_file=None, enabled=True, staging_origin="https://" + host, staging_sku=SKU,
                                 storage_dir=str(tmp_path / "queue")))
     store = Store(wcda=[])
     identifier, item = preview(jobs, settings, store)
-    assert "bloqueada" in item["dry_run"]["write_gate"]
+    assert "aprove" in item["dry_run"]["write_gate"]
     jobs.approve(identifier, "org", "owner")
-    assert jobs.detail(identifier, "org", "owner")["can_confirm"] is False
-    with pytest.raises(ValueError, match="bloqueada"): jobs.confirm(identifier, "org", "owner", settings)
+    assert jobs.detail(identifier, "org", "owner")["can_confirm"] is True
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     assert set(store.methods) == {"GET"}
 
 
@@ -495,18 +539,27 @@ def test_api_files_flow_with_individual_approval(tmp_path, settings, monkeypatch
     from app.services.security import hash_secret
     policy = PublishSettings(_env_file=None, storage_dir=str(tmp_path / "queue"))
     app = FastAPI(); app.include_router(store_registration.router)
-    auth = SimpleNamespace(user=SimpleNamespace(role="gestor", id="owner", organization_id="org"),
+    auth = SimpleNamespace(user=SimpleNamespace(active=True,role="gestor", id="owner", organization_id="org"),
                            login_session=SimpleNamespace(csrf_hash=hash_secret("csrf")))
     app.dependency_overrides[get_current_auth] = lambda: auth
     monkeypatch.setattr(store_integrations, "StoreSettings", lambda: settings)
     monkeypatch.setattr(store_registration, "Jobs", lambda: Jobs(policy))
     with TestClient(app) as client:
-        response = client.post("/api/v1/cadastro-api", data={"empresa": "choice", "identificacao": "folder"},
+        assert client.post("/api/v1/cadastro-api", data={"empresa": "choice", "identificacao": "folder"},
+                           files={"arquivos": (SKU + ".zip", package())}, headers={"X-CSRF-Token": "csrf"}).status_code == 422
+        response = client.post("/api/v1/cadastro-api", data={"empresa": "choice", "identificacao": "folder", "escopo": "all"},
                                files={"arquivos": (SKU + ".zip", package())}, headers={"X-CSRF-Token": "csrf"})
         assert response.status_code == 200, response.text
         identifier = response.json()["id"]
-        drain(Jobs(policy), settings, Store(wcda=[]))
+        store = Store(wcda=[])
+        drain(Jobs(policy), settings, store)
         url = f"/api/v1/cadastro-api/{identifier}"
+        item = client.get(url).json()["items"][0]
+        assert item["state"] == "awaiting_main" and [o["name"] for o in item["dry_run"]["main_options"]] == [f"{SKU}_variante.jpg"]
+        chosen = client.post(url + "/principal", json={"sku": SKU, "sha256": item["dry_run"]["main_options"][0]["sha256"]},
+                             headers={"X-CSRF-Token": "csrf"})
+        assert chosen.status_code == 200, chosen.text
+        drain(Jobs(policy), settings, store)
         assert client.post(url + "/aprovar", json={"skus": [SKU]}).status_code == 403
         approved = client.post(url + "/aprovar", json={"skus": [SKU]}, headers={"X-CSRF-Token": "csrf"})
         assert approved.status_code == 200 and approved.json()["items"][0]["approval"]["replace_main"] is False

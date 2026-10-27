@@ -1,0 +1,6 @@
+# Somente para retorno explicitamente autorizado, após pausar a fila e revisar operações pendentes.
+services:
+  api:
+    image: prm:before-removal-roles-20261023
+  worker-removal:
+    image: prm:before-removal-roles-20261023

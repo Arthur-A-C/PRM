@@ -15,6 +15,8 @@ from urllib.parse import urlsplit
 import httpx
 import pymupdf
 import pytest
+from registration_identity_fixture import mocked_registration_identity
+pytestmark = pytest.mark.usefixtures("mocked_registration_identity")
 from PIL import Image
 
 from app.config import Settings
@@ -282,7 +284,7 @@ def test_individual_and_multiple_approval_then_publish_only_files(tmp_path, app_
     assert result[0]["ok"] and rows(pipes, identifier)["000124"]["approved"]
     pipes.approve(identifier, "org", "owner")  # the remaining ones in batch
     assert all(r["approved"] for r in rows(pipes, identifier).values())
-    assert pipes.publish(identifier, "org", "owner")[0]["ok"]
+    assert pipes.publish(identifier, "org", "owner", confirmed=True)[0]["ok"]
     drain(pipes, shop)
     view = rows(pipes, identifier)
     assert {r["store"] for r in view.values()} == {"done"} and all(r["stage"] == 6 for r in view.values())
@@ -294,19 +296,19 @@ def test_individual_and_multiple_approval_then_publish_only_files(tmp_path, app_
     assert all(set(p) <= {"images", "meta_data"} for p in shop.puts)
 
 
-def test_publication_blocked_without_policy_or_grant(tmp_path, app_settings, store_settings):
+def test_publication_without_legacy_policy_or_grant(tmp_path, app_settings, store_settings):
     shop = Shop()
     policy = PublishSettings(_env_file=None, storage_dir=str(tmp_path / "queue"))  # real default: writes disabled
     pipes, identifier = ready(tmp_path, app_settings, store_settings, shop, policy=policy)
     pipes.approve(identifier, "org", "owner")
-    result = pipes.publish(identifier, "org", "owner")
-    assert not result[0]["ok"] and "Sem liberação" in result[0]["error"]
-    assert shop.posts == 0 and not shop.puts and {r["store"] for r in rows(pipes, identifier).values()} == {"review"}
+    result = pipes.publish(identifier, "org", "owner", confirmed=True)
+    assert result[0]["ok"]
+    assert shop.posts == 0 and not shop.puts and {r["store"] for r in rows(pipes, identifier).values()} == {"queued"}
 
 
 def test_publish_requires_approval_of_the_dry_run(tmp_path, app_settings, store_settings):
     pipes, identifier = ready(tmp_path, app_settings, store_settings)
-    result = pipes.publish(identifier, "org", "owner")
+    result = pipes.publish(identifier, "org", "owner", confirmed=True)
     assert not result[0]["ok"] and "aprovado" in result[0]["error"]
 
 
@@ -316,13 +318,13 @@ def test_partial_failure_isolated_and_resumed_without_duplicate_uploads(tmp_path
     shop = Shop()
     shop.fail_upload = {"ABC-9_Manual"}
     pipes, identifier = ready(tmp_path, app_settings, store_settings, shop)
-    pipes.approve(identifier, "org", "owner"); pipes.publish(identifier, "org", "owner"); drain(pipes, shop)
+    pipes.approve(identifier, "org", "owner"); pipes.publish(identifier, "org", "owner", confirmed=True); drain(pipes, shop)
     view = rows(pipes, identifier)
     assert view["000123"]["store"] == "done" and view["000124"]["store"] == "done" and view["ABC-9"]["store"] == "error"
     posts = shop.posts
     shop.fail_upload = set()
     pipes.resume(identifier, "org", "owner"); drain(pipes, shop)
-    pipes.approve(identifier, "org", "owner", ["ABC-9"]); pipes.publish(identifier, "org", "owner", ["ABC-9"]); drain(pipes, shop)
+    pipes.approve(identifier, "org", "owner", ["ABC-9"]); pipes.publish(identifier, "org", "owner", ["ABC-9"], confirmed=True); drain(pipes, shop)
     assert rows(pipes, identifier)["ABC-9"]["store"] == "done"
     assert shop.posts == posts + 2  # the refused manual and the 3D not reached; earlier ABC-9 uploads are reused
     assert len(shop.library) == 15  # 5 media per SKU, no duplicates
@@ -352,20 +354,20 @@ def test_identical_images_are_uploaded_once(tmp_path, app_settings, store_settin
     pipes.process(identifier, "org", "owner", "model"); generate(pipes)
     pipes.handoff(identifier, "org", "owner")
     shop = Shop(["000123"]); drain(pipes, shop)
-    pipes.approve(identifier, "org", "owner"); pipes.publish(identifier, "org", "owner"); drain(pipes, shop)
+    pipes.approve(identifier, "org", "owner"); pipes.publish(identifier, "org", "owner", confirmed=True); drain(pipes, shop)
     assert len(shop.products["000123"]["images"]) == 1 and shop.posts == 2  # 1 image + PRM datasheet
 
 
 def test_audit_trail_and_rollback_after_publication(tmp_path, app_settings, store_settings):
     shop = Shop(["000123"])
     pipes, identifier = ready(tmp_path, app_settings, store_settings, shop, skus=["000123"])
-    pipes.approve(identifier, "org", "owner"); pipes.publish(identifier, "org", "owner"); drain(pipes, shop)
+    pipes.approve(identifier, "org", "owner"); pipes.publish(identifier, "org", "owner", confirmed=True); drain(pipes, shop)
     row = rows(pipes, identifier)["000123"]
     events = [a["event"] for a in pipes.jobs.detail(row["store_batch"], "org", "owner")["items"][0]["audit"]]
     for event in ("handoff", "preview_review", "approved", "queued", "permissions_verified", "upload_done", "put_sent", "verified", "done"):
         assert event in events
     before = commercial(shop.products["000123"])
-    result = rollback_one(pipes.jobs, store_settings, row["store_batch"], "000123", actor="tester", transport=httpx.MockTransport(shop.handle))
+    result = rollback_one(pipes.jobs, store_settings, row["store_batch"], "000123", actor="owner", confirmed=True, transport=httpx.MockTransport(shop.handle))
     assert result["status"] == "rolled_back" and shop.products["000123"]["images"] == []
     assert commercial(shop.products["000123"]) == before and len(shop.library) == 5  # media kept
 
@@ -397,7 +399,7 @@ def test_same_file_in_several_products_is_uploaded_once(tmp_path, app_settings, 
     identifier = pipes.create(shared_lot, "choice", "org", "owner")
     pipes.process(identifier, "org", "owner", "model"); generate(pipes)
     pipes.handoff(identifier, "org", "owner"); drain(pipes, shop)
-    pipes.approve(identifier, "org", "owner"); pipes.publish(identifier, "org", "owner"); drain(pipes, shop)
+    pipes.approve(identifier, "org", "owner"); pipes.publish(identifier, "org", "owner", confirmed=True); drain(pipes, shop)
     # 2 shared photos + 1 shared 3D uploaded once; datasheet and manual differ per SKU.
     assert shop.posts == 3 + 2 * 3 and len(shop.library) == 9
     assert len({p["images"][0]["id"] for p in shop.products.values()}) == 1
@@ -421,13 +423,13 @@ def test_scope_grant_stays_inside_the_homologation_allowlist(tmp_path, app_setti
         grants.issue_scope(pipes.jobs, batch=store_batch, skus=["119002000072"], minutes=30, actor="t", max_items=51)
     issued = grants.issue_scope(pipes.jobs, batch=store_batch, skus=["119002000072"], minutes=30, actor="t", max_items=1)
     assert len(issued["grants"]) == 1 and issued["grants"][0]["scope"] == issued["scope"]
-    result = pipes.publish(identifier, "org", "owner")
-    assert not result[0]["ok"]  # 000123 has no grant: the whole confirmation is refused, nothing queued
-    assert pipes.publish(identifier, "org", "owner", ["119002000072"])[0]["ok"]
+    result = pipes.publish(identifier, "org", "owner", confirmed=False)
+    assert not result[0]["ok"]  # A grant cannot replace explicit confirmation.
+    assert pipes.publish(identifier, "org", "owner", ["119002000072"], confirmed=True)[0]["ok"]
     drain(pipes, shop)
     view = rows(pipes, identifier)
     assert view["119002000072"]["store"] == "done" and view["000123"]["store"] == "review"
-    assert [g["state"] for g in grants.listing(pipes.jobs)] == ["consumed"]
+    assert [g["state"] for g in grants.listing(pipes.jobs)] == ["issued"]  # legacy grant is not used
 
 
 # --- API e interface -----------------------------------------------------------------------
@@ -441,7 +443,7 @@ def test_api_flow_permissions_and_export(tmp_path, app_settings, store_settings,
     from app.services.security import hash_secret
     jobs = Jobs(OpenStaging(_env_file=None, enabled=True, storage_dir=str(tmp_path / "queue")))
     app = FastAPI(); app.include_router(batch_publication.router)
-    auth = SimpleNamespace(user=SimpleNamespace(role="gestor", id="owner", organization_id="org"),
+    auth = SimpleNamespace(user=SimpleNamespace(active=True,role="gestor", id="owner", organization_id="org"),
                            login_session=SimpleNamespace(csrf_hash=hash_secret("csrf")))
     app.dependency_overrides[get_current_auth] = lambda: auth
     app.dependency_overrides[get_settings] = lambda: app_settings
