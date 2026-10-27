@@ -4,7 +4,7 @@
 
 Ambiente isolado na porta **8001**, preservando o PRM Windows: [guia Docker](docs/DOCKER.md), [resultados da infraestrutura](docs/INFRA_STATUS.md) e [fluxo de Pull Requests Kaue/Arthur](CONTRIBUTING.md). Sem deploy automático ou migração dos dados atuais.
 
-Product Relationship Manager: aplicação interna para analisar catálogos de produtos do grupo SAG, com foco nas ofertas da Choice Tech e da Portwell e comparação com concorrentes como a Eco Automação.
+Product Relationship Manager: aplicação interna para centralizar catálogos, comparação de produtos, digitalização/publicação em lojas, reuniões e gestão de fornecedores do grupo SAG. As empresas próprias permanecem em primeiro plano e concorrentes são tratados como origens separadas.
 
 Este repositório contém o código e a documentação da primeira entrega (`0.1.0`). O [marco da entrega](docs/ENTREGA_0_1.md) resume o que funciona e seus limites; o [estado operacional](docs/STATUS.md) registra as verificações mais recentes.
 
@@ -13,6 +13,8 @@ A [nova base refinada](docs/CATALOGOS_REFINADOS.md), publicada em 09/10/2026, re
 ## O que já funciona
 
 - [Níveis de acesso e contas](docs/NIVEIS_DE_ACESSO.md): desenvolvedor e gestor com permissões administrativas equivalentes, vendedor restrito a produtos e reuniões/cards. Criação de contas protegida em Gestão.
+- [Fornecedores](docs/FORNECEDORES.md): CRM/Kanban por organização, responsável, ficha, contatos, interações, tarefas, documentos, histórico e enriquecimento opcional por IA com revisão humana.
+- [Catálogos por origem](docs/CATALOGOS_ORIGENS.md): importação CSV/XLS/XLSX separando nossa base e concorrência, prévia, mapeamento, auditoria e publicação explícita do snapshot consumido pelo Comparador e pela Visão Geral.
 
 - [Pauta Semanal de Desenvolvimento](docs/PAUTA_SEMANAL.md): pauta automática de sexta com commits, PRs, issues e Planner, situação comprovada (branch, PR, integrado, implantado), IA verificada, edição, aprovação, PDF e histórico.
 - [Remoção de arquivos de produtos](docs/REMOCAO_ARQUIVOS.md): desvincula foto principal, galeria e/ou documentos WCDA de produtos existentes por SKU, com Dry Run, aprovação, auditoria e restauração; nunca exclui mídia nem altera dados comerciais.
@@ -96,6 +98,8 @@ O último comando recalcula a análise; sem `--commit`, a operação é apenas u
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
+node --test tests/js/*.test.cjs
+.\.venv\Scripts\python.exe -m alembic heads
 .\.venv\Scripts\python.exe -m alembic current
 .\.venv\Scripts\python.exe -m scripts.reconcile_catalogs
 ```
@@ -109,6 +113,8 @@ O último conjunto verificado em 23/09/2026 teve 21 testes aprovados, migração
 | [Primeira entrega](docs/ENTREGA_0_1.md) | Escopo, evidências e limites do marco `0.1.0` |
 | [Status](docs/STATUS.md) | Estado atual, contagens, verificações e próxima tarefa |
 | [Arquitetura](docs/ARQUITETURA.md) | Módulos e decisões de persistência |
+| [Deploy e rollback](docs/DEPLOY.md) | Compose, migrations, entrega e recuperação |
+| [Variáveis de ambiente](docs/ENV.md) | Configuração por módulo sem valores secretos |
 | [API](docs/API.md) | Rotas, autenticação e semântica das respostas |
 | [Dados](docs/DADOS.md) | Fontes, importação, marcas e correspondência |
 | [Comparação normalizada](docs/COMPARACAO_NORMALIZADA.md) | Auditoria dos novos CSVs/XLSX, metodologia, limites e regeneração do retrato |

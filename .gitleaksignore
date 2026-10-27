@@ -1,3 +1,5 @@
 # Reviewed fixture / localStorage key, not credentials; exact historical fingerprints only.
 86589ee32d72170376fc21278bf77603180acab9:app/static/js/catalog-selection.js:generic-api-key:2
 86589ee32d72170376fc21278bf77603180acab9:tests/test_security.py:generic-api-key:14
+# Reviewed Docker image tag in deployment documentation, not an API credential.
+800c36d5bec51b25f43965bb0a251a7660c9447b:docs/SELECAO_CADASTRO.md:generic-api-key:11

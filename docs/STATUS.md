@@ -1,5 +1,66 @@
 # Status do projeto
 
+## Consolidação estrutural — 27/10/2026
+
+- Worktree auditado: `PRM-remocao-cargos`, branch `fix/remocao-autorizacao-cargos`; alterações funcionais preexistentes foram preservadas e copiadas para backup privado fora do repositório antes da revisão.
+- Estrutura mantida como monólito modular FastAPI. Nenhum módulo crítico foi movido, nenhum endpoint foi renomeado e nenhuma regra de negócio foi alterada apenas para organização.
+- Fluxos atuais de Catálogos e Fornecedores adicionados ao inventário de arquitetura; o fluxo oficial de catálogo agora está documentado como arquivo → `Offer` → publicação explícita → snapshot → Comparador/Visão Geral.
+- Os 22 arquivos Compose foram inventariados. Overlays incrementais e de rollback foram preservados, pois ainda não há evidência suficiente de equivalência operacional para removê-los.
+- `.gitignore` ampliado para caches de análise, temporários, backups locais e dumps SQL; `.env`, dados, filas e artefatos continuam excluídos.
+- Documentação central criada para variáveis de ambiente e deploy/rollback. Configurações de IA permanecem independentes por módulo; não houve refatoração arriscada dos clientes Anthropic.
+- Alembic: uma única head, `20261027_0017 (access_levels)`; migrations aplicadas não foram reescritas.
+- Suíte backend isolada e sem rede: **944 passed, 27 skipped, 1 warning**. Os skips dependem de fixtures privadas/arquivos locais e de Node ausente na imagem de runtime.
+- Suíte JavaScript local: **25 passed**. Nenhuma chamada real a Anthropic, WooCommerce, WordPress ou sites externos foi executada.
+- Não houve migration, deploy, recriação de container, alteração de banco, volume ou credencial nesta consolidação.
+
+## Catálogos — correção CSRF — 27/10/2026
+
+- Causa confirmada: ambiente Docker usa `prm_docker_csrf`, enquanto o JavaScript do importador procurava o cookie fixo `prm_csrf`.
+- Importador passou a usar exatamente o padrão do Cadastro via API: ler `input[name="csrf_token"]` renderizado pelo servidor a cada chamada, enviar `X-CSRF-Token`, `credentials: same-origin` e `cache: no-store`. Leitura, prévia, confirmação e criação de concorrente compartilham o helper. Token acompanha o template após login/reload; não há cache do valor no JavaScript.
+- Autenticação, cookies, backend CSRF e parser XLSX não foram alterados. Versão do asset atualizada para `20261027-csrf`.
+- Validação: **19 testes Python e 1 JavaScript aprovados**; CSV/XLSX válidos, token ausente/incorreto com 403 nas três ações, prévia sem escrita e confirmação protegida. Testes com banco temporário e API/DOM simulados, sem importação real.
+- Overlay exclusivo de API: `compose.catalogos-csrf.yaml`, imagem `prm:catalog-csrf-20261027`. Sem commit/push. Recarregar Catálogos com Ctrl+F5.
+
+## Catálogos — Nossa base / Concorrência — 27/10/2026
+
+- Origem explícita reutilizando `Company.company_type`; validação por organização e empresa, filtros nas duas visualizações, badges e identificação no comparador. SKUs iguais não colidem entre origens. Sem nova tabela ou migration.
+- Importador CSV/XLSX/XLS em Catálogos: origem, empresa/concorrente, mapeamento, prévia sem escrita e confirmação; modos adicionar/atualizar, modelo CSV e histórico. Limite próprio de 50 MiB configurável. Importação disponível para gestor/desenvolvedor, com CSRF e rollback transacional.
+- Novas importações aparecem no catálogo cadastrado (`/catalogos?view=legacy`) e na comparação direta. A análise publicada permanece preservada e não é recalculada automaticamente.
+- Testes: suíte completa **880 aprovados / 28 ignorados**; após ajustes finais, **39 testes relacionados aprovados**, incluindo filtros do snapshot e numeração original de linhas; **1 teste JavaScript aprovado** com API/DOM simulados. Os testes usam dados sintéticos, sem lojas ou banco real.
+- Deploy exclusivo da API em `localhost:8001`, imagem `prm:catalog-origin-test`, overlay `compose.catalogos-origens.yaml` após o design system. API saudável; JavaScript HTTP 200, endpoint de importação sem login HTTP 401. Workers, gateway, bancos, volumes e ambiente `prm-kaue` mantiveram os IDs anteriores. Sem importação real, commit, push ou merge.
+- Detalhes, arquivos e rollback: [CATALOGOS_ORIGENS.md](CATALOGOS_ORIGENS.md). Recarregar com Ctrl+F5.
+
+## Fornecedores — interface CRM — 26/10/2026
+
+- Kanban com arraste persistido, rollback visual em erro e contadores; drawer lateral, score/etapa/responsável inline, cadastro essencial, ficha agrupada, pastas/timeline/tarefas e filtros rápidos.
+- PATCH parcial protegido por CSRF, organização e responsável; conflito de etapa retorna 409. Nenhuma mudança de modelos/migration ou integração automática com Planner.
+- Validação: 45 testes Python e 5 JS passaram. Overlay exclusivo da API: compose.fornecedores-crm.yaml. Sem dados fictícios, sem operações nas lojas, sem commit/push/merge. Detalhes em FORNECEDORES.md.
+
+## Fornecedores e permissão por responsável — 26/10/2026
+
+- Módulo ativo em `/fornecedores`, com Kanban, criação, ficha, contatos, interações, tarefas, documentos e histórico. Vendedor cria e gerencia somente fornecedores próprios; gestor/desenvolvedor gerencia toda a organização. CSRF, usuário ativo, isolamento e downloads autenticados testados.
+- Migration aditiva `20261026_0015` aplicada após backup privado. Cinco tabelas novas vazias; nenhuma massa fictícia criada. Somente API atualizada, demais containers e lojas preservados.
+- Testes: 857 passaram, 28 ignorados; 2 testes JavaScript passaram. Sem commit/push/merge. Procedimento, arquivos, limitações e rollback em [FORNECEDORES.md](FORNECEDORES.md). Overlay ativo adicional: `compose.fornecedores.yaml` no worktree `PRM-remocao-cargos`.
+
+## Remoção por cargo ativada — 23/10/2026
+
+- Implantação explicitamente autorizada: `prm-docker`, porta **8001**, somente API e worker-removal recriados usando `prm:removal-roles-20261023` (imagem testada). Original/credenciais/volumes/Compose principal preservados; demais containers com os mesmos IDs.
+- Saúde HTTP 200 (`database: available`), API sem login retorna 401, JavaScript novo servido e worker com lock adquirido. Estados da fila antes/depois idênticos: 1 concluído, 8 erros e 4 em revisão; nenhum item em execução/fila no momento da troca. Não foram efetuadas operações nas lojas.
+- Backup fora do Git: `C:\Users\PW\Documents\PRM-deploy-backups\removal-20261023` (PostgreSQL e volume da fila). Imagem anterior preservada em `prm:before-removal-roles-20261023`.
+- Overlay obrigatório para manter esta implantação: `compose.remocao-cargos.yaml` no worktree isolado. Sem commit/push/merge; uma reconstrução a partir do checkout original sem integrar a branch pode reverter a funcionalidade. Procedimento em [DEPLOY_REMOCAO_CARGOS.md](DEPLOY_REMOCAO_CARGOS.md).
+
+## Remoção por cargo — 23/10/2026 (branch local, sem deploy)
+
+- Escopo permanente confirmado explicitamente pelo usuário: somente remoção, acesso automático de gestores/desenvolvedores da organização configurada às três lojas, sem grants, SKU pré-liberado, trava de produção ou segundo aprovador. Substitui as regras históricas de remoção descritas abaixo.
+- Worktree isolado `C:\Users\PW\Documents\PRM-remocao-cargos`, branch `fix/remocao-autorizacao-cargos`, base `origin/main@179c702`. PRs #4/#5 já integrados nessa base. Nenhuma alteração nos outros worktrees ou módulo de reuniões.
+- API/worker revalidam identidade e escopo aprovado/confirmado; backup verificado, proteção de campos, concorrência, releitura, restauração e auditoria preservados. UI sem controles legados; detalhes de erro/validação legíveis e botões por estado.
+- Novas prévias também incluem assinatura dos campos protegidos. Filas antigas sem confirmação role-v1 são bloqueadas, não executadas automaticamente. Não há migration nova; históricos e configurações são mantidos.
+- Build `prm:removal-roles-test` aprovado. Suíte completa no container sem rede/volumes/credenciais: **713 passaram, 27 ignorados, 1 aviso**, 75,83 s. Skips: fixtures privadas (25), Compose excluído da imagem (1), Node ausente no runtime (1).
+- Focados: **126 passaram**; JavaScript no host: **4 passaram** (Node apenas para teste). Ambos os arquivos Compose validados sem iniciar serviços. Aviso preexistente de depreciação AnyIO/Starlette.
+- Nenhuma escrita nas lojas, uso de IA, deploy, reinício, modificação de bancos/volumes ou credenciais. Sem commit/push/merge nesta entrega; alterações salvas na branch para revisão.
+- Operação, arquivos alterados e próximos passos: [REMOCAO_ARQUIVOS.md](REMOCAO_ARQUIVOS.md) e [HANDOFF_REMOCAO_CARGOS.md](HANDOFF_REMOCAO_CARGOS.md).
+
+
 ## PR #4 — estabilização do teste de deduplicação — 22/10/2026
 
 - Falha investigada: `test_same_file_in_several_products_is_uploaded_once` esperava 9 uploads e intermitentemente recebia 10. `inner_zip()` criava um novo ZIP por SKU com timestamp do relógio; ao cruzar a resolução de 2 segundos do ZIP, os bytes/SHA-256 mudavam apesar do mesmo conteúdo STEP. A deduplicação por bytes estava correta; a fixture não representava o mesmo arquivo.

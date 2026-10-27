@@ -1,5 +1,30 @@
 # API
 
+## Origens e importação de catálogos (27/10/2026)
+
+`GET /api/v1/products` aceita `source_group=internal|competitor`, combinado com
+`company`. Produtos e opções expõem o grupo derivado de `Company.company_type`.
+Todos os filtros continuam limitados à organização autenticada.
+
+Prefixo `/api/v1/catalog-imports`, exclusivo para gestores/desenvolvedores:
+
+- `GET /options`: empresas ativas, grupo, campos mapeáveis e limite de upload.
+- `POST /competitors`: `{name, domain?}` cria uma empresa concorrente na organização.
+- `GET /template.csv`: modelo CSV UTF-8/BOM.
+- `POST /prepare` multipart: `file`, `company_id`, `group=internal|competitor`,
+  `sheet`, `header_row`, `mapping` (JSON campo→coluna), `mode=upsert|add_only|update_only`,
+  `action=inspect|preview|import`, `expected_preview`.
+  `inspect` retorna abas/cabeçalhos/sugestões; `preview` retorna contagens, amostra,
+  erros e `preview_token`; `import` exige esse token ainda válido e confirmação do cliente.
+  Alteração de dados/opções exige nova prévia (409). Linhas inválidas são rejeitadas.
+- `GET /history`: últimas 100 importações da organização, grupo, origem, arquivo,
+  usuário, data, contagens e status. Não expõe caminhos locais do servidor.
+
+POST exige `X-CSRF-Token`. Grupo incompatível ou empresa de outra organização: 404;
+sem permissão: 403; dados/arquivo inválidos: 422. Padrão 50 MiB por catálogo.
+As importações alimentam `Offer` e a comparação direta; não substituem automaticamente
+o snapshot analítico publicado. Detalhes em [CATALOGOS_ORIGENS.md](CATALOGOS_ORIGENS.md).
+
 ## Pauta Semanal (23/10/2026)
 
 Prefixo `/api/v1/pauta-semanal`; gestores e desenvolvedores da organização; mutations com `X-CSRF-Token`; versão otimista (`version`).
@@ -10,19 +35,30 @@ Prefixo `/api/v1/pauta-semanal`; gestores e desenvolvedores da organização; mu
 - `POST /pautas/{id}/anotacoes` `{version, kind: subject|note|decision, text}`; `PATCH|DELETE /pautas/{id}/anotacoes/{anotacao}`.
 - `POST /pautas/{id}/aprovar|reabrir|arquivar|desarquivar` `{version}`; `GET /pautas/{id}/historico`; `GET /pautas/{id}/pdf`.
 
-## Remoção de arquivos em produção (22/10/2026)
+## Remoção de arquivos por cargo (23/10/2026)
 
-Prefixo `/api/v1/remocao-arquivos`. Mutations exigem `X-CSRF-Token`; produção exige HTTPS e permissão da loja; recusas vão para a auditoria.
+Prefixo `/api/v1/remocao-arquivos`. Login, usuário ativo gestor/desenvolvedor e organização
+configurada são obrigatórios; mutações exigem `X-CSRF-Token`. Ambos os cargos podem aprovar,
+executar e restaurar a própria operação nas três lojas, sem grants ou permissões manuais por loja.
+Outros cargos recebem 403. O worker revalida identidade atual, confirmação e escopo exato do
+Dry Run, além de backup e estado do produto, antes de escrever.
 
-Desenvolvedores ativos têm autonomia operacional dentro da própria organização e podem aprovar,
-executar e restaurar suas operações com dispensa auditada de quatro olhos. Gestores mantêm
-permissões por loja e exigem outro aprovador. `POST /ambientes/{empresa}/quatro-olhos` rejeita
-`ativar: false` (422); não há desativação global. Os endpoints não aceitam perfil ou flag de
-dispensa do cliente; a identidade é consultada no banco e revalidada pelo worker.
+- `GET /ambientes`: `authorization: "role-v1"`, lojas com `active: true`, `four_eyes: false`, permissões efetivas e último teste de conexão. Status informativo, não chave de liberação.
+- `POST /ambientes/{empresa}/teste`: consultas GET/OPTIONS às lojas, nenhum upload.
+- `GET /permissoes`: usuários ativos dos cargos autorizados na organização, com permissões automáticas.
+- `POST /ambientes/{empresa}/producao`, `POST /ambientes/{empresa}/quatro-olhos` e `PUT /permissoes`: aposentados, retornam 410 após autenticação/CSRF, sem alterar dados.
+- `POST /`: formulário `empresa, modo, skus`, planilha opcional; cria lote e agenda somente Dry Run.
+- `GET /`, `GET /{lote}`: histórico e prévia/progresso/arquivos/auditoria resumida.
+- `POST /{lote}/aprovar`: `{skus: [...]}` opcional; registra aprovador e hash.
+- `POST /{lote}/executar` e `/restaurar`: `{skus, confirmacao: "EXECUTAR|RESTAURAR <N> <LOJA>"}`; confirmação sempre obrigatória. Apenas enfileiram; worker executa.
+- `POST /{lote}/reconferir`: releitura sem escrita; `/pausar`, `/cancelar`, `/reprocessar`: gerenciamento dos estados aptos.
+- `GET /{lote}/relatorio`, `/dry-run`, `/auditoria` e `/backup/{sku}`: CSV, JSON, eventos e backup ZIP, isolados por organização.
 
-- `GET /ambientes`; `POST /ambientes/{empresa}/teste` (somente leitura); `POST /ambientes/{empresa}/producao` `{ativar, confirmacao: "ATIVAR PRODUCAO <LOJA>"}`; `POST /ambientes/{empresa}/quatro-olhos` `{ativar, confirmacao}`.
-- `GET /permissoes`; `PUT /permissoes` `{usuario, empresa, aprovar, executar, restaurar, administrar}` (administradores).
-- `POST /{lote}/executar` e `/restaurar` `{skus, confirmacao: "EXECUTAR|RESTAURAR <N> <LOJA>"}`; `POST /{lote}/reconferir` (somente leitura); `GET /{lote}/auditoria`; `GET /{lote}/backup/{sku}` (ZIP).
+Erros operacionais: `detail` textual; validação FastAPI: `detail` em lista com `loc/msg`.
+Ambos são exibidos pela interface. Nenhuma credencial é incluída nas respostas.
+HTTP local é aceito; recomendar TLS no acesso remoto. APIs das lojas continuam HTTPS.
+Nenhuma migration nova. Histórico/tabelas legadas preservados. Outras publicações continuam
+com suas políticas anteriores. Consulte [REMOCAO_ARQUIVOS.md](REMOCAO_ARQUIVOS.md).
 
 ## Envios do computador do usuário (22/10/2026)
 
