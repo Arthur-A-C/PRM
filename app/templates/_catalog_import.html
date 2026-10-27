@@ -1,0 +1,24 @@
+{% if user.role in ['gestor', 'desenvolvedor'] %}
+<details class="panel" id="catalog-import"><summary>Importar catálogo · Nossa base / Concorrência</summary>
+  <p>Escolha a origem, mapeie as colunas e confira a prévia antes de confirmar. Os novos registros ficam no <a href="/catalogos?view=legacy">catálogo cadastrado</a>; a análise publicada permanece preservada.</p>
+  <form id="catalog-import-form">
+    <div class="filters">
+      <label>Origem<select name="group"><option value="internal">Nossa base</option><option value="competitor">Concorrência</option></select></label>
+      <label>Empresa / concorrente<select name="company_id" required></select></label>
+      <button type="button" id="catalog-new-competitor" hidden>Criar concorrente</button>
+      <label>CSV / Excel<input type="file" name="file" accept=".csv,.xlsx,.xls" required><small id="catalog-file-limit"></small></label>
+      <label>Aba<select name="sheet"><option value="">Selecionar após leitura</option></select></label>
+      <label>Linha do cabeçalho<input name="header_row" type="number" min="1" max="100" value="1" required></label>
+      <label>Modo<select name="mode"><option value="upsert">Adicionar e atualizar</option><option value="add_only">Somente adicionar</option><option value="update_only">Somente atualizar</option></select></label>
+    </div>
+    <p><a href="/api/v1/catalog-imports/template.csv">Baixar modelo CSV</a> · SKU deve estar como texto para preservar zeros à esquerda no Excel.</p>
+    <button type="submit">Ler arquivo e mapear</button>
+    <div id="catalog-mapping" class="filters"></div>
+    <p><button type="button" id="catalog-preview" disabled>Preparar prévia</button> <button type="button" id="catalog-confirm" disabled>Confirmar importação</button></p>
+  </form>
+  <p id="catalog-import-message" role="status" aria-live="polite"></p>
+  <div id="catalog-import-preview" class="table-scroll"></div>
+  <details><summary>Histórico de importações</summary><button type="button" id="catalog-history">Atualizar histórico</button><div id="catalog-history-content" class="table-scroll"></div></details>
+</details>
+<script src="/static/js/catalog-import.js?v=20261027-csrf" defer></script>
+{% endif %}

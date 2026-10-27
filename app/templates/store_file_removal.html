@@ -5,22 +5,16 @@
     <div>
       <p class="eyebrow">Digitalização / Arquivos de produtos</p>
       <h2>Remoção de arquivos de produtos</h2>
-      <p>Desvincula imagens e documentos de produtos WooCommerce existentes, localizados por SKU exato. Antes de qualquer alteração o PRM guarda uma cópia verificada dos arquivos; eles também permanecem na biblioteca de mídia. Nome, descrições, categorias, atributos, preço, estoque, SKU e status nunca são alterados. Dry Run, aprovação e confirmação são obrigatórios.</p>
-    </div>
-    <div class="prm-page-actions">
-      <a href="/digitalizacao/cadastro-api" class="prm-btn">{{ ui.icon('package') }}<span>Cadastro via API</span></a>
+      <p>Desvincula imagens e documentos de produtos WooCommerce existentes, localizados por SKU exato. Antes de qualquer alteração o PRM registra e confere o estado anterior (IDs e metadados); os arquivos permanecem na biblioteca de mídia. Nome, descrições, categorias, atributos, preço, estoque, SKU e status nunca são alterados. Dry Run, aprovação e confirmação são obrigatórios.</p>
     </div>
   </header>
+  <ol class="prm-steps" aria-label="Etapas da remoção">
+    <li>Produtos e modo</li><li>Dry Run</li><li>Aprovação</li><li>Execução</li><li>Verificação</li>
+  </ol>
 
   <section class="panel" id="rm-environments" aria-labelledby="rm-env-title">
-    <div class="prm-section-title"><div><h2 id="rm-env-title">Lojas e ambiente</h2><p id="rm-env-summary">Carregando…</p></div></div>
+    <div class="prm-section-title"><div><h2 id="rm-env-title">Lojas e acesso</h2><p id="rm-env-summary">Carregando…</p></div></div>
     <div class="rm-env-grid" id="rm-env-grid"></div>
-  </section>
-
-  <section class="panel" id="rm-permissions" hidden aria-labelledby="rm-perm-title">
-    <div class="prm-section-title"><div><h2 id="rm-perm-title">Permissões de remoção</h2><p>Desenvolvedores podem aprovar, executar e restaurar suas operações com dispensa auditada de quatro olhos. Gestores precisam de permissões por loja e outro aprovador. Administração de ambientes e permissões exige desenvolvedor autorizado.</p></div>
-      <div class="prm-field rm-perm-company"><label for="rm-perm-company">Loja</label><select id="rm-perm-company"></select></div></div>
-    <div class="table-scroll"><table class="rm-table"><thead><tr><th>Usuário</th><th>Papel</th><th>Aprovar</th><th>Executar</th><th>Restaurar</th><th>Administrar</th><th></th></tr></thead><tbody id="rm-perm-rows"></tbody></table></div>
   </section>
 
   <section class="panel">
@@ -37,7 +31,7 @@
       <div class="prm-field"><label for="rm-sheet">CSV/XLSX de SKUs (opcional)</label><input id="rm-sheet" name="planilha" type="file" accept=".csv,.xlsx,.xlsm"></div>
       <div class="prm-form-actions"><button type="submit" class="button-primary">{{ ui.icon('search') }}<span>Gerar Dry Run</span></button></div>
     </form>
-    <p class="prm-note">{{ ui.icon('info') }}<span>O Dry Run só lê a loja. Execução e restauração exigem aprovação e confirmação digitada. Gestores exigem outro aprovador; Desenvolvedor / Modo Deus pode conduzir sua própria operação, com exceção auditada. Backup, verificação e demais proteções continuam obrigatórios.</span></p>
+    <p class="prm-note">{{ ui.icon('info') }}<span>O Dry Run só lê a loja. Execução e restauração exigem aprovação e confirmação digitada. Gestor e Desenvolvedor podem aprovar e executar suas próprias operações, com registro de quem aprovou e executou. Registro do estado anterior (IDs e metadados, sem cópia dos arquivos), verificação e demais proteções continuam obrigatórios. Nenhuma mídia é apagada da biblioteca.</span></p>
     <p id="rm-message" class="prm-status" role="status" aria-live="polite"></p>
   </section>
 
@@ -65,7 +59,7 @@
   </section>
 
   <section class="panel">
-    <div class="prm-section-title"><div><h3>Lotes de remoção</h3><p>Seus lotes e os das lojas em que você tem permissão. Abra um lote para acompanhar, aprovar, executar, reconferir ou restaurar.</p></div></div>
+    <div class="prm-section-title"><div><h3>Lotes de remoção</h3><p>Lotes da sua organização. Abra um lote para acompanhar, aprovar, executar, reconferir ou restaurar.</p></div></div>
     <div id="rm-history" class="rm-history"></div>
   </section>
 

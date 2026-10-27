@@ -1,0 +1,16 @@
+# Aplicar POR ÚLTIMO, após os overlays atuais da porta 8001 (cadastro-remocao-cargos, wcda-ausente, selecao-cadastro, svg).
+# Cadastro via API com arquivos de até 1 GB: api e worker-registration na mesma imagem; gateway com o nginx.conf deste checkout
+# (1100m de corpo para margem multipart, sem buffer no proxy, timeouts de 1800s). Não recria banco nem worker de remoção.
+# Limites: PRM_UPLOAD_MAX_FILE_MIB (por arquivo, padrão e máximo 1024) e PRM_UPLOAD_MAX_MIB (pacote, padrão 2048).
+services:
+  api:
+    image: prm:upload-grande-20261023
+    environment:
+      PRM_UPLOAD_MAX_FILE_MIB: "1024"
+  worker-registration:
+    image: prm:upload-grande-20261023
+    environment:
+      PRM_UPLOAD_MAX_FILE_MIB: "1024"
+  gateway:
+    volumes:
+      - C:/Users/PW/Documents/PRM-remocao-cargos/docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro

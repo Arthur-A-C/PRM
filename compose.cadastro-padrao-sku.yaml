@@ -1,0 +1,9 @@
+# Aplicar POR ÚLTIMO (após compose.cadastro-escopo.yaml): padrão oficial de imagens do Cadastro via API
+# <SKU>_1.ext = principal (automática), <SKU>_2.ext.. = galeria em ordem numérica; posição repetida bloqueia.
+# api e worker-registration na MESMA imagem (contrato da fila). Banco, volumes, gateway e worker de remoção intactos.
+# Retorno: recriar api e worker-registration sem este arquivo (voltam a prm:cadastro-escopo-20261026b).
+services:
+  api:
+    image: prm:cadastro-padrao-sku-20261026
+  worker-registration:
+    image: prm:cadastro-padrao-sku-20261026

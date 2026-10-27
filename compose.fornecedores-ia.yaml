@@ -1,0 +1,16 @@
+# Deploy consolidado 27/10/2026: publicação da base importada (Offer → snapshot) + Preencher com IA (fornecedores).
+# Adicionar ao final dos overlays em uso (após compose.catalogos-csrf.yaml). Apenas API; workers, gateway e db não mudam.
+# A API precisa de saída para a internet (Anthropic + site oficial do fornecedor): fica em "isolated" (db) e "ingress"
+# (não interna), como no compose base; o db continua só na rede interna. As travas SSRF ficam no código (supplier_web).
+# Chave/modelo: PRM_SUPPLIER_AI_* têm prioridade; sem eles, usa PRM_SUPPLIER_ANTHROPIC_* já definidos no .env.
+services:
+  api:
+    image: prm:catalog-publication-supplier-ai-20261027c
+    networks: [isolated, ingress]
+    environment:
+      PRM_SUPPLIER_AI_API_KEY: ${PRM_SUPPLIER_AI_API_KEY:-${PRM_SUPPLIER_ANTHROPIC_API_KEY:-}}
+      PRM_SUPPLIER_AI_MODEL: ${PRM_SUPPLIER_AI_MODEL:-${PRM_SUPPLIER_ANTHROPIC_MODEL:-}}
+      PRM_SUPPLIER_AI_TIMEOUT_SECONDS: ${PRM_SUPPLIER_AI_TIMEOUT_SECONDS:-60}
+      PRM_SUPPLIER_AI_MAX_RETRIES: ${PRM_SUPPLIER_AI_MAX_RETRIES:-2}
+      PRM_SUPPLIER_AI_ALLOW_SHARED_KEY: ${PRM_SUPPLIER_AI_ALLOW_SHARED_KEY:-false}
+      PRM_SUPPLIER_AI_EFFORT: ${PRM_SUPPLIER_AI_EFFORT:-low}

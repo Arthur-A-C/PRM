@@ -1,0 +1,50 @@
+{# Visão geral: resumo montado no navegador a partir de endpoints de leitura já existentes (overview.js).
+   Cada bloco tem estado de carregamento, estado vazio e some sem erro quando o cargo não tem acesso. #}
+<section class="prm-overview" data-overview aria-label="Resumo da operação">
+  <div class="prm-kpis" data-overview-kpis aria-live="polite">
+    {% for label in ['Atividades abertas', 'Meus alertas', 'Fornecedores', 'Digitalizações', 'Lotes na semana'] %}
+    <div class="prm-kpi" aria-busy="true"><span>{{ label }}</span><strong><span class="prm-skeleton" style="width:3ch;height:1.4rem"></span></strong><small>&nbsp;</small></div>
+    {% endfor %}
+  </div>
+  <div class="prm-overview-grid">
+    <article class="panel prm-overview-card" data-overview-block="recent">
+      <header><h2>Atividades recentes</h2><a href="/digitalizacao/remocao-arquivos">Ver lotes</a></header>
+      <div data-body><span class="prm-skeleton" style="height:4.5rem"></span></div>
+    </article>
+    <article class="panel prm-overview-card" data-overview-block="suppliers">
+      <header><h2>Fornecedores</h2><a href="/fornecedores">Abrir funil</a></header>
+      <div data-body><span class="prm-skeleton" style="height:4.5rem"></span></div>
+    </article>
+    <article class="panel prm-overview-card" data-overview-block="meetings">
+      <header><h2>Reuniões</h2><a href="/reunioes">Abrir reuniões</a></header>
+      <div data-body><span class="prm-skeleton" style="height:4.5rem"></span></div>
+    </article>
+    <article class="panel prm-overview-card" data-overview-block="alerts">
+      <header><h2>Meus alertas</h2><a href="/alertas">Ver todos</a></header>
+      <div data-body><span class="prm-skeleton" style="height:4.5rem"></span></div>
+    </article>
+    <article class="panel prm-overview-card" data-overview-block="digitalization">
+      <header><h2>Digitalização</h2><a href="/digitalizacao">Nova digitalização</a></header>
+      <div data-body><span class="prm-skeleton" style="height:4.5rem"></span></div>
+    </article>
+    <article class="panel prm-overview-card" data-overview-block="catalog">
+      <header><h2>Catálogo e comparador</h2><a href="/catalogos">Abrir catálogo</a></header>
+      <div data-body>
+        {% set pub = catalog_publication if catalog_publication is defined else {} %}
+        {% if refined_analysis %}
+        <p class="prm-overview-line"><span class="prm-badge is-ok">Base publicada</span> {{ refined_analysis.created_at[8:10] ~ '/' ~ refined_analysis.created_at[5:7] ~ '/' ~ refined_analysis.created_at[0:4] }}</p>
+        <p class="prm-overview-muted">{{ '{:,}'.format(current_analysis.own_public|default(0)).replace(',', '.') }} produtos da nossa base · {{ '{:,}'.format(current_analysis.competitors|default([])|sum(attribute='total')).replace(',', '.') }} da concorrência na análise publicada.</p>
+        {% if pub.pending %}<p class="prm-overview-muted">Há alterações no catálogo ainda não publicadas.{% if user.role in ['gestor', 'desenvolvedor'] %} <a href="/importacoes#publicacao">Atualizar análise</a>{% endif %}</p>{% endif %}
+        {% elif pub.internal or pub.competitor %}
+        <p class="prm-overview-line"><span class="prm-badge is-warn">Base não publicada</span></p>
+        <p class="prm-overview-muted">Há produtos importados, mas a base ainda não foi publicada ({{ '{:,}'.format(pub.internal).replace(',', '.') }} da nossa base · {{ '{:,}'.format(pub.competitor).replace(',', '.') }} da concorrência).</p>
+        {% if user.role in ['gestor', 'desenvolvedor'] %}<p><a class="button-primary" href="/importacoes#publicacao">Revisar e publicar base</a></p>{% endif %}
+        {% else %}
+        <p class="prm-overview-line"><span class="prm-badge is-warn">Sem catálogo</span></p>
+        <p class="prm-overview-muted">Nenhum catálogo importado ainda. Importe a nossa base e a concorrência para habilitar o Comparador.</p>
+        {% endif %}
+        <p class="prm-overview-links"><a href="/catalogos">Catálogos</a><a href="/comparador">Comparador</a><a href="/importacoes">Importações e qualidade</a></p>
+      </div>
+    </article>
+  </div>
+</section>

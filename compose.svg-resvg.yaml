@@ -1,0 +1,6 @@
+# Aplicar POR ÚLTIMO (após compose.upload-grande.yaml): resolução de imagens com SVG sanitizado e renderizado via resvg.
+# Somente a API (as conversões rodam nela). Mesmo código do upload grande + SVG; workers, banco e volumes intactos.
+# Retorno: subir a api sem este arquivo (volta a prm:upload-grande-20261023).
+services:
+  api:
+    image: prm:svg-resvg-20261023

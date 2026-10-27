@@ -1,0 +1,7 @@
+# Overlay de implantação: usar junto ao Compose ATUAL do ambiente, sem trocar volumes/configurações.
+# Somente API e worker-removal recebem a imagem validada. Não altera prm:local.
+services:
+  api:
+    image: prm:removal-roles-20261023
+  worker-removal:
+    image: prm:removal-roles-20261023

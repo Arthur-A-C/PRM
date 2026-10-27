@@ -8,7 +8,7 @@ from itertools import groupby
 from sqlalchemy import case, func, insert, select, update
 
 from app.models.refined_catalog import RefinedCatalogItem, RefinedCatalogRaw, RefinedCatalogRun
-from app.services.refined_catalog import ORDER, STAGING, plain, verify_run
+from app.services.refined_catalog import ORDER, STAGING, plain, verify_run, load_policy
 
 
 def json_lines(path):
@@ -85,20 +85,33 @@ def publish_database(engine, organization_id, run_id):
     from sqlalchemy import text
     with engine.begin() as conn:
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": "refined:" + str(organization_id)})
-        row = conn.execute(select(RefinedCatalogRun).where(RefinedCatalogRun.id == run_id, RefinedCatalogRun.organization_id == organization_id)).first()
-        if not row:
-            raise ValueError("Execução não pertence à organização")
-        if any(c.get("quarantine", 0) for c in row.manifest["counts"].values()):
-            raise ValueError("Quarentena pendente")
-        _verify_counts(conn, run_id, sum(c["accepted"] for c in row.manifest["counts"].values()), sum(c["received"] for c in row.manifest["counts"].values()))
-        conn.execute(update(RefinedCatalogRun).where(RefinedCatalogRun.organization_id == organization_id, RefinedCatalogRun.status == "published").values(status="archived"))
-        conn.execute(update(RefinedCatalogRun).where(RefinedCatalogRun.id == run_id).values(status="published", published_at=datetime.now(timezone.utc)))
+        activate_run(conn, organization_id, run_id)
+
+
+def activate_run(conn, organization_id, run_id):
+    """Shared activation, inside the caller's transaction and organization lock."""
+    manifest = conn.execute(select(RefinedCatalogRun.manifest).where(RefinedCatalogRun.id == run_id, RefinedCatalogRun.organization_id == organization_id)).scalar_one_or_none()
+    if not manifest:
+        raise ValueError("Execução não pertence à organização")
+    if any(c.get('quarantine', 0) for c in manifest['counts'].values()):
+        raise ValueError('Quarentena pendente')
+    _verify_counts(conn, run_id, sum(c['accepted'] for c in manifest['counts'].values()), sum(c['received'] for c in manifest['counts'].values()))
+    conn.execute(update(RefinedCatalogRun).where(RefinedCatalogRun.organization_id == organization_id, RefinedCatalogRun.status == 'published').values(status='archived'))
+    conn.execute(update(RefinedCatalogRun).where(RefinedCatalogRun.id == run_id, RefinedCatalogRun.organization_id == organization_id).values(status='published', published_at=datetime.now(timezone.utc)))
+
+
+def source_registry(manifest):
+    if manifest and manifest.get('source_registry'):
+        return dict(sorted(manifest['source_registry'].items(), key=lambda pair: (pair[1]['kind'] != 'own', pair[1]['name'].casefold())))
+    names = {'portwell': 'Portwell', 'choice': 'Choice', 'eco': 'ECO', 'dimensional': 'Dimensional'}
+    return {key: {**value, 'name': names[key]} for key, value in load_policy()['sources'].items()}
 
 
 def group_families(manifest, group):
     """Os três grupos seguem exatamente o denominador dos gráficos públicos."""
+    own_sources = [k for k, v in source_registry(manifest).items() if v['kind'] == 'own']
     own = {key for key, value in manifest["families"].items()
-           if key != "unknown" and value["public_counts"].get("portwell", 0) + value["public_counts"].get("choice", 0)}
+           if key != "unknown" and sum(value['public_counts'].get(s, 0) for s in own_sources)}
     if group == "shared":
         return sorted(own)
     if group == "not_found":
@@ -108,19 +121,24 @@ def group_families(manifest, group):
     return None
 
 
-def list_refined_items(conn, organization_id, *, source="", family="", search="", page=1, internal=False, group=""):
+def list_refined_items(conn, organization_id, *, source="", family="", search="", page=1, internal=False, group="", source_group=""):
     manifest = database_manifest(conn, organization_id)
     if not manifest:
         return None
     conditions = [RefinedCatalogItem.run_id == manifest["run_id"]]
-    if source in ORDER:
+    sources = source_registry(manifest)
+    own_sources = [key for key, value in sources.items() if value["kind"] == "own"]
+    competitor_sources = [key for key, value in sources.items() if value["kind"] == "competitor"]
+    if source_group in {"internal", "competitor"}:
+        conditions.append(RefinedCatalogItem.source_id.in_(own_sources if source_group == "internal" else competitor_sources))
+    if source in sources:
         conditions.append(RefinedCatalogItem.source_id == source)
     elif source == "own":
-        conditions.append(RefinedCatalogItem.source_id.in_(["portwell", "choice"]))
+        conditions.append(RefinedCatalogItem.source_id.in_(own_sources))
     families = group_families(manifest, group)
     if families is not None:
         conditions.append(RefinedCatalogItem.family_id.in_(families))
-        conditions.append(RefinedCatalogItem.source_id.in_(["eco", "dimensional"]))
+        conditions.append(RefinedCatalogItem.source_id.in_(competitor_sources))
     if group == "quality_review":
         conditions.append(func.jsonb_array_length(RefinedCatalogItem.payload["quality_issues"]) > 0)
     if family:
@@ -132,10 +150,12 @@ def list_refined_items(conn, organization_id, *, source="", family="", search=""
     total = conn.scalar(select(func.count()).select_from(RefinedCatalogItem).where(*conditions))
     pages = max(1, (total + 99) // 100)
     page = max(1, min(page, pages))
-    order = case({source: index for index, source in enumerate(ORDER)}, value=RefinedCatalogItem.source_id, else_=99)
+    order = case({source: index for index, source in enumerate(sources)}, value=RefinedCatalogItem.source_id, else_=99)
     items = conn.scalars(select(RefinedCatalogItem.payload).where(*conditions).order_by(order, RefinedCatalogItem.title_search, RefinedCatalogItem.item_id).limit(100).offset((page - 1) * 100)).all()
+    items = [{**item, "source_group": "internal" if item["source_id"] in own_sources else "competitor"} for item in items]
     return {"items": items, "manifest": manifest, "total": total, "pages": pages, "page": page,
-            "source": source, "family": family, "search": search[:200], "internal": internal, "group": group}
+            "source": source, "source_group": source_group, "sources": sources,
+            "family": family, "search": search[:200], "internal": internal, "group": group}
 
 
 def current_items(conn, organization_id, ids, *, run_id=None, internal=False):
@@ -150,7 +170,10 @@ def current_items(conn, organization_id, ids, *, run_id=None, internal=False):
     items = conn.scalars(select(RefinedCatalogItem.payload).where(*conditions)).all()
     if {i["item_id"] for i in items} != {str(i) for i in ids}:
         raise LookupError("Um dos produtos não está disponível na base atual desta organização.")
-    return sorted(items, key=lambda i: (ORDER.index(i["source_id"]), i["title_search"], i["item_id"]))
+    sources = source_registry(manifest)
+    items = [{**i, "source_group": "internal" if sources[i["source_id"]]["kind"] == "own" else "competitor"} for i in items]
+    items = [{**i, 'source_name': sources[i['source_id']]['name']} for i in items]
+    return sorted(items, key=lambda i: (list(sources).index(i["source_id"]), i["title_search"], i["item_id"]))
 
 
 def current_comparison(items):

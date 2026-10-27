@@ -1,5 +1,49 @@
 # Arquitetura
 
+## Visão consolidada — 27/10/2026
+
+O PRM permanece um monólito modular FastAPI/Jinja2. Routers tratam HTTP, services concentram regras e integrações, models/repositories persistem no PostgreSQL e quatro workers processam cadastro, remoção, datasheets e alertas. Filas e journals operacionais baseados em SQLite vivem em volumes/diretórios compartilhados apenas entre a API e seu worker correspondente.
+
+```text
+Navegador -> gateway/FastAPI -> routers -> services -> PostgreSQL
+                                      |-> filas SQLite -> workers
+                                      |-> WooCommerce/WordPress (fluxos autorizados)
+                                      |-> Anthropic (módulos configurados)
+```
+
+Módulos funcionais atuais:
+
+- identidade: autenticação, sessões, CSRF, usuários, organizações e níveis de acesso;
+- reuniões: transcrição, planner, cards, responsáveis, alertas e pauta semanal;
+- digitalização: produto individual, lotes, datasheets, resolução de imagens e SVG;
+- lojas: diagnóstico, cadastro, publicação e remoção com Dry Run, backup, auditoria e releitura;
+- catálogos: importação, ofertas, origem interna/concorrente, publicação, snapshots, comparador e visão geral;
+- fornecedores: Kanban, ficha, contatos, tarefas, documentos, histórico, responsável e enriquecimento opcional por IA;
+- operações: health checks, auditorias e painéis de atividade.
+
+As URLs existentes e a separação por organização são contratos. A consolidação não moveu arquivos nem alterou schema apenas por estética.
+
+## Fluxo oficial de catálogos
+
+```text
+CSV/XLS/XLSX
+  -> prévia e mapeamento
+  -> CatalogImport / ImportRow
+  -> Offer + observações, preços, atributos e enriquecimentos
+  -> revisão/publicação explícita
+  -> RefinedCatalogRun + RefinedCatalogItem (snapshot oficial)
+  -> Catálogos / Comparador / Visão Geral
+```
+
+`Company.company_type` distingue nossa base (`nossa`) da concorrência. A identidade da oferta inclui a empresa de origem, portanto SKUs iguais de Choice, Portwell e concorrentes não colidem. Um snapshot anterior é arquivado somente quando a nova publicação é válida; a publicação exige dados internos e concorrentes e usa controle de versão para impedir aprovação obsoleta.
+
+## Decisões de manutenção
+
+- Os serviços críticos de digitalização e lojas permanecem separados; seus nomes semelhantes representam etapas de negócio distintas.
+- Datasheets, reuniões e fornecedores mantêm clientes/configurações Anthropic independentes. Uma futura fábrica compartilhada pode centralizar timeout, retry e sanitização, mas não deve misturar prompts, modelos ou métricas.
+- Routers grandes (`meetings`, `supplier_ai`) e services grandes (`store_file_removal`, `store_registration_jobs`, `supplier_ai`, `weekly_agenda`) são candidatos a extração gradual, sempre mantendo URLs e testes de contrato.
+- Overlays funcionais antigos permanecem documentados até haver comparação comprovada da configuração Compose e plano de rollback.
+
 ## Decisão vigente
 
 Monólito modular FastAPI no mesmo domínio da interface Jinja2. PostgreSQL é o único armazenamento operacional. Não há Redis, Node.js, IA ou n8n no caminho crítico.

@@ -6,7 +6,7 @@ from fastapi import HTTPException
 ROLES = ("desenvolvedor", "gestor", "vendedor")
 MANAGERS = frozenset({"desenvolvedor", "gestor"})
 SELLER_PAGES = frozenset({"/catalogos", "/comparacao-atual", "/comparacao-direta",
-                         "/cards", "/reunioes", "/planner", "/alertas"})
+                         "/cards", "/reunioes", "/planner", "/alertas", "/fornecedores"})
 
 
 def require_management(user):
@@ -21,7 +21,7 @@ def api_allowed(role, path):
         return False
     return bool(re.fullmatch(
         r"/api/v1/(?:auth/(?:me|logout)|filters/options|products(?:/[\w-]+)?|"
-        r"comparisons(?:/[\w-]+)?|planner(?:/.*)?)", path.rstrip("/")))
+        r"comparisons(?:/[\w-]+)?|planner(?:/.*)?|fornecedores(?:/.*)?)", path.rstrip("/")))
 
 
 def visible_navigation(role, items):

@@ -6,7 +6,7 @@
   const api = "/api/v1/envios";
   const IMAGES = [".jpg", ".jpeg", ".png", ".webp"];
   const PROFILES = {
-    imagens: IMAGES,
+    imagens: [...IMAGES, ".svg"],
     lote: [...IMAGES, ".pdf", ".zip", ".rar", ".7z", ".step", ".stp", ".dwg", ".dxf", ".csv"],
   };
   const PARALLEL = 3, RETRIES = 4;
@@ -87,7 +87,8 @@
         (folders.size ? ` · ${folders.size} subpasta(s)` : "") + (s.ignored.length ? ` · ${s.ignored.length} ignorado(s)` : "");
       this.preview.append(el("summary", "Prévia dos arquivos"));
       const thumbs = el("div", null, "lf-thumbs");
-      s.files.filter(f => IMAGES.includes(ext(f.path))).slice(0, 12).forEach(f => {
+      // SVG shown through <img> only: the browser renders it as a static image (no scripts, no external loads).
+      s.files.filter(f => IMAGES.includes(ext(f.path)) || (this.profile === "imagens" && ext(f.path) === ".svg")).slice(0, 12).forEach(f => {
         const img = el("img"); img.alt = f.path; img.loading = "lazy"; img.src = URL.createObjectURL(f.file);
         img.addEventListener("load", () => URL.revokeObjectURL(img.src), { once: true }); thumbs.append(img);
       });

@@ -92,7 +92,7 @@ def store_settings(settings, people):
 
 @pytest.fixture
 def jobs(tmp_path):
-    # Real policy: production hosts are always refused by staging; only grants can unlock them.
+    # Other publishers remain blocked; removal must work without using this policy.
     return Jobs(PublishSettings(_env_file=None, storage_dir=str(tmp_path / "q")))
 
 
@@ -136,13 +136,13 @@ class Flow:
 
     def execute(self, key="bia", skus=None, drain=True):
         with self.people.session() as db:
-            queued = self.removals.confirm(self.batch, self.org, self.uid(key), self.settings, skus, companies=self.companies(key), production_confirmed=True, authorization_session=db)
+            queued = self.removals.confirm(self.batch, self.org, self.uid(key), self.settings, skus, companies=self.companies(key), confirmed=True, authorization_session=db)
         if drain: self.drain()
         return queued
 
     def restore(self, key="bia", skus=None, drain=True):
         with self.people.session() as db:
-            queued = self.removals.request_restore(self.batch, self.org, self.uid(key), skus, companies=self.companies(key), production_confirmed=True, authorization_session=db)
+            queued = self.removals.request_restore(self.batch, self.org, self.uid(key), skus, companies=self.companies(key), confirmed=True, authorization_session=db)
         if drain: self.drain()
         return queued
 
@@ -167,38 +167,36 @@ def portwell(jobs, settings, people, mode="main"):
 
 # --- Homologação preservada e trava mestra ------------------------------------------------------
 
-def test_production_is_off_by_default_and_homologation_targets_unchanged(jobs, store_settings, people):
+def test_role_flow_needs_no_environment_policy_or_grants(jobs, store_settings, people, monkeypatch):
+    def forbidden(*args, **kwargs): pytest.fail("Legacy gate called")
+    monkeypatch.setattr(PublishSettings, "authorize", forbidden)
+    for name in ("find", "issue_removal", "consume"):
+        monkeypatch.setattr(grants, name, forbidden)
+    with people.session() as db:
+        db.query(StoreOperationPermission).delete(); db.commit()
     flow = portwell(jobs, store_settings, people)
-    assert flow.item()["state"] == "review"
+    flow.approve("ana"); flow.execute("ana"); flow.restore("ana")
+    assert flow.item()["state"] == "restored" and flow.grant_states() == []
+    assert not production.master_switch()
+    assert flow.item()["restore"]["verified"]
+
+
+def test_legacy_environment_cannot_block_role_execution(jobs, store_settings, people, monkeypatch):
+    flow = portwell(jobs, store_settings, people)
+    monkeypatch.setenv(production.MASTER_SWITCH, "false")
+    flow.approve("dev"); flow.execute("dev")
+    assert flow.item()["state"] == "done"
+    assert not flow.envs.get(flow.org, "portwell")["production"]
+
+
+def test_old_queued_operation_requires_fresh_confirmation(jobs, store_settings, people):
+    flow = portwell(jobs, store_settings, people)
     flow.approve()
-    with pytest.raises(ValueError, match="Sem liberação"):
-        flow.execute()
-    assert grants.HOMOLOGATION_TARGETS == {("choice", "https://choicetech.com.br", "119002000072", 16321)}
-    assert set(flow.shop.methods) <= {"GET"} and not flow.shop.writes
-
-
-def test_master_switch_is_required_to_enable_and_to_issue(jobs, store_settings, people, monkeypatch):
-    flow = portwell(jobs, store_settings, people)
-    with pytest.raises(ValueError, match=production.MASTER_SWITCH):
-        flow.enable()
-    monkeypatch.setenv(production.MASTER_SWITCH, "true")
-    flow.enable()
-    monkeypatch.setenv(production.MASTER_SWITCH, "false")  # turned off on the server: the UI switch alone is not enough
-    flow.approve()
-    with pytest.raises(ValueError, match="Sem liberação"):
-        flow.execute()
-    assert not flow.shop.writes and flow.envs.get(flow.org, "portwell")["production"] and not flow.envs.get(flow.org, "portwell")["active"]
-
-
-def test_master_switch_off_in_the_worker_blocks_before_any_write(jobs, store_settings, people, switch, monkeypatch):
-    flow = portwell(jobs, store_settings, people)
-    flow.enable(); flow.approve()
-    flow.execute(drain=False)
-    monkeypatch.setenv(production.MASTER_SWITCH, "")  # worker container without the variable
+    with jobs.db() as db:
+        db.execute("UPDATE removal_items SET state='queued' WHERE batch=?", (flow.batch,))
     flow.drain()
-    item = flow.item()
-    assert item["state"] == "blocked" and production.MASTER_SWITCH in item["error"]
-    assert not flow.shop.writes and "blocked_worker" in flow.events(PORTWELL_SKU) and flow.grant_states() == ["issued"]
+    assert flow.item()["state"] == "blocked" and "Confirmação" in flow.item()["error"]
+    assert not flow.shop.writes
 
 
 def test_enabling_production_requires_successful_preflight(jobs, store_settings, people, switch):
@@ -224,14 +222,15 @@ def test_portwell_main_image_removal_with_backup_and_restore(jobs, store_setting
     assert (p["featured"], p["gallery"]) == (0, [18040, 18041]) and commercial(flow.shop, PORTWELL_SKU) == before
     assert item["backup"]["images"] == 1 and item["backup"]["verified"]
     manifest = backups.verify(backups.folder(jobs, flow.org, "portwell", PORTWELL_SKU, dry["dry_run_sha256"]))
-    assert manifest["files"][0]["media_id"] == PORTWELL_MAIN and manifest["before"]["main"] == PORTWELL_MAIN
-    assert flow.grant_states() == ["consumed"]
-    assert {"approved", "queued", "grant_issued", "backup_verified", "grant_consumed", "removal_sent", "removal_verified", "done"} <= set(flow.events(PORTWELL_SKU))
+    assert manifest["media"][0]["media_id"] == PORTWELL_MAIN and manifest["media"][0]["status"] == "present"
+    assert manifest["before"]["main"] == PORTWELL_MAIN and manifest["files"] == [] and not manifest["physical_copy"]
+    assert flow.grant_states() == []
+    assert {"approved", "queued", "role_authorized", "backup_verified", "role_verified", "removal_sent", "removal_verified", "done"} <= set(flow.events(PORTWELL_SKU))
     assert item["approval"]["by"] == flow.uid("ana") and item["execution"] == {**item["execution"], "by": flow.uid("bia"), "env": "production"}
     flow.restore("bia")
     assert flow.item()["state"] == "restored"
     assert (p["featured"], p["gallery"]) == (PORTWELL_MAIN, [18040, 18041]) and commercial(flow.shop, PORTWELL_SKU) == before
-    assert flow.grant_states().count("consumed") == 2 and "DELETE" not in flow.shop.methods
+    assert flow.grant_states() == [] and "DELETE" not in flow.shop.methods
 
 
 # --- Quatro olhos e permissões (API e worker) --------------------------------------------------
@@ -248,68 +247,50 @@ def test_developer_self_approval_execute_restore_is_audited(jobs, store_settings
     flow.restore("dev")
     assert flow.item()["state"] == "restored"
     with jobs.db() as db:
-        events = [json.loads(r["detail"]) for r in db.execute("SELECT detail FROM audit WHERE event='four_eyes_exempted'")]
+        events = [json.loads(r["detail"]) for r in db.execute("SELECT detail FROM audit WHERE event='role_authorized'")]
     assert {e["action"] for e in events} == {"execute", "restore"}
-    assert all(e["role"] == "desenvolvedor" for e in events)
-    assert "four_eyes_exemption_verified" in flow.events()
+    assert all(e["policy"] == "role-v1" and e["self_approved"] for e in events)
+    assert "role_verified" in flow.events()
 
 
-def test_manager_cannot_self_execute_or_restore_even_with_legacy_switch_off(jobs, store_settings, people, switch):
-    flow = portwell(jobs, store_settings, people)
-    flow.enable(); flow.approve("ana")
+def test_manager_self_executes_and_restores_without_permission_rows(jobs, store_settings, people):
     with people.session() as db:
-        row = db.query(StoreOperationPermission).filter_by(user_id=people.users["ana"].id, company="portwell").one()
-        row.can_execute = row.can_restore = True
-        db.commit()
-    with jobs.db() as db:
-        db.execute("UPDATE removal_environments SET four_eyes=0")
-    with pytest.raises(ValueError, match="quatro olhos"):
-        flow.execute("ana")
-    assert not flow.shop.writes
-    flow.execute("bia")
-    with pytest.raises(ValueError, match="quatro olhos"):
-        flow.restore("ana")
-    with pytest.raises(ValueError, match="obrigatória"):
-        flow.envs.set_four_eyes(flow.org, "portwell", False, flow.uid("dev"))
-    assert flow.envs.get(flow.org, "portwell")["four_eyes"]
-
-
-def test_worker_rechecks_permission_revoked_after_the_grant(jobs, store_settings, people, switch):
+        db.query(StoreOperationPermission).delete(); db.commit()
     flow = portwell(jobs, store_settings, people)
-    flow.enable(); flow.approve()
-    flow.execute("bia", drain=False)
+    flow.approve("ana"); flow.execute("ana"); flow.restore("ana")
+    assert flow.item()["state"] == "restored"
+    assert not flow.view()["environment"]["four_eyes"]
+    assert "role_authorized" in flow.events()
+
+
+def test_worker_rechecks_role_after_confirmation(jobs, store_settings, people):
+    flow = portwell(jobs, store_settings, people)
+    flow.approve(); flow.execute("bia", drain=False)
     with people.session() as db:
-        row = db.query(StoreOperationPermission).filter_by(user_id=people.users["bia"].id, company="portwell").one()
-        row.can_execute = False; db.commit()
+        db.get(User, people.users["bia"].id).role = "vendedor"; db.commit()
     flow.drain()
-    item = flow.item()
-    assert item["state"] == "blocked" and "não tem mais permissão" in item["error"] and not flow.shop.writes
+    assert flow.item()["state"] == "blocked" and "cargo" in flow.item()["error"] and not flow.shop.writes
 
 
-def test_worker_rechecks_deactivated_user_and_environment(jobs, store_settings, people, switch):
+def test_worker_rechecks_deactivated_user(jobs, store_settings, people):
     flow = portwell(jobs, store_settings, people)
-    flow.enable(); flow.approve()
-    flow.execute("bia", drain=False)
-    flow.envs.set_production(flow.org, "portwell", False, flow.uid("dev"))
+    flow.approve(); flow.execute("bia", drain=False)
+    with people.session() as db:
+        db.get(User, people.users["bia"].id).active = False; db.commit()
     flow.drain()
     assert flow.item()["state"] == "blocked" and not flow.shop.writes
 
 
-def test_four_eyes_rechecked_in_the_worker_with_forged_grant(jobs, store_settings, people, switch):
+def test_a_legacy_grant_cannot_replace_confirmation(jobs, store_settings, people, switch):
     flow = portwell(jobs, store_settings, people)
     flow.enable(); flow.approve("dev")
-    # A former developer must not keep the exemption after demotion.
-    with people.session() as db:
-        db.get(User, people.users["dev"].id).role = "gestor"
-        db.commit()
-    # A grant issued directly (bypassing confirm) for the approver must still be refused by the worker.
     with jobs.db() as db:
         db.execute("BEGIN IMMEDIATE")
-        grants.issue_removal(jobs, batch=flow.batch, sku=PORTWELL_SKU, minutes=30, actor=flow.uid("dev"), env="production",
-                             approver=flow.uid("dev"), db=db)
+        grants.issue_removal(jobs, batch=flow.batch, sku=PORTWELL_SKU, minutes=30, actor=flow.uid("dev"),
+                             env="production", approver=flow.uid("dev"), db=db)
         db.execute("UPDATE removal_items SET state='queued' WHERE batch=?", (flow.batch,))
     flow.drain()
-    assert flow.item()["state"] == "blocked" and "quatro olhos" in flow.item()["error"] and not flow.shop.writes
+    assert flow.item()["state"] == "blocked" and "Confirmação" in flow.item()["error"] and not flow.shop.writes
 
 
 def test_production_grants_are_short_and_removal_only(jobs, store_settings, people, switch):
@@ -325,102 +306,106 @@ def test_production_grants_are_short_and_removal_only(jobs, store_settings, peop
 
 def test_permission_rules(people):
     with people.session() as db:
-        dev, ana, vera, fora = (people.users[k] for k in ("dev", "ana", "vera", "fora"))
-        assert production.permissions_for(db, dev, "sag")["admin"]
-        assert not production.permissions_for(db, ana, "sag")["execute"]
-        with pytest.raises(ValueError, match="desenvolvedor"):
-            production.update(db, dev, ana.id, "sag", {"admin": True})
-        with pytest.raises(ValueError, match="Vendedores"):
-            production.update(db, dev, vera.id, "sag", {"approve": True})
-        with pytest.raises(LookupError):
-            production.update(db, dev, fora.id, "sag", {"approve": True})
-        with pytest.raises(production.PermissionDenied):
-            production.update(db, ana, dev.id, "sag", {"approve": True})
-        with pytest.raises(ValueError, match="própria administração"):
-            production.update(db, dev, dev.id, "sag", {"approve": True})
-        before, after = production.update(db, dev, ana.id, "sag", {"approve": True, "execute": True})
-        assert not before["execute"] and after["execute"]
-        # An admin flag stored for a non-developer never grants administration.
-        db.add(StoreOperationPermission(organization_id=people.org.id, user_id=people.users["caio"].id, company="sag", can_admin=True))
-        db.commit()
-        assert not production.permissions_for(db, people.users["caio"], "sag")["admin"]
+        db.query(StoreOperationPermission).delete(); db.commit()
+        for name in ("dev", "ana", "bia", "caio"):
+            for company in ORIGINS:
+                assert all(production.permissions_for(db, people.users[name], company).values())
+        assert not any(production.permissions_for(db, people.users["vera"], "sag").values())
+        assert not production.user_may(db, people.users["fora"].id, people.org.id, "sag", "admin")
         db.get(User, people.users["bia"].id).active = False; db.commit()
         assert not production.user_may(db, people.users["bia"].id, people.org.id, "sag", "execute")
-        assert not production.user_may(db, people.users["fora"].id, people.org.id, "sag", "admin")
 
 
-# --- Backup -----------------------------------------------------------------------------------
+# --- Registro da remoção (sem cópia física) ---------------------------------------------------------
 
-@pytest.mark.parametrize("damage", ["missing", "corrupt", "media_record", "cdn"])
-def test_unverifiable_backup_blocks_the_removal(jobs, store_settings, people, switch, damage):
-    flow = portwell(jobs, store_settings, people, mode="all")
+def downloads(shop):
+    """Records every request for a media file (/up/...): the removal record must never download files."""
+    seen, handle = [], shop.handle
+    def tracking(request):
+        if request.url.path.startswith("/up/"): seen.append(request.url.path)
+        return handle(request)
+    shop.handle = tracking
+    return seen
+
+
+@pytest.mark.parametrize("damage", ["missing", "corrupt", "media_record", "old_host"])
+def test_broken_or_missing_files_never_block_the_removal(jobs, store_settings, people, switch, damage):
+    if damage == "old_host":  # WCDA links still pointing to a previous domain of the store (404 there)
+        docs = [{**e, "url": e["url"].replace(ORIGINS["portwell"], "https://portwellloja.devsplcomunic.com.br")} for e in docs_for(ORIGINS["portwell"])]
+        shop = Shop({PORTWELL_SKU: Shop.product(PORTWELL_PRODUCT, featured=PORTWELL_MAIN, gallery=[18040, 18041], docs=docs)}, origin=ORIGINS["portwell"])
+        flow = Flow(jobs, store_settings, people, shop, "portwell", "all", [PORTWELL_SKU])
+    else:
+        flow = portwell(jobs, store_settings, people, mode="all")
     flow.enable(); flow.approve()
+    seen = downloads(flow.shop)
     if damage == "missing": flow.shop.missing_files.add("d.pdf")
     if damage == "corrupt": flow.shop.corrupt_files.add("3d.zip")
     if damage == "media_record": flow.shop.deleted_media.add(18040)
-    if damage == "cdn": flow.shop.origin = "https://cdn.terceiro.example"
     flow.execute()
     item = flow.item()
-    assert item["state"] == "blocked" and not [w for w in flow.shop.writes if w[0] != "wp/v2/media"]
-    assert flow.grant_states() == ["issued"]  # never consumed: nothing was written
+    p = flow.shop.products[PORTWELL_SKU]
+    assert item["state"] == "done" and item["result"]["verified"] and seen == []
+    assert (p["featured"], p["gallery"]) == (0, []) and "DELETE" not in flow.shop.methods
+    manifest = backups.verify(backups.folder(jobs, flow.org, "portwell", PORTWELL_SKU, item["dry_run"]["dry_run_sha256"]))
+    assert manifest["before"]["gallery"] == [18040, 18041] and len(manifest["documents"]) == 2
+    if damage == "media_record":
+        assert next(m for m in manifest["media"] if m["media_id"] == 18040)["status"] == "missing"
     assert not list(backups.root(jobs).rglob("*.partial"))
 
 
-def test_backup_respects_storage_limit(jobs, store_settings, people, switch, monkeypatch):
-    flow = portwell(jobs, store_settings, people, mode="all")
-    flow.enable(); flow.approve()
-    monkeypatch.setattr(backups, "MIB", 1)  # every limit becomes tiny
-    flow.execute()
-    assert flow.item()["state"] == "blocked" and "limite" in flow.item()["error"].lower() and not flow.shop.writes
-
-
-def test_backup_detects_tampering_on_disk(jobs, store_settings, people, switch):
+def test_record_detects_tampering_on_disk(jobs, store_settings, people, switch):
     flow = portwell(jobs, store_settings, people, mode="documents")
     flow.enable(); flow.approve(); flow.execute()
     path = backups.folder(jobs, flow.org, "portwell", PORTWELL_SKU, flow.item()["dry_run"]["dry_run_sha256"])
-    target = next((path / "files").iterdir())
-    target.write_bytes(target.read_bytes() + b"x")
-    with pytest.raises(backups.BackupError, match="não confere"):
+    (path / "manifest.json").write_bytes((path / "manifest.json").read_bytes().replace(b"Datasheet", b"Alterado"))
+    with pytest.raises(backups.BackupError, match="Manifesto"):
         backups.verify(path)
+    flow.restore()
+    assert flow.item()["state"] == "restore_error" and "Manifesto" in flow.item()["error"]
 
 
-def test_restore_reuploads_media_deleted_from_the_library(jobs, store_settings, people, switch):
+def test_unwritable_record_still_blocks_the_removal(jobs, store_settings, people, switch, monkeypatch):
     flow = portwell(jobs, store_settings, people, mode="all")
+    flow.enable(); flow.approve()
+    def disk_full(*args, **kwargs): raise OSError("disco cheio")
+    monkeypatch.setattr(backups, "_write_atomic", disk_full)
+    flow.execute()
+    assert flow.item()["state"] in {"blocked", "error"} and not flow.shop.writes
+
+
+def test_restore_relinks_only_media_still_in_the_library(jobs, store_settings, people, switch):
+    flow = portwell(jobs, store_settings, people, mode="all")
+    before = commercial(flow.shop, PORTWELL_SKU)
     flow.enable(); flow.approve(); flow.execute()
     flow.shop.deleted_media.update({PORTWELL_MAIN, 18041})
     flow.restore()
     item = flow.item()
     p = flow.shop.products[PORTWELL_SKU]
-    assert item["state"] == "restored" and len(item["restore"]["reuploaded"]) == 2
-    assert p["featured"] >= 900000 and p["gallery"][0] == 18040 and p["gallery"][1] >= 900000
-    assert flow.shop.uploads[f"new-{p['featured']}.jpg"] == jpeg(PORTWELL_MAIN)  # same bytes as the original
-    assert "media_reuploaded" in flow.events(PORTWELL_SKU)
+    assert item["state"] == "restored" and sorted(item["restore"]["missing_media"]) == sorted([18041, PORTWELL_MAIN])
+    assert p["gallery"] == [18040] and p["featured"] in {0, 18040} and not flow.shop.uploads  # nothing re-uploaded
+    assert "media_missing" in flow.events(PORTWELL_SKU) and commercial(flow.shop, PORTWELL_SKU) == before
+    assert not [w for w in flow.shop.writes if w[0] == "wp/v2/media"] and "DELETE" not in flow.shop.methods
 
 
-def test_restore_reuploads_missing_document_and_keeps_label(jobs, store_settings, people, switch):
+def test_restore_puts_documents_back_exactly_even_if_a_file_is_gone(jobs, store_settings, people, switch):
     flow = portwell(jobs, store_settings, people, mode="documents")
     flow.enable(); flow.approve(); flow.execute()
     flow.shop.missing_files.add("d.pdf")
     flow.restore()
     value = next(m for m in flow.shop.products[PORTWELL_SKU]["meta_data"] if m["key"] == "_wcda_arquivos")["value"]
-    assert flow.item()["state"] == "restored"
-    assert value[0]["label"] == "Datasheet" and "/up/new-" in value[0]["url"] and value[1] == docs_for(ORIGINS["portwell"])[1]
+    assert flow.item()["state"] == "restored" and value == docs_for(ORIGINS["portwell"]) and not flow.shop.uploads
 
 
-def test_restore_needs_permission_and_production(jobs, store_settings, people, switch):
+def test_restore_rechecks_active_role_after_queue(jobs, store_settings, people):
     flow = portwell(jobs, store_settings, people)
-    flow.enable(); flow.approve(); flow.execute()
-    flow.envs.set_production(flow.org, "portwell", False, flow.uid("dev"))
-    with pytest.raises(ValueError, match="Restauração bloqueada"):
-        flow.restore()
-    flow.enable()
+    flow.approve(); flow.execute()
     flow.restore("bia", drain=False)
+    writes = len(flow.shop.writes)
     with people.session() as db:
-        db.query(StoreOperationPermission).filter_by(user_id=people.users["bia"].id, company="portwell").one().can_restore = False
-        db.commit()
-    flow.drain()  # permission revoked after queueing: refused by the worker
-    assert flow.item()["state"] == "restore_error" and "não tem mais permissão" in flow.item()["error"]
-    assert flow.shop.products[PORTWELL_SKU]["featured"] == 0
+        db.get(User, people.users["bia"].id).role = "vendedor"; db.commit()
+    flow.drain()
+    assert flow.item()["state"] == "restore_error" and "cargo" in flow.item()["error"]
+    assert len(flow.shop.writes) == writes
 
 
 # --- Verificação e reconferência ----------------------------------------------------------------
@@ -475,7 +460,7 @@ def test_product_changed_between_dry_run_and_execution(jobs, store_settings, peo
     flow.shop.products[PORTWELL_SKU]["gallery"].append(18050)
     flow.execute()
     assert flow.item()["state"] == "error" and "concorrente" in flow.item()["error"] and not flow.shop.writes
-    assert flow.grant_states() == ["issued"]
+    assert flow.grant_states() == []
 
 
 def test_duplicate_execution_is_refused(jobs, store_settings, people, switch):
@@ -488,16 +473,15 @@ def test_duplicate_execution_is_refused(jobs, store_settings, people, switch):
     writes = len(flow.shop.writes)
     with pytest.raises(ValueError):
         flow.execute("bia")
-    grant = grants.listing(jobs)[0]
-    assert not grants.consume(jobs, grant) and len(flow.shop.writes) == writes == 1
+    assert grants.listing(jobs) == [] and len(flow.shop.writes) == writes == 1
 
 
-def test_pause_revokes_unused_production_grants(jobs, store_settings, people, switch):
+def test_pause_returns_to_review_without_grants(jobs, store_settings, people, switch):
     flow = portwell(jobs, store_settings, people)
     flow.enable(); flow.approve()
     flow.execute("bia", drain=False)
     flow.removals.pause(flow.batch, flow.org, flow.uid("bia"), companies=flow.companies("bia"))
-    assert flow.grant_states() == ["revoked"] and flow.item()["state"] == "review"
+    assert flow.grant_states() == [] and flow.item()["state"] == "review"
 
 
 @pytest.mark.parametrize("failure", ["connect", "timeout_after_write"])
@@ -598,48 +582,33 @@ def blocked_attempts(jobs):
         return [json.loads(r["detail"]) for r in db.execute("SELECT detail FROM audit WHERE event='blocked_attempt' ORDER BY at")]
 
 
-def test_api_full_production_flow_over_https(api, switch):
+def test_api_full_production_flow_over_https(api):
     c, u = api.https, api.users
-    api.state.user = u["dev"]
-    envs = c.get("/api/v1/remocao-arquivos/ambientes").json()
-    assert envs["master_switch"] and envs["https"] and not envs["companies"][2]["active"]
-    wrong = c.post("/api/v1/remocao-arquivos/ambientes/portwell/producao", json={"ativar": True, "confirmacao": "sim"}, headers=H)
-    assert wrong.status_code == 422 and "ATIVAR PRODUCAO PORTWELL" in wrong.json()["detail"]
-    on = c.post("/api/v1/remocao-arquivos/ambientes/portwell/producao", json={"ativar": True, "confirmacao": "ativar producao portwell"}, headers=H)
-    assert on.status_code == 200 and on.json()["active"] and on.json()["preflight"]["ok"]
     api.state.user = u["ana"]
-    created = c.post("/api/v1/remocao-arquivos", data={"empresa": "portwell", "modo": "main", "skus": PORTWELL_SKU}, headers=H).json()
-    batch = created["id"]; api.drain()
-    url = f"/api/v1/remocao-arquivos/{batch}"
+    envs = c.get("/api/v1/remocao-arquivos/ambientes").json()
+    assert envs["authorization"] == "role-v1" and all(e["active"] and not e["four_eyes"] for e in envs["companies"])
+    batch = c.post("/api/v1/remocao-arquivos", data={"empresa": "portwell", "modo": "main", "skus": PORTWELL_SKU}, headers=H).json()["id"]
+    api.drain(); url = f"/api/v1/remocao-arquivos/{batch}"
     assert c.post(url + "/aprovar", json={}, headers=H).status_code == 200
-    assert c.post(url + "/executar", json={"confirmacao": "EXECUTAR 1 PORTWELL"}, headers=H).status_code == 403  # ana cannot execute
-    api.state.user = u["bia"]
-    assert c.get(url).status_code == 200  # bia sees ana's batch through her store permission
     assert c.post(url + "/executar", json={"confirmacao": "EXECUTAR 2 PORTWELL"}, headers=H).status_code == 422
-    done = c.post(url + "/executar", json={"confirmacao": "EXECUTAR 1 PORTWELL"}, headers=H)
-    assert done.status_code == 200 and done.json()["items"][0]["state"] == "queued"
+    assert c.post(url + "/executar", json={"confirmacao": "EXECUTAR 1 PORTWELL"}, headers=H).status_code == 200
     api.drain()
-    view = c.get(url).json()
-    assert view["items"][0]["state"] == "done" and view["people"][str(u["ana"].id)] == "Ana"
+    assert c.get(url).json()["items"][0]["state"] == "done"
     backup = c.get(url + f"/backup/{PORTWELL_SKU}")
-    with zipfile.ZipFile(io.BytesIO(backup.content)) as archive:
-        assert "manifest.json" in archive.namelist() and any(n.startswith("files/image-") for n in archive.namelist())
+    with zipfile.ZipFile(io.BytesIO(backup.content)) as archive: assert "manifest.json" in archive.namelist()
     report = c.get(url + "/relatorio").content.decode("utf-8-sig")
-    assert "aprovado_por" in report and "Ana" in report and "Bia" in report and "production" in report
+    assert "Ana" in report and "production" in report
     assert c.post(url + "/restaurar", json={"confirmacao": "RESTAURAR 1 PORTWELL"}, headers=H).status_code == 200
     api.drain()
+    assert c.get(url).json()["items"][0]["state"] == "restored"
     audit = c.get(url + "/auditoria").json()["items"]
-    assert {"approved", "grant_issued", "backup_verified", "removal_verified", "restore_done", "blocked_attempt"} <= {a["event"] for a in audit}
-    assert any(a["actor"] == "Ana" and a["event"] == "blocked_attempt" for a in audit)
-    for response in (view, audit, envs):
-        text = json.dumps(response)
-        assert "secret" not in text and "app_portwell" not in text
+    assert {"approved", "role_authorized", "backup_verified", "removal_verified", "restore_done", "blocked_attempt"} <= {a["event"] for a in audit}
+    assert "secret" not in json.dumps(audit)
 
 
 def test_api_developer_owns_full_flow_without_manual_grant(api, switch):
     c = api.https
     api.state.user = api.users["dev"]
-    assert c.post("/api/v1/remocao-arquivos/ambientes/portwell/producao", json={"ativar": True, "confirmacao": "ATIVAR PRODUCAO PORTWELL"}, headers=H).status_code == 200
     batch = c.post("/api/v1/remocao-arquivos", data={"empresa": "portwell", "modo": "main", "skus": PORTWELL_SKU}, headers=H).json()["id"]
     url = f"/api/v1/remocao-arquivos/{batch}"
     api.drain()
@@ -656,13 +625,13 @@ def test_api_developer_owns_full_flow_without_manual_grant(api, switch):
     api.drain()
     assert c.get(url).json()["items"][0]["state"] == "restored"
     audit = c.get(url + "/auditoria").json()["items"]
-    assert {"execute", "restore"} == {e["detail"]["action"] for e in audit if e["event"] == "four_eyes_exempted"}
+    assert {"execute", "restore"} == {e["detail"]["action"] for e in audit if e["event"] == "role_authorized"}
     api.state.user = api.users["vera"]
     for action in ("aprovar", "executar", "restaurar"):
         assert c.post(url + "/" + action, json={}, headers=H).status_code == 403
 
 
-@pytest.mark.parametrize("change", ["inactive", "other_org", "manager"])
+@pytest.mark.parametrize("change", ["inactive", "other_org", "vendedor"])
 def test_developer_restore_rechecks_current_identity(jobs, store_settings, people, switch, change):
     flow = portwell(jobs, store_settings, people)
     flow.enable(); flow.approve("dev"); flow.execute("dev")
@@ -672,7 +641,7 @@ def test_developer_restore_rechecks_current_identity(jobs, store_settings, peopl
         user = db.get(User, people.users["dev"].id)
         if change == "inactive": user.active = False
         elif change == "other_org": user.organization_id = people.users["fora"].organization_id
-        else: user.role = "gestor"
+        else: user.role = "vendedor"
         db.commit()
     flow.drain()
     assert flow.item()["state"] == "restore_error"
@@ -683,53 +652,38 @@ def test_worker_rejects_revoked_approver(jobs, store_settings, people, switch):
     flow = portwell(jobs, store_settings, people)
     flow.enable(); flow.approve(); flow.execute(drain=False)
     with people.session() as db:
-        db.query(StoreOperationPermission).filter_by(user_id=people.users["ana"].id, company="portwell").one().can_approve = False
+        db.get(User, people.users["ana"].id).role = "vendedor"
         db.commit()
     flow.drain()
     assert flow.item()["state"] == "blocked" and not flow.shop.writes
     assert "Aprovação" in flow.item()["error"]
 
 
-def test_api_requires_https_for_production_and_audits_refusals(api, switch):
-    flow_user = api.users["dev"]
-    api.state.user = flow_user
-    enabled = api.https.post("/api/v1/remocao-arquivos/ambientes/portwell/producao", json={"ativar": True, "confirmacao": "ATIVAR PRODUCAO PORTWELL"}, headers=H)
-    assert enabled.status_code == 200, enabled.text
-    api.state.user = api.users["ana"]
-    batch = api.http.post("/api/v1/remocao-arquivos", data={"empresa": "portwell", "modo": "main", "skus": PORTWELL_SKU}, headers=H).json()["id"]
+def test_confirmation_and_csrf_are_required_without_environment_switch(api):
+    c = api.http
+    api.state.user = api.users["caio"]  # gestor without any store permission row
+    batch = c.post("/api/v1/remocao-arquivos", data={"empresa": "portwell", "modo": "main", "skus": PORTWELL_SKU}, headers=H).json()["id"]
+    api.drain(); url = f"/api/v1/remocao-arquivos/{batch}"
+    assert c.post(url + "/aprovar", json={}).status_code == 403
+    assert c.post(url + "/aprovar", json={}, headers=H).status_code == 200
+    assert c.post(url + "/executar", json={}, headers=H).status_code == 422
+    assert c.post(url + "/executar", json={"confirmacao": "EXECUTAR 1 PORTWELL"}, headers=H).status_code == 200
     api.drain()
-    denied = api.http.post(f"/api/v1/remocao-arquivos/{batch}/aprovar", json={}, headers=H)
-    assert denied.status_code == 403 and "HTTPS" in denied.json()["detail"]
-    api.state.user = flow_user
-    assert api.http.post("/api/v1/remocao-arquivos/ambientes/sag/producao", json={"ativar": True, "confirmacao": "ATIVAR PRODUCAO SAG"}, headers=H).status_code == 403
-    # Switching off is the emergency brake: allowed even without HTTPS.
-    assert api.http.post("/api/v1/remocao-arquivos/ambientes/portwell/producao", json={"ativar": False}, headers=H).status_code == 200
-    reasons = [b["reason"] for b in blocked_attempts(api.jobs)]
-    assert sum("HTTPS" in r for r in reasons) == 2
+    assert c.get(url).json()["items"][0]["state"] == "done"
 
 
-def test_api_environment_and_permission_administration(api, switch, monkeypatch):
-    c, u = api.https, api.users
-    api.state.user = u["ana"]
-    assert c.post("/api/v1/remocao-arquivos/ambientes/choice/producao", json={"ativar": True, "confirmacao": "ATIVAR PRODUCAO CHOICE"}, headers=H).status_code == 403
-    assert c.get("/api/v1/remocao-arquivos/permissoes").status_code == 403
-    api.state.user = u["dev"]
-    monkeypatch.delenv(production.MASTER_SWITCH)
-    assert c.post("/api/v1/remocao-arquivos/ambientes/choice/producao", json={"ativar": True, "confirmacao": "ATIVAR PRODUCAO CHOICE"}, headers=H).status_code == 422
-    listing = c.get("/api/v1/remocao-arquivos/permissoes").json()
-    assert {x["email"] for x in listing["users"]} == {"dev@example.test", "ana@example.test", "bia@example.test", "caio@example.test"}
-    change = {"usuario": str(u["caio"].id), "empresa": "sag", "aprovar": True, "executar": False, "restaurar": False, "administrar": False}
-    assert c.put("/api/v1/remocao-arquivos/permissoes", json=change, headers=H).json()["permissions"]["approve"]
-    assert c.put("/api/v1/remocao-arquivos/permissoes", json={**change, "administrar": True}, headers=H).status_code == 422
-    assert api.http.put("/api/v1/remocao-arquivos/permissoes", json=change, headers=H).status_code == 403
-    assert c.put("/api/v1/remocao-arquivos/permissoes", json=change).status_code == 403  # CSRF
-    off = c.post("/api/v1/remocao-arquivos/ambientes/sag/quatro-olhos", json={"ativar": False, "confirmacao": "x"}, headers=H)
-    assert off.status_code == 422
-    assert c.post("/api/v1/remocao-arquivos/ambientes/sag/quatro-olhos", json={"ativar": False, "confirmacao": "DESATIVAR QUATRO OLHOS SAG"}, headers=H).status_code == 422
+def test_api_legacy_configuration_is_retired_without_mutation(api):
+    c = api.https
+    for user in ("ana", "dev"):
+        api.state.user = api.users[user]
+        listing = c.get("/api/v1/remocao-arquivos/permissoes").json()
+        assert set(listing["admin_of"]) == set(ORIGINS)
+        for endpoint in ("producao", "quatro-olhos"):
+            assert c.post("/api/v1/remocao-arquivos/ambientes/sag/" + endpoint, json={"ativar": True}, headers=H).status_code == 410
+        change = {"usuario": str(api.users["caio"].id), "empresa": "sag"}
+        assert c.put("/api/v1/remocao-arquivos/permissoes", json=change, headers=H).status_code == 410
     with api.jobs.db() as db:
-        events = {r["event"] for r in db.execute("SELECT event FROM audit WHERE batch IN ('permissoes:sag','ambiente:sag','ambiente:choice')")}
-    assert {"permission_changed", "blocked_attempt"} <= events
-    assert "four_eyes_disabled" not in events
+        assert db.execute("SELECT COUNT(*) FROM removal_environments").fetchone()[0] == 0
 
 
 def test_api_visibility_between_users_and_organizations(api):
@@ -751,7 +705,7 @@ def test_page_has_production_controls():
     html = render("Remoção de Arquivos")
     ids = [a["id"] for _, a in Elements(html).nodes if "id" in a]
     assert len(ids) == len(set(ids))
-    assert {"rm-environments", "rm-env-grid", "rm-permissions", "rm-perm-rows", "rm-confirm", "rm-confirm-phrase", "rm-confirm-input",
+    assert {"rm-environments", "rm-env-grid", "rm-confirm", "rm-confirm-phrase", "rm-confirm-input",
             "rm-audit", "rm-audit-toggle", "rm-batch-env"} <= set(ids)
     actions = [a.get("data-action") for _, a in Elements(html).nodes if a.get("data-action")]
     assert {"aprovar", "executar", "restaurar", "reconferir", "pausar", "cancelar", "reprocessar"} <= set(actions)

@@ -12,7 +12,7 @@
     const dateLabel = document.querySelector('[data-workspace-date]');
     const zone = 'America/Sao_Paulo';
     const parts = new Intl.DateTimeFormat('pt-BR', { timeZone: zone, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
-    const weekday = new Intl.DateTimeFormat('pt-BR', { timeZone: zone, weekday: 'long' });
+    const weekday = new Intl.DateTimeFormat('pt-BR', { timeZone: zone, weekday: 'short' });
     const day = new Intl.DateTimeFormat('pt-BR', { timeZone: zone, day: '2-digit', month: 'short', year: 'numeric' });
     let timer = null;
     let lastMinute = '';
@@ -25,7 +25,8 @@
       if (hm && minute !== lastMinute) { hm.textContent = minute; lastMinute = minute; }
       if (sec) sec.textContent = ':' + p.second;
       if (!hm) clock.textContent = `${minute}:${p.second}`;
-      const date = `${weekday.format(now)} · ${day.format(now).replace(/\./g, '').replace(/ de /g, ' ')}`.toUpperCase();
+      const wd = weekday.format(now).replace(/\./g, '');
+      const date = `${wd.charAt(0).toUpperCase()}${wd.slice(1)} · ${day.format(now).replace(/\./g, '').replace(/ de /g, ' ')}`;
       if (dateLabel && date !== lastDate) { dateLabel.textContent = date; lastDate = date; }
     };
     const stop = () => { if (timer) { clearTimeout(timer); timer = null; } };

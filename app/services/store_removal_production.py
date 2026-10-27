@@ -1,15 +1,8 @@
-"""Produção da Remoção de arquivos: trava mestra, ambiente por loja, permissões por usuário e preflight.
+"""Removal authorization by active PRM role and organization.
 
-Two environments per store:
-  homologação (default)  unchanged rules: staging policy (PRM_PUBLISH_*) or CLI grants limited to
-                         store_publish_grant.HOMOLOGATION_TARGETS
-  produção               switched on per store in the UI by an administrator. Switching it on authorizes
-                         nothing by itself: every batch still needs Dry Run, approval, a typed confirmation
-                         and single-use grants issued for the executing user.
-
-Nothing here can unlock a production write unless PRM_REMOVAL_PRODUCTION_ALLOWED=true is set in the
-process environment; the API and the worker check it independently. User permissions live in
-PostgreSQL (store_operation_permissions) and are re-checked by the worker before each write.
+Normal operations use ALLOWED_STORE_ROLES, never per-store grants or legacy environment flags.
+Legacy environment records/functions remain for compatibility with stored history and old tooling;
+the removal API and worker do not use them to authorize writes. Other publishers retain their policies.
 """
 import json
 import os
@@ -27,7 +20,9 @@ from app.services.store_http import StoreAPIError, http_client, read_json
 MASTER_SWITCH = "PRM_REMOVAL_PRODUCTION_ALLOWED"
 ACTIONS = {"approve": "can_approve", "execute": "can_execute", "restore": "can_restore", "admin": "can_admin"}
 ACTION_LABELS = {"approve": "aprovar", "execute": "executar", "restore": "restaurar", "admin": "administrar"}
-MANAGERS = {"gestor", "desenvolvedor"}
+ALLOWED_STORE_ROLES = {"gestor", "desenvolvedor"}
+MANAGERS = ALLOWED_STORE_ROLES  # Legacy callers; no per-store grants in the normal removal flow.
+ROLE_DENIED = "Seu cargo não possui permissão para executar operações nas lojas."
 REQUIRED_CAPABILITIES = ("upload_files", "edit_products", "edit_published_products", "edit_others_products")
 GRANT_MINUTES = 30
 ENV_SCHEMA = """CREATE TABLE IF NOT EXISTS removal_environments(org TEXT,company TEXT,production INTEGER DEFAULT 0,
@@ -40,7 +35,7 @@ class PermissionDenied(Exception):
 
 
 def master_switch():
-    """Read at call time, so the API and the worker each enforce the value they actually run with."""
+    """Legacy tooling only; normal removal API/worker authorization ignores this flag."""
     return os.environ.get(MASTER_SWITCH, "").strip().lower() == "true"
 
 
@@ -113,31 +108,33 @@ class Environments:
 def _uuid(value):
     try:
         return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
-    except ValueError:
+    except (ValueError, TypeError):
         return None
 
 
+def require_role(user):
+    if not user.active or user.role not in ALLOWED_STORE_ROLES:
+        raise PermissionDenied(ROLE_DENIED)
+
+
 def flags(row, user):
-    """Effective permissions; administration additionally requires the "desenvolvedor" role."""
-    if not user.active or user.role not in MANAGERS:
-        return {action: False for action in ACTIONS}
-    result = {action: bool(getattr(row, column, False)) for action, column in ACTIONS.items()}
-    if user.role == "desenvolvedor":
-        result.update(approve=True, execute=True, restore=True)
-    result["admin"] = result["admin"] and user.role == "desenvolvedor"
-    return result
+    """The legacy permissions row is intentionally ignored."""
+    allowed = bool(user.active and user.role in ALLOWED_STORE_ROLES)
+    return {action: allowed for action in ACTIONS}
 
 
 def permissions_for(db: Session, user, company):
     if company not in STORE_COMPANIES:
         raise ValueError("Empresa inválida.")
-    user_id, organization_id = _uuid(user.id), _uuid(user.organization_id)
-    if user_id is None or organization_id is None:
-        return {action: False for action in ACTIONS}
-    row = db.scalar(select(StoreOperationPermission).where(
-        StoreOperationPermission.user_id == user_id, StoreOperationPermission.company == company,
-        StoreOperationPermission.organization_id == organization_id))
-    return flags(row, user)
+    return flags(None, user)
+
+
+def operation_status(company):
+    """Informational only: no environment switch controls normal removal writes."""
+    if company not in STORE_COMPANIES:
+        raise ValueError("Empresa inválida.")
+    return {"company": company, "production": True, "active": True, "four_eyes": False,
+            "authorization": "role-v1"}
 
 
 def summary(db: Session, user):
@@ -146,13 +143,12 @@ def summary(db: Session, user):
 
 def require(db: Session, user, company, action):
     if not permissions_for(db, user, company)[action]:
-        role = " (exige papel desenvolvedor)" if action == "admin" else ""
-        raise PermissionDenied(f"Sem permissão para {ACTION_LABELS[action]} remoções na {company.upper()}{role}.")
+        raise PermissionDenied(ROLE_DENIED)
 
 
 def user_may(db: Session, user_id, organization_id, company, action):
-    """Worker-side re-check by the IDs stored in a grant: user still exists, is active, same org and allowed."""
-    user = db.get(User, _uuid(user_id)) if _uuid(user_id) else None
+    """Worker-side identity check: active user, same organization and allowed current role."""
+    user = db.get(User, _uuid(user_id), populate_existing=True) if _uuid(user_id) else None
     if user is None or str(user.organization_id) != str(organization_id):
         return False
     return permissions_for(db, user, company)[action]
@@ -161,15 +157,10 @@ def user_may(db: Session, user_id, organization_id, company, action):
 def check_approval(db, actor, org, company, approver, action):
     """Use persisted identity, never a browser-supplied role or an old grant's role."""
     if not user_may(db, actor, org, company, action):
-        raise ValueError("Usuário sem permissão para esta operação.")
+        raise PermissionDenied(ROLE_DENIED)
     if not user_may(db, approver, org, company, "approve"):
         raise ValueError("Aprovação sem usuário autorizado ativo; aprove novamente.")
-    if str(actor) != str(approver):
-        return False
-    user = db.get(User, _uuid(actor))
-    if user.role != "desenvolvedor":
-        raise ValueError("Regra de quatro olhos: outro usuário autorizado deve aprovar a operação do gestor.")
-    return True
+    return str(actor) == str(approver)
 
 
 def people(db: Session, organization_id):
@@ -184,16 +175,12 @@ def listing(db: Session, organization_id):
     organization_id = _uuid(organization_id)
     users = db.scalars(select(User).where(User.organization_id == organization_id, User.active.is_(True),
                                           User.role.in_(sorted(MANAGERS))).order_by(User.name)).all()
-    rows = db.scalars(select(StoreOperationPermission).where(StoreOperationPermission.organization_id == organization_id)).all()
-    by_user = {}
-    for row in rows:
-        by_user.setdefault(row.user_id, {})[row.company] = row
     return [{"id": str(u.id), "name": u.name, "email": u.email, "role": u.role,
-             "companies": {c: flags(by_user.get(u.id, {}).get(c), u) for c in STORE_COMPANIES}} for u in users]
+             "companies": {c: flags(None, u) for c in STORE_COMPANIES}} for u in users]
 
 
 def update(db: Session, admin, target_id, company, values):
-    """Set one user's permissions for one store; returns (before, after) for the audit trail."""
+    """Legacy permission maintenance; these rows no longer authorize normal removal operations."""
     require(db, admin, company, "admin")
     target = db.get(User, _uuid(target_id)) if _uuid(target_id) else None
     if target is None or target.organization_id != admin.organization_id or not target.active:

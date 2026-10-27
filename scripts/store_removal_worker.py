@@ -1,8 +1,8 @@
 """Durable file-removal worker: Dry Run, execution, restore and read-only reconciliation.
 
-Production writes need a single-use grant (UI-issued in production, CLI-issued in homologation). Before each
-write the worker re-checks PRM_REMOVAL_PRODUCTION_ALLOWED, the store environment, the user's permission
-(PostgreSQL) and the four-eyes rule, and captures a verified backup; any failure blocks the item.
+Before each write the worker re-checks the persisted actor/approver's active role and organization,
+the exact approved Dry Run and explicit confirmation. A verified backup is mandatory. Legacy grants,
+per-store permission rows and environment switches do not authorize or block this removal-only flow.
 
     python scripts/store_removal_worker.py                      # continuous
     python scripts/store_removal_worker.py --once               # one item

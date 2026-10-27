@@ -229,6 +229,8 @@ def parsed_price(modality: str, value: Any) -> ParsedPrice:
         amount = parse_decimal(value)
     except (InvalidOperation, ValueError):
         return ParsedPrice(modality, raw, None, "invalido")
+    if amount is not None and not amount.is_finite():
+        return ParsedPrice(modality, raw, None, "invalido")
     if amount is None or amount == 0:
         return ParsedPrice(modality, raw, None, "nao_informado")
     if amount < 0:
@@ -239,11 +241,11 @@ def parsed_price(modality: str, value: Any) -> ParsedPrice:
 def availability_from_text(value: Any) -> tuple[str | None, str]:
     raw = text_value(value)
     normalized = canonical_text(raw)
-    if normalized == "em estoque":
+    if normalized in {"em estoque", "disponivel", "sim", "instock", "in stock", "https schema org instock"}:
         return raw, "em_estoque"
-    if normalized == "fora de estoque":
+    if normalized in {"fora de estoque", "indisponivel", "nao", "outofstock", "out of stock", "https schema org outofstock"}:
         return raw, "fora_estoque"
-    if "backorder" in normalized:
+    if "backorder" in normalized or normalized in {"sob encomenda", "encomenda"}:
         return raw, "sob_encomenda"
     return raw, "nao_informado"
 
@@ -452,7 +454,17 @@ def publish_catalog(
     currency: str = "BRL",
     observed_at: datetime | None = None,
     created_by_id: uuid.UUID | None = None,
+    mode: str = "upsert",
 ) -> ImportResult:
+    if mode not in {"upsert", "add_only", "update_only"}:
+        raise ValueError("Modo de importação inválido")
+    if preview.company_code != company.code:
+        raise ValueError("Prévia pertence a outra empresa")
+    from app.services.catalog_publication import lock_catalog
+    lock_catalog(db, company.organization_id)
+    # Serialize all writers using this publisher, including CLI imports.
+    db.scalar(select(Company.id).where(Company.id == company.id,
+                                     Company.organization_id == company.organization_id).with_for_update())
     existing_import = db.scalar(
         select(CatalogImport).where(
             CatalogImport.company_id == company.id,
@@ -537,6 +549,15 @@ def publish_catalog(
                     errors=row.errors, published=False,
                 )
             )
+            continue
+
+        exists = row.external_code in offers
+        if (mode == "add_only" and exists) or (mode == "update_only" and not exists):
+            unchanged += 1
+            db.add(ImportRow(id=uuid.uuid4(), catalog_import_id=import_id,
+                            sheet_name=preview.sheet_name, row_number=row.row_number,
+                            raw_row=row.raw_row, warnings=["Ignorado pelo modo de importação"],
+                            errors=[], published=False))
             continue
 
         brand_id = None

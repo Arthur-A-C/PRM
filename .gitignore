@@ -16,6 +16,9 @@ data/datasheet_batches/
 data/uploads/
 .pytest_cache/
 pytest-cache-files-*/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
 tests/.generated-*.xlsx
 __pycache__/
 *.py[cod]
@@ -32,8 +35,14 @@ data/imports/*
 data/products/*
 data/analysis/staging/*
 *.log
+*.tmp
+*.temp
 backups-docker/
+backups-local/
+PRM-worktree-backups/
 data/fotos/
 *.dump
+*.bak
+*.sql
 *.sqlite3
 *.sqlite3-*

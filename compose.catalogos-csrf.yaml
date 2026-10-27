@@ -1,0 +1,4 @@
+# Aplicar após os overlays existentes; corrige apenas CSRF do frontend de Catálogos.
+services:
+  api:
+    image: prm:catalog-csrf-20261027

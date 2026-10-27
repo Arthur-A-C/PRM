@@ -5,24 +5,27 @@ Não há fallback para análises ou ofertas legadas.
 """
 
 from app.services.refined_catalog import ORDER
+from app.services.refined_catalog_database import source_registry
 
 
 def summarize_current(manifest):
     if not manifest:
         return {"schema_version": 2, "status": "no_current_snapshot", "run_id": None}
     sources = []
-    for source in ORDER:
+    registry = source_registry(manifest)
+    own_sources = [s for s,c in registry.items() if c['kind'] == 'own']
+    for source in registry:
         counts = manifest["counts"][source]
-        sources.append({"code": source, "received": counts["received"], "accepted": counts["accepted"],
+        sources.append({"code": source, "name": registry[source]['name'], "kind": registry[source]['kind'], "received": counts["received"], "accepted": counts["accepted"],
                         "public": counts["public_catalog"], "with_attributes": counts["with_attributes"],
                         "unknown_family": counts["unknown_family"], "conflicting_attributes": counts["conflicting_attributes"]})
     reports = []
-    for source in ["eco", "dimensional"]:
+    for source in [s for s,c in registry.items() if c['kind'] == 'competitor']:
         total = manifest["counts"][source]["accepted"]
         shared, not_found, unknown = 0, 0, 0
         for family_id, family in manifest["families"].items():
             count = family["counts"].get(source, 0)
-            own = family["public_counts"].get("portwell", 0) + family["public_counts"].get("choice", 0)
+            own = sum(family['public_counts'].get(s, 0) for s in own_sources)
             if family_id == "unknown":
                 unknown += count
             elif own:
@@ -40,5 +43,5 @@ def summarize_current(manifest):
             "attribute_analysis": manifest.get('attribute_analysis'),
             "created_at": manifest["created_at"], "source_policy": "latest_imports_authoritative",
             "accepted": sum(s["accepted"] for s in sources), "public": sum(s["public"] for s in sources),
-            "own_public": sum(s["public"] for s in sources[:2]), "sources": sources, "competitors": reports,
+            "own_public": sum(s["public"] for s in sources if s['kind'] == 'own'), "sources": sources, "competitors": reports,
             "technical_status": manifest["matching_status"], "strict_coverage_percent": None}

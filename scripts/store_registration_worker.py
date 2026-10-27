@@ -1,4 +1,4 @@
-"""Durable registration worker. Production writes hard-blocked by publisher policy."""
+"""Files worker: active role, organization, approved Dry Run and persisted explicit confirmation."""
 import sys
 import time
 import argparse
@@ -14,7 +14,7 @@ from app.services.store_registration_jobs import Jobs, process_one
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--once",action="store_true")
-    # Restrict processing to exactly one item (e.g. the authorized homologation); other batches stay untouched.
+    # Restrict processing to exactly one confirmed item; other batches stay untouched.
     parser.add_argument("--batch")
     parser.add_argument("--sku")
     parser.add_argument("--child",action="store_true",help=argparse.SUPPRESS)
@@ -23,7 +23,7 @@ def main():
     target=["--batch",args.batch,"--sku",args.sku] if args.batch else []
     jobs=Jobs()
     if args.child:
-        watchdog=threading.Timer(900,lambda:os._exit(124))
+        watchdog=threading.Timer(3300,lambda:os._exit(124))
         watchdog.daemon=True;watchdog.start()
         try: process_one(jobs,StoreSettings(),batch=args.batch,sku=args.sku)
         finally: watchdog.cancel()
@@ -32,7 +32,7 @@ def main():
         while True:
             try:
                 subprocess.run([sys.executable,str(Path(__file__).resolve()),"--child",*target],
-                    timeout=920,check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+                    timeout=3320,check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
                     creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
             except subprocess.TimeoutExpired:
                 print("Worker interrompido por timeout; item será marcado para reconciliação.")

@@ -94,6 +94,8 @@ O último comando recalcula a análise; sem `--commit`, a operação é apenas u
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
+node --test tests/js/*.test.cjs
+.\.venv\Scripts\python.exe -m alembic heads
 .\.venv\Scripts\python.exe -m alembic current
 .\.venv\Scripts\python.exe -m scripts.reconcile_catalogs
 ```
@@ -111,6 +113,8 @@ Use `alembic heads` para consultar a revisão disponível (`20261023_0014`) e `a
 | [Primeira entrega](docs/ENTREGA_0_1.md) | Escopo, evidências e limites do marco `0.1.0` |
 | [Status](docs/STATUS.md) | Estado atual, contagens, verificações e próxima tarefa |
 | [Arquitetura](docs/ARQUITETURA.md) | Módulos e decisões de persistência |
+| [Deploy e rollback](docs/DEPLOY.md) | Compose, migrations, entrega e recuperação |
+| [Variáveis de ambiente](docs/ENV.md) | Configuração por módulo sem valores secretos |
 | [API](docs/API.md) | Rotas, autenticação e semântica das respostas |
 | [Dados](docs/DADOS.md) | Fontes, importação, marcas e correspondência |
 | [Comparação normalizada](docs/COMPARACAO_NORMALIZADA.md) | Auditoria dos novos CSVs/XLSX, metodologia, limites e regeneração do retrato |

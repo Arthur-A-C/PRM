@@ -1,0 +1,3 @@
+services:
+  api:
+    image: prm:fornecedores-crm-test

@@ -1,0 +1,10 @@
+# Retorno à versão anterior (somente com autorização, após pausar as filas):
+# cadastro e remoção por cargo SEM a correção da ordem de categorias (23/10/2026, primeira implantação da tarde).
+# Para voltar ao estado anterior a ela, use api/worker-removal prm:removal-roles-20261023 e worker-registration prm:local.
+services:
+  api:
+    image: prm:cadastro-remocao-cargos-20261023
+  worker-registration:
+    image: prm:cadastro-remocao-cargos-20261023
+  worker-removal:
+    image: prm:cadastro-remocao-cargos-20261023

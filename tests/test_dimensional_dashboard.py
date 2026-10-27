@@ -73,7 +73,7 @@ def test_overview_separates_audited_source_from_live_database(staging_report):
         comparable=None,
         url_for=lambda *args, **kwargs: "/static/css/app.css",
     )
-    assert "Base atual indisponível" in html
+    assert "Nenhum catálogo importado" in html and "Base publicada" not in html
     assert "Situação atual do novo catálogo" not in html
     assert "35.785" not in html
     assert "Ofertas Dimensional no banco oficial: 0" not in html

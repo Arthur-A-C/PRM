@@ -1,0 +1,6 @@
+# Aplicar após os overlays atuais. Não recria banco nem worker de remoção.
+services:
+  api:
+    image: prm:wcda-absent-test
+  worker-registration:
+    image: prm:wcda-absent-test

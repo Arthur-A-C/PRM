@@ -1,0 +1,6 @@
+# Adicionar ao final dos overlays em uso. Apenas API; workers e gateway não mudam.
+services:
+  api:
+    image: prm:fornecedores-test
+    environment:
+      PRM_SUPPLIER_STORAGE_DIR: /app/data/products/suppliers

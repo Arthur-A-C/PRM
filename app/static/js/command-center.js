@@ -120,9 +120,14 @@
   /* ---------- Family butterfly ---------- */
   const familyPanel = $('[data-cc-families]');
   const familyData = readJson('ops-families');
+  // Sources come from the published snapshot registry (own vs competitor), not from fixed company codes.
+  const OWN_SOURCES = familyData?.own || [];
+  const RIVAL_SOURCES = new Set(familyData?.rivals || []);
+  const isRival = source => RIVAL_SOURCES.has(source);
+  Object.entries(familyData?.sources || {}).forEach(([code, source]) => { COMPANY_NAMES[code] = source.name; });
   const proximityLabels = { core: 'Foco próximo', adjacent: 'Adjacente', distant: 'Distante', undecided: 'Pendente' };
-  const rivalNames = { eco: 'ECO', dimensional: 'Dimensional' };
-  let familyRival = familyPanel?.querySelector('[data-cc-family-rival][aria-pressed="true"]')?.dataset.ccFamilyRival || 'eco';
+  const rivalNames = COMPANY_NAMES;
+  let familyRival = familyPanel?.querySelector('[data-cc-family-rival][aria-pressed="true"]')?.dataset.ccFamilyRival || [...RIVAL_SOURCES][0];
   let showAllFamilies = false;
   function renderFamilies(rival = familyRival) {
     if (!familyPanel || !familyData) return;
@@ -134,7 +139,7 @@
     const totals = familyData.totals || {};
     let rows = Object.entries(familyData.families || {}).filter(([id]) => id !== 'unknown').map(([id, family]) => {
       const c = family.counts || {};
-      const group = Number(c.portwell || 0) + Number(c.choice || 0);
+      const group = OWN_SOURCES.reduce((total, code) => total + Number(c[code] || 0), 0);
       const other = Number(c[rival] || 0);
       return { id, label: family.label || id, proximity: family.proximity || 'undecided', group, other,
         groupShare: totals.group ? 100 * group / totals.group : 0, otherShare: totals[rival] ? 100 * other / totals[rival] : 0 };
@@ -205,17 +210,17 @@
     setMeter('public', sum('public'), sum('accepted'));
     setMeter('attributes', sum('with_attributes'), sum('accepted'));
     setMeter('pending', sum('unknown_family'), sum('accepted'));
-    put('[data-ops-scope]', source === 'all' ? 'Quatro fontes · fotografia atual' : COMPANY_NAMES[source] + (rows.length ? ' · dados importados' : ' · sem catálogo nesta base'));
+    put('[data-ops-scope]', source === 'all' ? catalog.sources.length + ' fontes · fotografia atual' : COMPANY_NAMES[source] + (rows.length ? ' · dados importados' : ' · sem catálogo nesta base'));
     put('[data-ops-context-message]', source === 'sag'
       ? 'SAG participa do workspace de digitalização; nenhum catálogo SAG integra esta fotografia.'
       : source === 'all' ? 'Selecione uma empresa para filtrar indicadores, operações e busca.'
-      : `Contexto: ${COMPANY_NAMES[source]}. Indicadores e operações seguem a seleção; os painéis comparativos usam Portwell e Choice como referência.`);
+      : `Contexto: ${COMPANY_NAMES[source]}. Indicadores e operações seguem a seleção; os painéis comparativos usam a nossa base como referência.`);
     $$('[data-ops-company-card]').forEach(card => card.setAttribute('aria-pressed', String(card.dataset.opsCompanyCard === source)));
     const scope = $('[data-ops-search-source]');
     if (scope) scope.value = source === 'all' || source === 'sag' ? '' : source;
     const link = $('[data-ops-pending-link]');
     if (link) link.href = source === 'sag' ? '/digitalizacao' : '/catalogos?family=unknown' + (source === 'all' ? '' : '&source=' + encodeURIComponent(source));
-    if (source === 'eco' || source === 'dimensional') { showCompetitor(source); renderFamilies(source); }
+    if (isRival(source)) { showCompetitor(source); renderFamilies(source); }
   };
 
   /* ---------- Operations data model ---------- */
@@ -278,11 +283,11 @@
     if (operations.status === 'restricted') return { title: 'Indicadores operacionais restritos', text: 'As execuções de digitalização são visíveis apenas para gestores.' };
     if (operations.status === 'storage_misconfigured') return { title: 'Armazenamento indisponível', text: 'A pasta de produtos configurada não é válida. Verifique PRM_PRODUCT_STORAGE_ROOT.' };
     if (operations.status === 'unavailable') return { title: 'Dados operacionais indisponíveis', text: 'Não foi possível carregar os registros de digitalização nesta página.' };
-    if (state.company === 'eco' || state.company === 'dimensional') return { title: 'Sem operações para concorrentes', text: 'A digitalização atende Portwell, Choice e SAG. Os demais painéis seguem o catálogo selecionado.' };
+    if (isRival(state.company)) return { title: 'Sem operações para concorrentes', text: 'A digitalização atende Portwell, Choice e SAG. Os demais painéis seguem o catálogo selecionado.' };
     if (!(operations.items || []).length) return { title: 'Nenhuma digitalização registrada ainda', text: 'Assim que um datasheet for gerado no workspace, ele aparecerá aqui com etapas, datas e pendências.' };
     return null;
   };
-  const opsUnknown = () => ['restricted', 'unavailable', 'storage_misconfigured'].includes(operations.status) || state.company === 'eco' || state.company === 'dimensional';
+  const opsUnknown = () => ['restricted', 'unavailable', 'storage_misconfigured'].includes(operations.status) || isRival(state.company);
   const emptyBlock = (message, withAction = true) => {
     const box = el('div', 'cc-empty-state');
     box.append(el('strong', '', message.title), el('p', '', message.text));
@@ -694,13 +699,13 @@
   function render() {
     const scoped = periodItems();
     const filtered = scoped.filter(statusMatch);
-    const series = bucketise(state.company === 'eco' || state.company === 'dimensional' ? [] : filtered);
+    const series = bucketise(isRival(state.company) ? [] : filtered);
     evolutionData = series;
-    renderKpis(state.company === 'eco' || state.company === 'dimensional' ? [] : scoped, series);
+    renderKpis(isRival(state.company) ? [] : scoped, series);
     renderEvolution();
     renderAttention(filtered);
-    renderPipeline(state.company === 'eco' || state.company === 'dimensional' ? [] : filtered);
-    renderHeatmap(state.company === 'eco' || state.company === 'dimensional' ? [] : companyItems().filter(statusMatch));
+    renderPipeline(isRival(state.company) ? [] : filtered);
+    renderHeatmap(isRival(state.company) ? [] : companyItems().filter(statusMatch));
     renderDistribution();
     renderRecent(filtered);
     renderFeed(filtered);

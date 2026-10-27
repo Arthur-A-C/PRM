@@ -1,4 +1,4 @@
-"""Per-user, per-store permissions for production file removal (PostgreSQL, organization scoped)."""
+"""Legacy per-store permission records, retained for history and migration compatibility."""
 import uuid
 
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, String, UniqueConstraint, Uuid
@@ -10,7 +10,7 @@ STORE_COMPANIES = ("choice", "sag", "portwell")
 
 
 class StoreOperationPermission(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """What one user may do with removals in one store. Absent row = no permission."""
+    """Historical assignments; removal role-v1 ignores these rows (including absent rows)."""
 
     __tablename__ = "store_operation_permissions"
     __table_args__ = (
@@ -26,7 +26,7 @@ class StoreOperationPermission(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     can_approve: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     can_execute: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     can_restore: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    # Environment administration (production on/off, four-eyes rule, permissions). Only for "desenvolvedor".
+    # Historical environment administration. Current removal privileges come from the active user's role.
     can_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     granted_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
 

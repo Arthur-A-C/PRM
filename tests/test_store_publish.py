@@ -7,6 +7,8 @@ from pathlib import Path
 
 import httpx
 import pytest
+from registration_identity_fixture import mocked_registration_identity
+pytestmark = pytest.mark.usefixtures("mocked_registration_identity")
 from PIL import Image
 
 from app.services.store_config import StoreSettings
@@ -83,9 +85,9 @@ def test_preview_confirm_publish_preserve_dedup_persistent(policy,settings):
     assert detail["items"][0]["state"]=="review"
     assert detail["items"][0]["existing_images"]==1
     assert all(method=="GET" for method in shop.calls)
-    with pytest.raises(ValueError): jobs.confirm(identifier,"org","owner",settings)  # approval first
+    with pytest.raises(ValueError): jobs.confirm(identifier,"org","owner",settings, confirmed=True)  # approval first
     jobs.approve(identifier,"org","owner")
-    jobs.confirm(identifier,"org","owner",settings)
+    jobs.confirm(identifier,"org","owner",settings, confirmed=True)
     assert process_one(Jobs(policy),settings,httpx.MockTransport(shop.handle))
     assert jobs.detail(identifier,"org","owner")["items"][0]["state"]=="done"
     assert shop.uploads==1  # identical main and gallery bytes
@@ -107,24 +109,24 @@ def test_documents_block_before_upload(policy,settings):
     detail=jobs.detail(identifier,"org","owner")
     assert detail["items"][0]["state"]=="blocked"
     assert any(f["label"]=="Datasheet" for f in detail["items"][0]["files"])
-    with pytest.raises(ValueError): jobs.confirm(identifier,"org","owner",settings)
+    with pytest.raises(ValueError): jobs.confirm(identifier,"org","owner",settings, confirmed=True)
     assert shop.uploads==shop.puts==0
 
 
 def test_uncertain_upload_not_repeated(policy,settings):
     jobs=Jobs(policy);shop=Shop();identifier=preview(jobs,settings,shop)
-    jobs.approve(identifier,"org","owner");jobs.confirm(identifier,"org","owner",settings);shop.uncertain=True
+    jobs.approve(identifier,"org","owner");jobs.confirm(identifier,"org","owner",settings, confirmed=True);shop.uncertain=True
     process_one(jobs,settings,httpx.MockTransport(shop.handle))
     assert shop.uploads==1
     jobs.reprocess(identifier,"org","owner");process_one(jobs,settings,httpx.MockTransport(shop.handle))
-    jobs.approve(identifier,"org","owner");jobs.confirm(identifier,"org","owner",settings);shop.uncertain=False
+    jobs.approve(identifier,"org","owner");jobs.confirm(identifier,"org","owner",settings, confirmed=True);shop.uncertain=False
     process_one(jobs,settings,httpx.MockTransport(shop.handle))
     assert shop.uploads==1 and shop.puts==0
 
 
 def test_concurrent_change_and_missing_sku(policy,settings):
     jobs=Jobs(policy);shop=Shop();identifier=preview(jobs,settings,shop)
-    jobs.approve(identifier,"org","owner");jobs.confirm(identifier,"org","owner",settings)
+    jobs.approve(identifier,"org","owner");jobs.confirm(identifier,"org","owner",settings, confirmed=True)
     shop.product["images"].append({"id":99})
     process_one(jobs,settings,httpx.MockTransport(shop.handle))
     assert jobs.detail(identifier,"org","owner")["items"][0]["state"]=="error"
@@ -224,13 +226,13 @@ def test_api_access_csrf_and_production_gate(policy,settings,monkeypatch):
     from app.services.security import hash_secret
     from types import SimpleNamespace
     app=FastAPI();app.include_router(store_registration.router)
-    auth=SimpleNamespace(user=SimpleNamespace(role="gestor",id="owner",organization_id="org"),
+    auth=SimpleNamespace(user=SimpleNamespace(active=True,role="gestor",id="owner",organization_id="org"),
                          login_session=SimpleNamespace(csrf_hash=hash_secret("csrf")))
     app.dependency_overrides[get_current_auth]=lambda:auth
     monkeypatch.setattr(store_integrations,"StoreSettings",lambda:settings)
     monkeypatch.setattr(store_registration,"Jobs",lambda:Jobs(policy))
     with TestClient(app) as client:
-        fields={"empresa":"choice"}
+        fields={"empresa":"choice","escopo":"gallery,documents"}
         files={"planilha":("codes.csv",b"SKU\n00123"),"arquivos":("files.zip",archive())}
         assert client.post("/api/v1/cadastro-api",data=fields,files=files).status_code==403
         response=client.post("/api/v1/cadastro-api",data=fields,files=files,headers={"X-CSRF-Token":"csrf"})

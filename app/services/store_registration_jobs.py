@@ -15,13 +15,17 @@ from contextlib import contextmanager
 from openpyxl import load_workbook
 from app.services.store_config import ROOT, COMPANIES, StoreSettings
 from app.services.store_publish import MIMES, PublishSettings, StagingPublisher, file_info, snapshot_hash
-from app.services.store_registration_plan import prepare_files, file_plan, stale_supplier_datasheet
+from app.services.store_registration_plan import (prepare_files, file_plan, stale_supplier_datasheet, store_limit_check,
+                                                   normalize_scope, main_options, scoped_images, scoped_file_plan,
+                                                   classify_by_index, rule_images, folder_inventory)
 from app.services.registration_files import find_product_folder
 from app.services.registration_woo_api import WooClient, credentials_for
 from app.services.datasheet_batches import relative_name, identify_product_folders
 from app.services.digitalization_storage import validate_sku
 from app.services.store_documents import interpret_documents
 from app.services import store_publish_grant as grants
+from app.services import store_registration_authorization as authorization
+from app.services.store_publish import _protected_hash
 
 
 def parse_skus(raw, name, *, details=False, strict=False):
@@ -94,12 +98,17 @@ def batch_bundle(entries, directories, company):
     return renamed
 
 
-def extract_files(raw, target, *, identification="csv", archive_name="", root="", company=""):
-    if len(raw)>100*1024**2: raise ValueError("ZIP acima de 100 MiB.")
-    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+def extract_files(raw, target, *, identification="csv", archive_name="", root="", company="", limit_mib=1024, package_mib=2048):
+    from app.services.upload_limits import check_package, check_size, copy_bounded, MIB
+    stream=io.BytesIO(raw) if isinstance(raw,bytes) else raw
+    stream.seek(0,2); check_package(stream.tell(),package_mib);stream.seek(0)
+    with zipfile.ZipFile(stream) as archive:
         infos=archive.infolist()
-        if len(infos)>3000 or sum(i.file_size for i in infos)>500*1024**2:
-            raise ValueError("ZIP excede limites.")
+        if len(infos)>3000:
+            raise ValueError("ZIP excede o limite de 3000 entradas.")
+        check_package(sum(i.file_size for i in infos),package_mib)  # uncompressed total: ZIP-bomb guard
+        if shutil.disk_usage(target if target.exists() else target.parent).free < sum(i.file_size for i in infos)+64*MIB:
+            raise ValueError("Espaço em disco insuficiente para extrair o ZIP.")
         names=set(); entries=[]; directories=[]
         for info in infos:
             name=relative_name(info.orig_filename)
@@ -111,7 +120,8 @@ def extract_files(raw, target, *, identification="csv", archive_name="", root=""
             if info.is_dir():
                 directories.append(name)
                 continue
-            if info.file_size>20*1024**2 or info.file_size/max(1,info.compress_size)>200:
+            check_size(info.file_size,limit_mib)
+            if info.file_size/max(1,info.compress_size)>200:
                 raise ValueError("Arquivo excessivo ou compressão suspeita.")
             suffix=Path(name).suffix.lower()
             if suffix not in {".png",".jpg",".jpeg",".webp",".pdf",".zip",".step",".stp",".dwg",".dxf",".rar",".7z",".svg",".gif",".json",".csv"}:
@@ -144,7 +154,8 @@ def extract_files(raw, target, *, identification="csv", archive_name="", root=""
             path=(target/destination).resolve()
             if not path.is_relative_to(target.resolve()): raise ValueError("Caminho inválido.")
             path.parent.mkdir(parents=True,exist_ok=True)
-            path.write_bytes(archive.read(info))
+            with archive.open(info) as reader, path.open('wb') as writer:
+                copy_bounded(reader,writer,min(info.file_size,limit_mib*MIB))
         return list(prefixes), (archive.read(csvs[0][1]),csvs[0][0]) if csvs else None
 
 
@@ -183,15 +194,17 @@ class Jobs:
         finally:
             db.close()
 
-    def create(self, company, org, owner, skus, archive, settings, *, identification="csv", archive_name="", root="", complements=None):
+    def create(self, company, org, owner, skus, archive, settings, *, identification="csv", archive_name="", root="", complements=None, scope=None):
+        """scope: what to register ({"gallery","documents","main"}). None keeps the previous plan (Geração em Lote hand-off)."""
         if company not in COMPANIES: raise ValueError("Empresa inválida.")
+        scope=normalize_scope(scope) if scope is not None else None
         if identification not in {"csv","folder"}: raise ValueError("Modo de identificação inválido.")
         if identification=="csv" and not skus: raise ValueError("Selecione a planilha no modo CSV ou utilize nome da pasta.")
         origin=settings.credentials(company,"wc").base_url
         identifier=uuid.uuid4().hex; folder=self.root/identifier
         folder.mkdir()
         try:
-            found,embedded=extract_files(archive,folder,identification=identification,archive_name=archive_name,root=root,company=company)
+            found,embedded=extract_files(archive,folder,identification=identification,archive_name=archive_name,root=root,company=company,limit_mib=self.policy.max_file_mib,package_mib=self.policy.max_package_mib)
             if embedded:
                 if complements is not None: raise ValueError("Use uma única planilha complementar: externa ou dentro do ZIP.")
                 complements=parse_skus(*embedded,details=True,strict=True)
@@ -209,7 +222,8 @@ class Jobs:
         with self.db() as db:
             db.execute("INSERT INTO batches VALUES(?,?,?,?,?,?)",(identifier,str(org),str(owner),company,origin,time.time()))
             db.executemany("INSERT INTO jobs(batch,sku,state,plan) VALUES(?,?,'preview_queued',?)",
-                [(identifier,s,json.dumps({"input":{"identification":identification,"complement":complements.get(s,{})}})) for s in skus])
+                [(identifier,s,json.dumps({"input":{"identification":identification,"complement":complements.get(s,{}),
+                                                    **({"scope":scope} if scope else {})}})) for s in skus])
         return identifier
 
     def access(self, db, identifier, org, owner):
@@ -235,7 +249,9 @@ class Jobs:
                 items.append({"sku":row["sku"],"state":row["state"],"error":row["error"],
                     "files":[{"name":i["name"],"bytes":i["bytes"],"role":i.get("role","image"),"label":i.get("label","")}
                              for i in plan.get("images",[])+plan.get("downloads",[])]+
-                            [{"name":i["name"],"bytes":i["bytes"],"role":"source","label":"fonte (não publicada)"} for i in plan.get("sources",[])],
+                            [{"name":i["name"],"bytes":i["bytes"],"role":"source","label":"fonte (não publicada)"} for i in plan.get("sources",[])]+
+                            [{"name":i["name"],"bytes":i["bytes"],"role":i["role"],"label":"fora do escopo"} for i in plan.get("out_of_scope",[])],
+                    "scope":plan.get("input",{}).get("scope"),"main_choice":plan.get("input",{}).get("main_choice"),
                     "existing_images":plan.get("existing_images"),"existing_documents":plan.get("existing_documents"),
                     "product_id":plan.get("product_id"),"dry_run":dry,
                     "blockers":(dry or {}).get("blockers",[]),"approval":plan.get("approval"),
@@ -245,34 +261,26 @@ class Jobs:
                     "preparation_status":"prepared" if plan.get("product_id") else "pending",
                     "warnings":plan.get("warnings",[])})
         for item in items:
-            grant=self.grant_for(batch,item) if item["dry_run"] else None
-            item["homologation_grant"]={"purpose":grant["purpose"],"expires":grant["expires"]} if grant else None
-        ready=[i for i in items if i["state"]=="review" and approved(i)]
-        try:
-            for item in ready: self.write_gate(batch,item)
-            can_confirm=bool(ready)
-        except ValueError:
-            can_confirm=False
-        return {"id":identifier,"company":batch["company"],"created":batch["created"],"items":items,"can_confirm":can_confirm}
+            # Never expose old authorization jargon, and never mutate the persisted signed Dry Run.
+            if item["dry_run"] and not item["dry_run"].get("authorization"):
+                item["dry_run"] = {**item["dry_run"], "write_gate": "Dry Run aprovado. Confirme o envio." if approved(item) else "Revise e aprove o Dry Run antes de enviar."}
+            item["write_gate"] = "Dry Run aprovado. Gestores e desenvolvedores podem confirmar o envio." if approved(item) else "Revise e aprove o Dry Run antes de enviar."
+            item["needs_refresh"] = not (item["dry_run"] or {}).get("authorization")
+            item["can_rollback"] = item["state"] in {"done", "uncertain", "error", "rollback_error"} and self.has_recovery(batch, item["sku"])
+        ready=[i for i in items if i["state"]=="review" and approved(i) and not i["needs_refresh"]]
+        return {"id":identifier,"company":batch["company"],"created":batch["created"],"items":items,"can_confirm":bool(ready)}
+
+    def has_recovery(self, batch, sku):
+        with self.db() as db:
+            row=db.execute("SELECT plan FROM jobs WHERE batch=? AND sku=?", (batch["id"],sku)).fetchone()
+        plan=json.loads(row["plan"]) if row else {}
+        if not plan.get("dry_run"): return False
+        entry=Journal(self,str(batch["org"])+"|"+batch["origin"]+"|"+sku).get(grants.update_key(plan["product_id"],plan["dry_run"]["dry_run_sha256"]))
+        return bool(entry and entry.get("rollback"))
 
     def history(self,org,owner):
         with self.db() as db:
             return [dict(r) for r in db.execute("SELECT id,company,created FROM batches WHERE org=? AND owner=? ORDER BY created DESC LIMIT 100",(str(org),str(owner)))]
-
-    def grant_for(self, batch, item, purpose="publish", db=None):
-        dry=item.get("dry_run") or {}
-        return grants.find(self,company=batch["company"],origin=batch["origin"],sku=item["sku"],product_id=item.get("product_id") or dry.get("product_id"),
-                           dry_run_sha256=dry.get("dry_run_sha256"),purpose=purpose,batch=batch["id"],db=db)
-
-    def write_gate(self, batch, item, db=None):
-        """Staging policy first; a production host needs a valid single-use grant for this exact item."""
-        try:
-            self.policy.authorize(batch["origin"],item["sku"])
-            return None
-        except ValueError as exc:
-            grant=self.grant_for(batch,item,db=db)
-            if grant: return grant
-            raise ValueError(f"{exc} Sem liberação de homologação válida para este item.") from None
 
     def approve(self, identifier, org, owner, skus=None, replace_main=()):
         """Individual (skus) or batch approval of the exact Dry Run. Never queues or authorizes a write.
@@ -281,16 +289,21 @@ class Jobs:
         """
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
-            self.access(db,identifier,org,owner)
+            record=dict(self.access(db,identifier,org,owner))
             rows=[r for r in db.execute("SELECT * FROM jobs WHERE batch=? AND state='review'",(identifier,)).fetchall()
                   if skus is None or r["sku"] in skus]
             if skus is not None and len(rows)!=len(set(skus)): raise ValueError("SKU fora do lote ou sem Dry Run apto.")
             approved_skus=[]
             for row in rows:
                 plan=json.loads(row["plan"])
+                authorization.validate(record,row["sku"],plan,approval=False)
                 main=plan["dry_run"]["images"]["main_image"]
-                replace=row["sku"] in replace_main
-                if replace and not main["replacement_available"]: raise ValueError("Substituição de principal indisponível para "+row["sku"]+".")
+                if plan["dry_run"].get("registration_scope"):
+                    # Scoped plans already name the main file chosen for this SKU; approving the Dry Run approves it.
+                    replace=main["action"]=="replace"
+                else:
+                    replace=row["sku"] in replace_main
+                    if replace and not main["replacement_available"]: raise ValueError("Substituição de principal indisponível para "+row["sku"]+".")
                 plan["approval"]={"by":str(owner),"at":time.time(),"dry_run_sha256":plan["dry_run"]["dry_run_sha256"],
                                   "replace_main":replace,"writes_authorized":False}
                 db.execute("UPDATE jobs SET plan=? WHERE batch=? AND sku=? AND state='review'",(json.dumps(plan),identifier,row["sku"]))
@@ -299,43 +312,129 @@ class Jobs:
             if not approved_skus: raise ValueError("Nenhum Dry Run pronto para aprovação.")
             return approved_skus
 
-    def confirm(self, identifier, org, owner, settings, skus=None):
+    def confirm(self, identifier, org, owner, settings, skus=None, *, confirmed=False, session_factory=None):
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
-            batch=self.access(db,identifier,org,owner)
-            if settings.credentials(batch["company"],"wc").base_url!=batch["origin"]:
-                raise ValueError("Destino alterado; importe um novo lote.")
+            batch=dict(self.access(db,identifier,org,owner))
+            if not confirmed: raise ValueError("Confirme explicitamente o envio dos arquivos.")
+            if settings.organization_id != str(org) or settings.credentials(batch["company"],"wc").base_url!=batch["origin"]:
+                raise ValueError("Organização ou destino alterado; importe um novo lote.")
             rows=[r for r in db.execute("SELECT * FROM jobs WHERE batch=? AND state='review'",(identifier,)).fetchall()
-                  if approved({"approval":json.loads(r["plan"]).get("approval"),"dry_run":json.loads(r["plan"]).get("dry_run")})
-                  and (skus is None or r["sku"] in skus)]
+                  if approved(json.loads(r["plan"])) and (skus is None or r["sku"] in skus)]
+            if skus is not None and len(rows)!=len(set(skus)):
+                raise ValueError("SKU fora do lote ou sem Dry Run aprovado.")
             if not rows: raise ValueError("Nenhum item aprovado apto.")
             for row in rows:
                 plan=json.loads(row["plan"])
-                self.write_gate(dict(batch),{"sku":row["sku"],"product_id":plan.get("product_id"),"dry_run":plan.get("dry_run")},db)
-            for row in rows:
-                db.execute("UPDATE jobs SET state='queued' WHERE batch=? AND sku=? AND state='review'",(identifier,row["sku"]))
-                self.audit(identifier,row["sku"],owner,"queued",{"origin":batch["origin"]},db)
+                authorization.validate(batch,row["sku"],plan)
+                authorization.check_identity(owner,org,batch["company"],plan["approval"]["by"],session_factory=session_factory)
+                plan["execution"]=authorization.confirmation(batch,row["sku"],plan,owner,"publish")
+                db.execute("UPDATE jobs SET state='queued',plan=?,error='' WHERE batch=? AND sku=?",
+                           (json.dumps(plan),identifier,row["sku"]))
+                self.audit(identifier,row["sku"],owner,"queued",{"authorization":authorization.VERSION,"dry_run_sha256":plan["dry_run"]["dry_run_sha256"]},db)
 
-    def reprocess(self, identifier, org, owner):
+    def request_rollback(self, identifier, org, owner, skus, *, confirmed=False, session_factory=None):
+        if not confirmed or not skus: raise ValueError("Selecione o SKU e confirme a restauração.")
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
-            self.access(db,identifier,org,owner)
-            # Rebuild preview only. Uncertain writes never automatically re-upload.
-            db.execute("UPDATE jobs SET state='preview_queued',error='' WHERE batch=? AND state IN ('error','awaiting_product')",(identifier,))
+            batch=dict(self.access(db,identifier,org,owner))
+            rows=[r for r in db.execute("SELECT * FROM jobs WHERE batch=?", (identifier,)).fetchall()
+                  if r["sku"] in skus and r["state"] in {"done","uncertain","error","rollback_error"}]
+            if len(rows)!=len(set(skus)): raise ValueError("SKU sem publicação apta à restauração.")
+            for row in rows:
+                plan=json.loads(row["plan"])
+                authorization.validate(batch,row["sku"],plan,recovery=True)
+                authorization.check_identity(owner,org,batch["company"],plan["approval"]["by"],session_factory=session_factory)
+                key=grants.update_key(plan["product_id"],plan["dry_run"]["dry_run_sha256"])
+                scope=batch["org"]+"|"+batch["origin"]+"|"+row["sku"]
+                entry=db.execute("SELECT value FROM journal WHERE scope=? AND key=?", (scope,key)).fetchone()
+                if not entry or not json.loads(entry[0]).get("rollback"):
+                    raise ValueError("Não há publicação registrada para recuperar.")
+                plan["rollback_request"]=authorization.confirmation(batch,row["sku"],plan,owner,"rollback")
+                db.execute("UPDATE jobs SET state='rollback_queued',plan=?,error='' WHERE batch=? AND sku=?",
+                           (json.dumps(plan),identifier,row["sku"]))
+                self.audit(identifier,row["sku"],owner,"rollback_queued",{"authorization":authorization.VERSION},db)
+
+    REPREVIEW_STATES=("error","awaiting_product","review","blocked","awaiting_main","nothing")
+
+    def _requeue(self, db, batch, identifier, owner, rows, change=None, event="preview_requested", detail=None):
+        """New Dry Run for these rows (approval dropped); change(input) may adjust scope/main first. Returns requeued SKUs."""
+        done=[]
+        for row in rows:
+            plan=json.loads(row["plan"])
+            if plan.get("dry_run"):
+                key=grants.update_key(plan["product_id"],plan["dry_run"]["dry_run_sha256"])
+                scope=batch["org"]+"|"+batch["origin"]+"|"+row["sku"]
+                entry=db.execute("SELECT value FROM journal WHERE scope=? AND key=?", (scope,key)).fetchone()
+                if entry and json.loads(entry[0]).get("state") in {"sending","done"}:
+                    continue  # Do not lose recovery data for an uncertain association.
+            inputs=dict(plan.get("input",{}))
+            if change: change(inputs,plan)
+            db.execute("UPDATE jobs SET state='preview_queued',error='',plan=? WHERE batch=? AND sku=?",
+                       (json.dumps({"input":inputs}),identifier,row["sku"]))
+            self.audit(identifier,row["sku"],owner,event,detail or {},db)
+            done.append(row["sku"])
+        return done
+
+    def _rows(self, db, identifier, skus):
+        marks=",".join("?"*len(self.REPREVIEW_STATES))
+        return [r for r in db.execute(f"SELECT * FROM jobs WHERE batch=? AND state IN ({marks})",(identifier,*self.REPREVIEW_STATES)).fetchall()
+                if skus is None or r["sku"] in skus]
+
+    def reprocess(self, identifier, org, owner, skus=None):
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            batch=dict(self.access(db,identifier,org,owner))
+            return self._requeue(db,batch,identifier,owner,self._rows(db,identifier,skus))
+
+    def set_scope(self, identifier, org, owner, scope, skus=None):
+        """Change what is registered for these items. Always a new Dry Run: a previous approval never carries over."""
+        scope=normalize_scope(scope)
+        def change(inputs,plan):
+            inputs["scope"]=scope
+            if not scope["main"]: inputs.pop("main_choice",None)
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            batch=dict(self.access(db,identifier,org,owner))
+            rows=self._rows(db,identifier,skus)
+            if skus is not None and len(rows)!=len(set(skus)): raise ValueError("SKU fora do lote ou em envio; escopo não alterado.")
+            done=self._requeue(db,batch,identifier,owner,rows,change,"scope_changed",{"scope":scope})
+            if not done: raise ValueError("Nenhum item apto a mudar de escopo.")
+            return done
+
+    def choose_main(self, identifier, org, owner, sku, sha256):
+        """Explicit main image for one SKU, among the images of its own Dry Run. Triggers a new Dry Run."""
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            batch=dict(self.access(db,identifier,org,owner))
+            rows=self._rows(db,identifier,[sku])
+            if len(rows)!=1: raise ValueError("SKU fora do lote ou em envio; principal não alterada.")
+            plan=json.loads(rows[0]["plan"])
+            if not (plan.get("input",{}).get("scope") or {}).get("main"):
+                raise ValueError("Marque Foto principal no escopo antes de escolher a imagem.")
+            rule=(plan.get("dry_run") or {}).get("image_rule") or {}
+            if rule.get("main"):
+                raise ValueError(f"Principal definida pelo padrão {sku}_1.ext ({rule['main']['name']}); renomeie os arquivos para mudar.")
+            option=next((o for o in (plan.get("dry_run") or {}).get("main_options",[]) if o["sha256"]==sha256),None)
+            if not option: raise ValueError("Imagem não pertence a este SKU; escolha uma das imagens listadas no Dry Run.")
+            choice={"sha256":option["sha256"],"name":option["name"]}
+            done=self._requeue(db,batch,identifier,owner,rows,lambda inputs,_:inputs.update(main_choice=choice),"main_chosen",choice)
+            if not done: raise ValueError("Envio anterior incerto para este SKU; reconciliar antes de mudar a principal.")
+            return done
 
     def claim(self, batch=None, sku=None):
         """One item globally at a time. batch/sku restrict the claim to exactly that item (worker --batch/--sku)."""
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
-            db.execute("UPDATE jobs SET state='uncertain',error='Worker interrompido; reconciliar manualmente.',token='' WHERE state IN ('preview_running','running') AND lease<?",(time.time(),))
-            if db.execute("SELECT 1 FROM jobs WHERE state IN ('preview_running','running')").fetchone(): return None
+            db.execute("UPDATE jobs SET state='uncertain',error='Worker interrompido; reconciliar manualmente.',token='' WHERE state IN ('preview_running','running','rollback_running') AND lease<?",(time.time(),))
+            if db.execute("SELECT 1 FROM jobs WHERE state IN ('preview_running','running','rollback_running')").fetchone(): return None
             where="".join([" AND j.batch=?" if batch else ""," AND j.sku=?" if sku else ""])
-            row=db.execute("SELECT j.*,b.company,b.origin,b.org FROM jobs j JOIN batches b ON b.id=j.batch WHERE state IN ('preview_queued','queued')"+where+" ORDER BY b.created LIMIT 1",
+            row=db.execute("SELECT j.*,b.company,b.origin,b.org,b.owner FROM jobs j JOIN batches b ON b.id=j.batch WHERE state IN ('preview_queued','queued','rollback_queued')"+where+" ORDER BY b.created LIMIT 1",
                            tuple(v for v in (batch,sku) if v)).fetchone()
             if not row: return None
             job=dict(row);job["token"]=uuid.uuid4().hex
             db.execute("UPDATE jobs SET state=?,token=?,lease=? WHERE batch=? AND sku=?",
-                ("preview_running" if job["state"]=="preview_queued" else "running",job["token"],time.time()+3600,job["batch"],job["sku"]))
+                ({"preview_queued":"preview_running","queued":"running","rollback_queued":"rollback_running"}[job["state"]],job["token"],time.time()+3600,job["batch"],job["sku"]))
             return job
 
     def finish(self, job, state, plan=None, error=""):
@@ -349,7 +448,7 @@ AWAITING_PRODUCT="Aguardando cadastro por CSV: SKU não existe na loja; criaçã
 
 def approved(item):
     approval,dry=item.get("approval"),item.get("dry_run") or {}
-    return bool(approval) and approval.get("dry_run_sha256")==dry.get("dry_run_sha256")
+    return bool(approval) and bool(dry.get("dry_run_sha256")) and approval.get("dry_run_sha256")==dry.get("dry_run_sha256")
 
 
 class Journal:
@@ -363,7 +462,19 @@ class Journal:
             db.execute("INSERT OR REPLACE INTO journal VALUES(?,?,?)",(self.scope,key,json.dumps(value)))
 
 
-def process_one(jobs, settings, transport=None, *, batch=None, sku=None):
+def unchanged_files(jobs, job, plan):
+    """Before any upload: the SKU folder still holds exactly the files (names, sizes, bytes) of the approved Dry Run."""
+    changed=ValueError("Arquivos do SKU renomeados, removidos ou adicionados após o Dry Run aprovado; refaça a prévia. Nada enviado.")
+    folder=find_product_folder(jobs.root/job["batch"],job["sku"])
+    if not folder or folder_inventory(folder)!=plan["dry_run"]["files_inventory_sha256"]: raise changed
+    for item in plan["images"]+plan["downloads"]:
+        try:
+            if file_info(item["path"],jobs.policy.max_file_mib)["sha256"]!=item["sha256"]: raise changed
+        except ValueError:
+            raise changed from None
+
+
+def process_one(jobs, settings, transport=None, *, batch=None, sku=None, session_factory=None):
     job=jobs.claim(batch,sku)
     if not job: return False
     woo=None;publisher=None
@@ -377,7 +488,7 @@ def process_one(jobs, settings, transport=None, *, batch=None, sku=None):
             folder=find_product_folder(jobs.root/job["batch"],job["sku"])
             if not folder: raise ValueError("Pasta exata do SKU não encontrada no ZIP.")
             if folder.name!=job['sku']: raise ValueError("Nome da pasta não corresponde exatamente ao SKU.")
-            files=prepare_files(folder,job["sku"],company=job["company"])
+            files=prepare_files(folder,job["sku"],company=job["company"],numbered=inputs.get("scope") is not None)
             selected=([files["main_image"]] if files["main_image"] else [])+files["gallery"]
             images=[{"path":str(p),"role":"main_image" if n==0 else "gallery",**file_info(p,jobs.policy.max_file_mib)}
                     for n,p in enumerate(selected)]
@@ -386,11 +497,35 @@ def process_one(jobs, settings, transport=None, *, batch=None, sku=None):
             unsupported=[d for d in files["downloads"] if Path(d["path"]).suffix.lower() not in MIMES]
             documents=[{**d,**file_info(d["path"],jobs.policy.max_file_mib)} for d in files["downloads"] if d not in unsupported]
             if not images and not documents: raise ValueError("Nenhum arquivo reconhecido.")
+            # The scope and the chosen main survive every new Dry Run of this item.
+            kept={k:inputs[k] for k in ("identification","scope","main_choice") if inputs.get(k) is not None}
+            scope=inputs.get("scope")
+            out_of_scope,scope_ignored,options,rule=[],[],[],None
+            if scope is not None:
+                scope=normalize_scope(scope)
+                candidates=images
+                if files["manifest"]:
+                    # A validated PRM manifest keeps its declared order; the main is chosen in the Dry Run.
+                    options=main_options(images,files["main_from_pattern"])
+                    images,scope_ignored=scoped_images(candidates,scope,inputs.get("main_choice"),files["main_from_pattern"])
+                else:
+                    # Raw folders: <SKU>_1.ext is the main, _2.. the gallery. Without _1, only a manual choice.
+                    rule=classify_by_index(candidates,job["sku"])
+                    options=[] if rule["main"] else main_options(candidates,False)
+                    images,scope_ignored=rule_images(rule,scope,inputs.get("main_choice"),job["sku"])
+                scope_ignored+=[{"name":i["name"],"label":"Formato não enviado",
+                                 "reason":"SVG/GIF não é enviado pelo cadastro via API; use a versão PNG/JPG/WEBP (Resolução de Imagens)."}
+                                for i in files.get("unsupported_images",[])]
+                planned={i["path"] for i in images}
+                out_of_scope=[{"name":i["name"],"bytes":i["bytes"],"role":"image"} for i in candidates if i["path"] not in planned]
+                if not scope["documents"]:
+                    out_of_scope+=[{"name":d["name"],"bytes":d["bytes"],"role":d["role"]} for d in documents]
+                    documents=[]
             woo=WooClient(credentials_for(job["company"],settings),transport=transport)
             product=woo.find_by_sku(job["sku"])
             if not product:
                 # Never created here: the product is registered by the CSV flow, then the item is resumed.
-                jobs.finish(job,"awaiting_product",{"input":{"identification":inputs.get("identification")},"sources":files.get("sources",[]),
+                jobs.finish(job,"awaiting_product",{"input":kept,"sources":files.get("sources",[]),
                     "warnings":files["warnings"]},AWAITING_PRODUCT)
                 jobs.audit(job["batch"],job["sku"],"worker","awaiting_product")
                 return True
@@ -402,42 +537,59 @@ def process_one(jobs, settings, transport=None, *, batch=None, sku=None):
             snapshot=json.dumps({"company":job['company'],"origin":job['origin'],"sku":job['sku'],"product":product},ensure_ascii=False)
             with (backup/(job['token']+'.json')).open('x',encoding='utf-8') as handle: handle.write(snapshot)
             dry={"dry_run":True,"writes_allowed":False,"product_id":product["id"],"sku":job["sku"],
-                 **file_plan(product,images,documents),"backup_sha256":hashlib.sha256(snapshot.encode('utf-8')).hexdigest(),
-                 "ignored":[{"name":Path(d["path"]).name,"label":d["label"],"reason":"Formato sem upload homologado."} for d in unsupported]+
+                 **(file_plan(product,images,documents) if scope is None else
+                    scoped_file_plan(product,images,documents,scope,inputs.get("main_choice"),options,rule)),
+                 "backup_sha256":hashlib.sha256(snapshot.encode('utf-8')).hexdigest(),
+                 "ignored":[{"name":Path(d["path"]).name,"label":d["label"],"reason":"Formato não suportado para upload."} for d in unsupported]+
                            [{"name":d["name"],"label":"Datasheet do fornecedor","reason":"Datasheet original do fornecedor não é publicado; somente o datasheet gerado pelo PRM."}
-                            for d in files.get("excluded",[])]}
-            try: jobs.policy.authorize(job['origin'],job['sku'])
-            except ValueError as exc: dry["write_gate"]="Política de gravação: "+str(exc)
-            else: dry["write_gate"]="Staging autorizado para este SKU; execução exige aprovação e confirmação."
-            dry['dry_run_sha256']=hashlib.sha256(json.dumps(dry,sort_keys=True,ensure_ascii=False).encode('utf-8')).hexdigest()
+                            for d in files.get("excluded",[])]+scope_ignored}
+            if scope is not None:
+                # Signed with the Dry Run: renaming, adding or removing any file of the SKU invalidates the execution.
+                dry["files_inventory_sha256"]=folder_inventory(folder)
+            # Store-side limit (WordPress/PHP), read-only; checked before approval so nothing is sent in vain.
+            limit_warnings=store_limit_check(dry,woo.upload_limit())
+            dry["write_gate"]="Revise e aprove o Dry Run; gestores e desenvolvedores podem confirmar o envio."
             current_documents=interpret_documents(product)
-            plan={"input":{"identification":inputs.get("identification")},"product_id":product["id"],"snapshot_hash":snapshot_hash(product),
-                  "images":images,"downloads":documents,"sources":files.get("sources",[]),
+            plan={"input":kept if scope is not None else {"identification":inputs.get("identification")},
+                  "product_id":product["id"],"snapshot_hash":snapshot_hash(product),"protected_hash":_protected_hash(product),
+                  "images":images,"downloads":documents,"sources":files.get("sources",[]),"out_of_scope":out_of_scope,
                   "existing_images":len(product.get("images",[])),
                   "existing_documents":len(current_documents["documents"]),
                   "dry_run":dry,
-                  "warnings":files["warnings"]+current_documents["warnings"]}
-            state="blocked" if dry["blockers"] else "review"
-            jobs.finish(job,state,plan,"; ".join(dry["blockers"]) if dry["blockers"] else "")
+                  "warnings":files["warnings"]+current_documents["warnings"]+limit_warnings}
+            authorization.seal(job,job["sku"],plan)
+            if dry["blockers"]:
+                # Only the missing main choice left: the user picks it per SKU (not an error).
+                state="awaiting_main" if dry.get("main_choice_required") and len(dry["blockers"])==1 else "blocked"
+            else:
+                state="nothing" if dry.get("nothing_to_do") else "review"
+            jobs.finish(job,state,plan,"; ".join(dry["blockers"]) if dry["blockers"] else dry.get("nothing_message") or "")
             jobs.audit(job["batch"],job["sku"],"worker","preview_"+state,{"dry_run_sha256":dry["dry_run_sha256"]})
         else:
             plan=json.loads(job["plan"])
             journal=Journal(jobs,job["org"]+"|"+job["origin"]+"|"+job["sku"])
-            batch={"id":job["batch"],"company":job["company"],"origin":job["origin"]}
-            if stale_supplier_datasheet(plan["dry_run"]):
+            action="rollback" if job["state"]=="rollback_queued" else "publish"
+            if action=="publish" and stale_supplier_datasheet(plan["dry_run"]):
                 raise ValueError("Dry Run anterior à regra do datasheet do fornecedor; refaça a prévia e aprove novamente. Nada enviado.")
-            grant=jobs.write_gate(batch,{"sku":job["sku"],"product_id":plan["product_id"],"dry_run":plan["dry_run"]})
-            # Single use: consumed before any upload, so a failure or retry always needs a new grant.
-            if grant and not grants.consume(jobs,grant):
-                raise ValueError("Liberação de homologação expirada ou já utilizada; nada enviado.")
-            publisher=StagingPublisher(job["company"],job["sku"],settings,jobs.policy,journal,transport=transport,grant=grant)
-            result=publisher.execute(plan,audit=lambda event,detail=None:jobs.audit(job["batch"],job["sku"],"worker",event,detail))
-            jobs.finish(job,"done",{**plan,"result":result})
-            jobs.audit(job["batch"],job["sku"],"worker","done",{"verified":result.get("verified")})
+            if action=="publish" and plan["dry_run"].get("files_inventory_sha256"):
+                unchanged_files(jobs,job,plan)
+            check=lambda: authorization.recheck(jobs,job,plan,action,session_factory)
+            publisher=StagingPublisher(job["company"],job["sku"],settings,jobs.policy,journal,transport=transport,authorization_check=check)
+            actor=(plan.get("execution" if action=="publish" else "rollback_request") or {}).get("by","worker")
+            audit=lambda event,detail=None:jobs.audit(job["batch"],job["sku"],actor,event,detail)
+            result=publisher.rollback(plan,audit=audit) if action=="rollback" else publisher.execute(plan,audit=audit)
+            jobs.finish(job,"rolled_back" if action=="rollback" else "done",{**plan,("rollback_result" if action=="rollback" else "result"):result})
+            audit("rollback_done" if action=="rollback" else "done",{"verified":result.get("verified")})
     except Exception as exc:
         # HTTP bodies and local filesystem paths must not leak to reports.
-        error=str(exc) if type(exc) is ValueError and len(str(exc))<240 else "Falha "+type(exc).__name__+"; confira configuração e arquivos."
-        jobs.finish(job,"error",error=error)
+        error=str(exc) if isinstance(exc,(ValueError,authorization.access.PermissionDenied)) and len(str(exc))<300 else "Falha "+type(exc).__name__+"; confira configuração e arquivos."
+        state="rollback_error" if job["state"]=="rollback_queued" else "error"
+        if job["state"]=="queued":
+            p=json.loads(job["plan"])
+            if p.get("dry_run"):
+                entry=Journal(jobs,job["org"]+"|"+job["origin"]+"|"+job["sku"]).get(grants.update_key(p["product_id"],p["dry_run"]["dry_run_sha256"]))
+                if entry and entry.get("state")=="sending": state="uncertain"
+        jobs.finish(job,state,error=error)
         jobs.audit(job["batch"],job["sku"],"worker","error",{"error":error})
     finally:
         if woo: woo.close()
@@ -445,30 +597,14 @@ def process_one(jobs, settings, transport=None, *, batch=None, sku=None):
     return True
 
 
-def rollback_one(jobs, settings, batch, sku, *, actor, transport=None):
-    """Recovery of one published item: needs a single-use 'rollback' grant (production) or staging policy."""
+def rollback_one(jobs, settings, batch, sku, *, actor, confirmed=False, transport=None, session_factory=None):
+    """Compatibility helper: same authenticated confirmation/queue as UI, no terminal grants."""
+    if not confirmed: raise ValueError("Confirme a restauração pela interface autenticada.")
+    jobs.request_rollback(batch,settings.organization_id,actor,[sku],confirmed=True,session_factory=session_factory)
+    process_one(jobs,settings,transport,batch=batch,sku=sku,session_factory=session_factory)
+    item=jobs.detail(batch,settings.organization_id,actor)["items"]
+    row=next(i for i in item if i["sku"]==sku)
+    if row["state"]!="rolled_back": raise ValueError(row["error"] or "Restauração pendente na fila.")
     with jobs.db() as db:
-        record=db.execute("SELECT * FROM batches WHERE id=?",(batch,)).fetchone()
-        row=db.execute("SELECT * FROM jobs WHERE batch=? AND sku=?",(batch,sku)).fetchone()
-    if not record or not row: raise LookupError("Lote/SKU não encontrado.")
-    if settings.organization_id!=record["org"] or settings.credentials(record["company"],"wc").base_url!=record["origin"]:
-        raise ValueError("Organização ou destino divergem do lote.")
-    plan=json.loads(row["plan"])
-    grant=None
-    try:
-        jobs.policy.authorize(record["origin"],sku)
-    except ValueError:
-        grant=jobs.grant_for(dict(record),{"sku":sku,"product_id":plan.get("product_id"),"dry_run":plan.get("dry_run")},"rollback")
-        if not grant: raise ValueError("Recuperação bloqueada: sem liberação 'rollback' válida para este item.") from None
-        if not grants.consume(jobs,grant,actor): raise ValueError("Liberação de recuperação expirada ou já utilizada.")
-    journal=Journal(jobs,record["org"]+"|"+record["origin"]+"|"+sku)
-    publisher=StagingPublisher(record["company"],sku,settings,jobs.policy,journal,transport=transport,grant=grant)
-    try:
-        result=publisher.rollback(plan,audit=lambda event,detail=None:jobs.audit(batch,sku,actor,event,detail))
-    except Exception as exc:
-        jobs.audit(batch,sku,actor,"rollback_error",{"error":str(exc) if type(exc) is ValueError else type(exc).__name__})
-        raise
-    finally:
-        publisher.close()
-    jobs.audit(batch,sku,actor,"rollback_done",{"status":result["status"]})
-    return result
+        plan=json.loads(db.execute("SELECT plan FROM jobs WHERE batch=? AND sku=?",(batch,sku)).fetchone()[0])
+    return plan["rollback_result"]

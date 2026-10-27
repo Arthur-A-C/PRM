@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.services.upload_limits import DEFAULT_FILE_MIB
+
 
 class Settings(BaseSettings):
     """Configuração obtida do ambiente e do arquivo .env local."""
@@ -16,6 +18,25 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "PRM"
+    supplier_storage_dir: str = "data/suppliers"
+    # Preencher fornecedor com IA: chave/modelo próprios, independentes da IA de reuniões e datasheets.
+    supplier_ai_api_key: SecretStr = Field(default=SecretStr(""), repr=False)
+    supplier_ai_allow_shared_key: bool = False
+    supplier_ai_model: str = ""
+    supplier_ai_effort: str = "low"
+    supplier_ai_timeout_seconds: int = Field(default=60, ge=10, le=300)
+    supplier_ai_max_retries: int = Field(default=2, ge=0, le=5)
+    supplier_ai_max_output_tokens: int = Field(default=8000, ge=1024, le=32000)
+    supplier_ai_max_input_chars: int = Field(default=60000, ge=5000, le=400000)
+    supplier_ai_max_pages: int = Field(default=12, ge=1, le=20)
+    supplier_ai_page_max_bytes: int = Field(default=1500000, ge=50000, le=5000000)
+    supplier_ai_page_text_chars: int = Field(default=12000, ge=1000, le=50000)
+    supplier_ai_fetch_timeout_seconds: int = Field(default=10, ge=2, le=30)
+    supplier_ai_crawl_seconds: int = Field(default=45, ge=5, le=180)
+    supplier_ai_max_document_pages: int = Field(default=30, ge=1, le=200)
+    supplier_ai_max_images: int = Field(default=4, ge=0, le=10)
+    supplier_ai_cache_minutes: int = Field(default=60, ge=0, le=1440)
+    supplier_ai_max_runs_per_hour: int = Field(default=30, ge=1, le=500)
     environment: str = "development"
     database_url: str | None = Field(default=None, repr=False)
     session_cookie_name: str = "prm_session"
@@ -26,6 +47,7 @@ class Settings(BaseSettings):
     organization_timezone: str = "America/Sao_Paulo"
     max_upload_mib: int = Field(default=20, ge=1, le=100)
     max_import_rows: int = Field(default=50_000, ge=1, le=500_000)
+    catalog_upload_mib: int = Field(default=50, ge=1, le=100)
     meeting_storage_dir: str = "data/meetings"
     meeting_text_max_bytes: int = Field(default=2097152, ge=1024)
     meeting_ai_provider: str = "anthropic"
@@ -56,7 +78,7 @@ class Settings(BaseSettings):
     batch_retention_days: int = Field(default=90, ge=1, le=3650)
     upload_storage_dir: str = "data/uploads"
     upload_max_mib: int = Field(default=2048, ge=1, le=20480)
-    upload_max_file_mib: int = Field(default=200, ge=1, le=4096)
+    upload_max_file_mib: int = Field(default=DEFAULT_FILE_MIB, ge=1, le=DEFAULT_FILE_MIB)
     upload_max_files: int = Field(default=5000, ge=1, le=20000)
     upload_chunk_mib: int = Field(default=8, ge=1, le=64)
     upload_retention_hours: int = Field(default=24, ge=1, le=720)

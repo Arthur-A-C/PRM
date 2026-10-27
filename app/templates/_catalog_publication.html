@@ -1,0 +1,16 @@
+<section class="panel" id="publicacao" data-catalog-publication>
+  <h2>Base oficial de comparação</h2>
+  {% if catalog_publication.run_id %}<p>Análise publicada: {{ catalog_publication.last_published }}.</p>{% else %}<p>Nenhuma análise publicada.</p>{% endif %}
+  <p>{{ catalog_publication.internal }} produtos internos · {{ catalog_publication.competitor }} produtos da concorrência cadastrados.</p>
+  {% if user.role in ['gestor','desenvolvedor'] %}
+  <p>Última importação: {{ catalog_publication.last_import or 'Nenhuma' }}.</p>
+  {% if catalog_publication.pending and catalog_publication.run_id %}<p>Existem alterações no catálogo que ainda não foram publicadas.</p>{% endif %}
+  {% if catalog_publication.can_publish %}<p>Revise o catálogo e gere a prévia. A confirmação publica uma nova fotografia, preservando a anterior no histórico.</p>
+  <a href="/catalogos?view=legacy">Revisar catálogo cadastrado</a>
+  <button type="button" data-publication-preview>Revisar análise para publicação</button>
+  <button type="button" data-publication-confirm disabled>{{ 'Atualizar análise publicada' if catalog_publication.run_id else 'Publicar base atual' }}</button>
+  {% else %}<p>Importe ao menos um produto interno e um concorrente para habilitar a publicação.</p><a href="/catalogos?view=legacy">Importar catálogo</a>{% endif %}
+  {% else %}<p>Solicite a um gestor a revisão e publicação da base.</p>{% endif %}
+  <div data-publication-result role="status" aria-live="polite"></div>
+</section>
+{% if user.role in ['gestor','desenvolvedor'] %}<script src="/static/js/catalog-publication.js?v=20261027-1" defer></script>{% endif %}

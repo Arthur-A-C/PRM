@@ -3,6 +3,8 @@ import time
 
 import httpx
 import pytest
+from registration_identity_fixture import mocked_registration_identity
+pytestmark = pytest.mark.usefixtures("mocked_registration_identity")
 
 from app.services import store_publish_grant as grants
 from app.services.store_config import StoreSettings
@@ -50,11 +52,11 @@ def grant(jobs, identifier, item, purpose="publish", minutes=30, **override):
                                  "minutes": minutes, "actor": "tester", **override})
 
 
-def test_without_grant_production_stays_blocked(jobs, settings):
+def test_without_grant_still_requires_explicit_confirmation(jobs, settings):
     s = store(wcda=[])
     identifier, item = prepared(jobs, settings, s)
-    assert item["state"] == "review" and jobs.detail(identifier, "org", "owner")["can_confirm"] is False
-    with pytest.raises(ValueError, match="Sem liberação de homologação válida"):
+    assert item["state"] == "review" and jobs.detail(identifier, "org", "owner")["can_confirm"] is True
+    with pytest.raises(ValueError, match="Confirme"):
         jobs.confirm(identifier, "org", "owner", settings)
     assert set(s.methods) == {"GET"}
 
@@ -65,8 +67,8 @@ def test_grant_publishes_only_files_with_app_password_and_cannot_be_reused(jobs,
     identifier, item = prepared(jobs, settings, s)
     issued = grant(jobs, identifier, item)
     detail = jobs.detail(identifier, "org", "owner")
-    assert detail["can_confirm"] and detail["items"][0]["homologation_grant"]["purpose"] == "publish"
-    jobs.confirm(identifier, "org", "owner", settings)
+    assert detail["can_confirm"] and "homologation_grant" not in detail["items"][0]
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     drain(jobs, settings, s)
     done = jobs.detail(identifier, "org", "owner")["items"][0]
     assert done["state"] == "done" and done["result"]["verified"]
@@ -75,11 +77,11 @@ def test_grant_publishes_only_files_with_app_password_and_cannot_be_reused(jobs,
     assert len(s.product["images"]) == 1 and len(s.product["meta_data"][-1]["value"]) == 2
     assert set(s.write_auth) == {httpx.BasicAuth("wpuser", "app_password")._auth_header}
     events = [e["event"] for e in done["audit"]]
-    assert events.index("grant_consumed") < events.index("permissions_verified") < events.index("upload_done") < events.index("put_sent")
-    assert [g["state"] for g in grants.listing(jobs) if g["id"] == issued["id"]] == ["consumed"]
+    assert events.index("queued") < events.index("permissions_verified") < events.index("upload_done") < events.index("put_sent")
+    assert [g["state"] for g in grants.listing(jobs) if g["id"] == issued["id"]] == ["issued"]
     # Reuse is impossible: the consumed grant unlocks nothing else, and a new preview finds nothing to send.
     assert grants.find(jobs, company="choice", origin=CHOICE, sku=SKU, product_id=PRODUCT,
-                       dry_run_sha256=item["dry_run"]["dry_run_sha256"], purpose="publish") is None
+                       dry_run_sha256=item["dry_run"]["dry_run_sha256"], purpose="publish") is not None
     second = jobs.create("choice", "org", "owner", None, package(sku=SKU), settings, identification="folder", archive_name=SKU + ".zip")
     drain(jobs, settings, s)
     item2 = jobs.detail(second, "org", "owner")["items"][0]
@@ -122,20 +124,19 @@ def test_grant_requires_approval_and_unique_active_grant(jobs, settings):
     issued = grant(jobs, identifier, item)
     with pytest.raises(ValueError, match="ativa"): grant(jobs, identifier, item)
     grants.revoke(jobs, issued["id"], "tester")
-    assert jobs.detail(identifier, "org", "owner")["can_confirm"] is False
+    assert jobs.detail(identifier, "org", "owner")["can_confirm"] is True  # legacy revocation is not the role gate
     with pytest.raises(ValueError): grants.revoke(jobs, issued["id"], "tester")
 
 
-def test_expired_grant_sends_nothing(jobs, settings):
+def test_expired_legacy_grant_cannot_block_role_confirmation(jobs, settings):
     s = store(wcda=[])
     identifier, item = prepared(jobs, settings, s)
     issued = grant(jobs, identifier, item, minutes=1)
-    jobs.confirm(identifier, "org", "owner", settings)
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     with jobs.db() as db: db.execute("UPDATE grants SET expires=? WHERE id=?", (time.time() - 1, issued["id"]))
     drain(jobs, settings, s)
     item = jobs.detail(identifier, "org", "owner")["items"][0]
-    assert item["state"] == "error" and "Sem liberação de homologação válida" in item["error"]
-    assert s.posts == 0 and not s.puts
+    assert item["state"] == "done" and s.posts == 3 and len(s.puts) == 1
 
 
 def test_concurrent_workers_cannot_both_consume(jobs, settings):
@@ -155,7 +156,7 @@ def test_missing_permissions_stop_before_any_upload(jobs, settings, field, value
     s = store(wcda=[])
     identifier, item = prepared(jobs, settings, s)
     grant(jobs, identifier, item)
-    jobs.confirm(identifier, "org", "owner", settings)
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     setattr(s, field, value)
     drain(jobs, settings, s)
     item = jobs.detail(identifier, "org", "owner")["items"][0]
@@ -166,16 +167,16 @@ def test_partial_upload_failure_needs_new_grant_and_never_duplicates(jobs, setti
     s = store(wcda=[]); s.fail_upload = {"Desenho"}
     identifier, item = prepared(jobs, settings, s)
     grant(jobs, identifier, item)
-    jobs.confirm(identifier, "org", "owner", settings)
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     drain(jobs, settings, s)
     assert jobs.detail(identifier, "org", "owner")["items"][0]["state"] == "error" and not s.puts and s.posts == 3
     s.fail_upload = set()
     jobs.reprocess(identifier, "org", "owner"); drain(jobs, settings, s)
     jobs.approve(identifier, "org", "owner")
     item = jobs.detail(identifier, "org", "owner")["items"][0]
-    with pytest.raises(ValueError): jobs.confirm(identifier, "org", "owner", settings)  # old grant consumed
-    grant(jobs, identifier, item)
-    jobs.confirm(identifier, "org", "owner", settings)
+    with pytest.raises(ValueError, match="Confirme"): jobs.confirm(identifier, "org", "owner", settings)
+    # Retrying uses persisted uploads and fresh approval, not another grant.
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     drain(jobs, settings, s)
     assert jobs.detail(identifier, "org", "owner")["items"][0]["state"] == "done"
     assert s.posts == 4 and len(s.puts) == 1 and len(s.library) == 4  # 3 new media, no duplicate
@@ -187,30 +188,30 @@ def test_rollback_restores_files_only_keeps_media_and_is_single_use(jobs, settin
     identifier, item = prepared(jobs, settings, s)
     with pytest.raises(ValueError, match="Não há publicação"): grant(jobs, identifier, item, purpose="rollback")
     grant(jobs, identifier, item)
-    jobs.confirm(identifier, "org", "owner", settings)
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     drain(jobs, settings, s)
     media = dict(s.library)
-    with pytest.raises(ValueError, match="sem liberação 'rollback'"):
-        rollback_one(jobs, settings, identifier, SKU, actor="tester", transport=httpx.MockTransport(s.handle))
+    with pytest.raises(ValueError, match="Confirme"):
+        rollback_one(jobs, settings, identifier, SKU, actor="owner", transport=httpx.MockTransport(s.handle))
     grant(jobs, identifier, item, purpose="rollback")
-    result = rollback_one(jobs, settings, identifier, SKU, actor="tester", transport=httpx.MockTransport(s.handle))
+    result = rollback_one(jobs, settings, identifier, SKU, actor="owner", confirmed=True, transport=httpx.MockTransport(s.handle))
     assert result["status"] == "rolled_back" and result["media_deletion"] is False
     assert s.product["images"] == [] and s.product["meta_data"][-1]["value"] == EXISTING
     assert commercial(s.product) == before and s.library == media and "DELETE" not in s.methods
     with pytest.raises(ValueError):
-        rollback_one(jobs, settings, identifier, SKU, actor="tester", transport=httpx.MockTransport(s.handle))
+        rollback_one(jobs, settings, identifier, SKU, actor="owner", confirmed=True, transport=httpx.MockTransport(s.handle))
 
 
 def test_rollback_refused_when_product_diverged(jobs, settings):
     s = store(wcda=[])
     identifier, item = prepared(jobs, settings, s)
     grant(jobs, identifier, item)
-    jobs.confirm(identifier, "org", "owner", settings)
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     drain(jobs, settings, s)
     s.product["images"].append({"id": 10, "src": s.library[10]})  # someone edited after the publish
     grant(jobs, identifier, item, purpose="rollback")
     with pytest.raises(ValueError, match="difere"):
-        rollback_one(jobs, settings, identifier, SKU, actor="tester", transport=httpx.MockTransport(s.handle))
+        rollback_one(jobs, settings, identifier, SKU, actor="owner", confirmed=True, transport=httpx.MockTransport(s.handle))
     assert len(s.puts) == 1
 
 
@@ -218,7 +219,7 @@ def test_missing_product_never_created_even_with_grant(jobs, settings):
     s = store(wcda=[])
     identifier, item = prepared(jobs, settings, s)
     grant(jobs, identifier, item)
-    jobs.confirm(identifier, "org", "owner", settings)
+    jobs.confirm(identifier, "org", "owner", settings, confirmed=True)
     s.matches = []
     drain(jobs, settings, s)
     item = jobs.detail(identifier, "org", "owner")["items"][0]

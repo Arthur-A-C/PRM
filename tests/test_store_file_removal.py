@@ -2,6 +2,7 @@
 import io
 import json
 import threading
+from contextlib import nullcontext
 from copy import deepcopy
 
 import httpx
@@ -147,6 +148,9 @@ def jobs(tmp_path):
 def quick_read_back(monkeypatch):
     # Read-back retries wait for store caches in production; tests decide immediately.
     monkeypatch.setattr(removal, "VERIFY_DELAYS", (0, 0))
+    # Low-level queue/executor tests isolate identity; real role/org checks are covered in test_store_removal_production.
+    monkeypatch.setattr(removal.production, "session", lambda: nullcontext(None))
+    monkeypatch.setattr(removal.production, "check_approval", lambda *args: True)
 
 
 def drain(jobs, settings, shop):
@@ -162,7 +166,7 @@ def dry(jobs, settings, shop, mode, skus=("000123",)):
 
 def execute(removals, identifier, jobs, settings, shop, skus=None):
     removals.approve(identifier, "org", "owner", skus)
-    removals.confirm(identifier, "org", "owner", settings, skus)
+    removals.confirm(identifier, "org", "owner", settings, skus, confirmed=True)
     drain(jobs, settings, shop)
     return removals.detail(identifier, "org", "owner")
 
@@ -303,42 +307,31 @@ def test_inconsistent_main_image_is_refused(jobs, settings):
 def test_execution_requires_approval_of_exact_dry_run(jobs, settings):
     shop = Shop()
     removals, identifier, _ = dry(jobs, settings, shop, "all")
-    with pytest.raises(ValueError, match="aprovado"): removals.confirm(identifier, "org", "owner", settings)
+    with pytest.raises(ValueError, match="aprovado"): removals.confirm(identifier, "org", "owner", settings, confirmed=True)
     assert not shop.writes
 
 
-@pytest.mark.parametrize("host", ["choicetech.com.br", "sagloja.devsplcomunic.com.br", "portwell.com.br"])
-def test_production_is_blocked_without_a_grant(tmp_path, host):
-    settings = StoreSettings(_env_file=None, CHOICE_WC_URL="https://" + host, CHOICE_WC_KEY="ck", CHOICE_WC_SECRET="cs",
-                             CHOICE_WP_USER="u", CHOICE_WP_APP_PASSWORD="p", PRM_STORE_ORGANIZATION_ID="org")
-    jobs = Jobs(PublishSettings(_env_file=None, enabled=True, staging_origin="https://" + host, staging_sku="000123", storage_dir=str(tmp_path / "q")))
+def test_no_policy_or_grant_is_used(jobs, settings, monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Removal must not use a staging policy or grant")
+    monkeypatch.setattr(PublishSettings, "authorize", forbidden)
+    monkeypatch.setattr(OpenStaging, "authorize", forbidden)
+    for name in ("find", "issue_removal", "consume"):
+        monkeypatch.setattr(grants, name, forbidden)
     shop = Shop()
     removals, identifier, view = dry(jobs, settings, shop, "all")
-    assert "bloqueada" in view["items"][0]["dry_run"]["write_gate"]
-    removals.approve(identifier, "org", "owner")
-    with pytest.raises(ValueError, match="Sem liberação"): removals.confirm(identifier, "org", "owner", settings)
-    assert set(shop.methods) == {"GET"}
+    assert view["items"][0]["write_gate"] == "Dry Run pronto"
+    assert execute(removals, identifier, jobs, settings, shop)["items"][0]["state"] == "done"
+    assert grants.listing(jobs) == []
 
 
-def test_grant_scoped_to_store_sku_product_mode_and_hash(tmp_path):
-    settings = StoreSettings(_env_file=None, CHOICE_WC_URL="https://choicetech.com.br", CHOICE_WC_KEY="ck", CHOICE_WC_SECRET="cs",
-                             CHOICE_WP_USER="u", CHOICE_WP_APP_PASSWORD="p", PRM_STORE_ORGANIZATION_ID="org")
-    jobs = Jobs(PublishSettings(_env_file=None, storage_dir=str(tmp_path / "q")))
-    shop = Shop({"119002000072": Shop.product(16321, featured=11, gallery=[12], docs=DOCS),
-                 "000123": Shop.product(101, featured=21, gallery=[22], docs=[])}, origin="https://choicetech.com.br")
-    before = commercial(shop, "119002000072")
-    removals, identifier, _ = dry(jobs, settings, shop, "gallery", ("119002000072", "000123"))
-    removals.approve(identifier, "org", "owner")
-    with pytest.raises(ValueError, match="Alvo fora"):
-        grants.issue_removal(jobs, batch=identifier, sku="000123", minutes=30, actor="t")
-    grant = grants.issue_removal(jobs, batch=identifier, sku="119002000072", minutes=30, actor="t")
-    assert grant["purpose"] == "remove_gallery" and grant["product_id"] == 16321
-    with pytest.raises(ValueError, match="Sem liberação"): removals.confirm(identifier, "org", "owner", settings)  # 000123 still blocked
-    removals.confirm(identifier, "org", "owner", settings, ["119002000072"])
+def restore_via_queue(removals, identifier, jobs, settings, shop):
+    removals.request_restore(identifier, "org", "owner", ["000123"], confirmed=True)
     drain(jobs, settings, shop)
-    assert shop.products["119002000072"]["gallery"] == [] and commercial(shop, "119002000072") == before
-    assert [g["state"] for g in grants.listing(jobs)] == ["consumed"]
-    with pytest.raises(ValueError): grants.issue_removal(jobs, batch=identifier, sku="119002000072", minutes=30, actor="t")  # done, not review
+    item = removals.detail(identifier, "org", "owner")["items"][0]
+    if item["error"]:
+        raise ValueError(item["error"])
+    return item["restore"]
 
 
 def test_concurrent_change_after_dry_run_writes_nothing(jobs, settings):
@@ -380,18 +373,21 @@ def test_restore_puts_back_previous_links_for_each_mode(jobs, settings, mode):
     shop = Shop(); before = commercial(shop)
     removals, identifier, _ = dry(jobs, settings, shop, mode)
     execute(removals, identifier, jobs, settings, shop)
-    result = removal.restore_one(jobs, settings, identifier, "000123", actor="t", transport=httpx.MockTransport(shop.handle))
+    result = restore_via_queue(removals, identifier, jobs, settings, shop)
     assert result["status"] == "restored" and result["media_deletion"] is False
     p = shop.products["000123"]
     assert (p["featured"], p["gallery"], docs(shop)) == (11, [12, 13], DOCS) and commercial(shop) == before
-    assert removal.restore_one(jobs, settings, identifier, "000123", actor="t", transport=httpx.MockTransport(shop.handle))["reconciled"]
+    writes = len(shop.writes)
+    with pytest.raises(ValueError, match="restaurar"):
+        restore_via_queue(removals, identifier, jobs, settings, shop)
+    assert len(shop.writes) == writes
 
 
 def test_restore_of_gallery_without_main_does_not_leave_a_promoted_image(jobs, settings):
     shop = Shop({"000123": Shop.product(101, featured=0, gallery=[12, 13], docs=DOCS)})
     removals, identifier, _ = dry(jobs, settings, shop, "all")
     execute(removals, identifier, jobs, settings, shop)
-    removal.restore_one(jobs, settings, identifier, "000123", actor="t", transport=httpx.MockTransport(shop.handle))
+    restore_via_queue(removals, identifier, jobs, settings, shop)
     p = shop.products["000123"]
     assert (p["featured"], p["gallery"]) == (0, [12, 13])
 
@@ -402,7 +398,7 @@ def test_restore_refused_when_product_changed_after_removal(jobs, settings):
     execute(removals, identifier, jobs, settings, shop)
     shop.products["000123"]["gallery"] = [44]
     with pytest.raises(ValueError, match="difere"):
-        removal.restore_one(jobs, settings, identifier, "000123", actor="t", transport=httpx.MockTransport(shop.handle))
+        restore_via_queue(removals, identifier, jobs, settings, shop)
 
 
 # --- Lote: progresso, falhas, pausa, retomada e relatório -------------------------------------
@@ -431,12 +427,12 @@ def test_batch_continues_after_individual_failure_and_resumes_without_repeating(
 def test_pause_and_cancel_between_products(jobs, settings):
     shop = batch_shop()
     removals, identifier, _ = dry(jobs, settings, shop, "documents", ("001", "002", "003"))
-    removals.approve(identifier, "org", "owner"); removals.confirm(identifier, "org", "owner", settings)
+    removals.approve(identifier, "org", "owner"); removals.confirm(identifier, "org", "owner", settings, confirmed=True)
     assert removal.process_one(jobs, settings, httpx.MockTransport(shop.handle))  # first product only
     assert removals.pause(identifier, "org", "owner") == 2
     view = removals.detail(identifier, "org", "owner")
     assert [i["state"] for i in view["items"]] == ["done", "review", "review"] and all(i["approval"] for i in view["items"])
-    removals.confirm(identifier, "org", "owner", settings, ["002"])
+    removals.confirm(identifier, "org", "owner", settings, ["002"], confirmed=True)
     assert removals.cancel(identifier, "org", "owner") == 1
     drain(jobs, settings, shop)
     assert [i["state"] for i in removals.detail(identifier, "org", "owner")["items"]] == ["done", "cancelled", "review"]
@@ -446,7 +442,7 @@ def test_pause_and_cancel_between_products(jobs, settings):
 def test_worker_interruption_marks_uncertain_and_reconciles_by_read_back(jobs, settings):
     shop = Shop()
     removals, identifier, _ = dry(jobs, settings, shop, "gallery")
-    removals.approve(identifier, "org", "owner"); removals.confirm(identifier, "org", "owner", settings)
+    removals.approve(identifier, "org", "owner"); removals.confirm(identifier, "org", "owner", settings, confirmed=True)
     original = shop.handle
     def lose(request):
         response = original(request)
@@ -462,7 +458,7 @@ def test_report_csv_and_two_workers_claim_once(jobs, settings):
     removals, identifier, _ = dry(jobs, settings, shop, "main", ("001", "002"))
     report = removals.report(identifier, "org", "owner").decode("utf-8-sig")
     assert report.splitlines()[0].startswith("sku,modo,estado") and "001,Remover foto principal,review,101,11" in report
-    removals.approve(identifier, "org", "owner"); removals.confirm(identifier, "org", "owner", settings)
+    removals.approve(identifier, "org", "owner"); removals.confirm(identifier, "org", "owner", settings, confirmed=True)
     barrier, claims = threading.Barrier(4), []
     def worker():
         barrier.wait(); claims.append(removals.claim())
@@ -493,10 +489,10 @@ def test_api_flow_and_page(jobs, settings, monkeypatch):
     from app.services.security import hash_secret
     from app.db import get_db_session
     app = FastAPI(); app.include_router(router.router)
-    auth = SimpleNamespace(user=SimpleNamespace(role="gestor", id="owner", organization_id="org"), login_session=SimpleNamespace(csrf_hash=hash_secret("csrf")))
+    auth = SimpleNamespace(user=SimpleNamespace(role="gestor", id="owner", organization_id="org", active=True), login_session=SimpleNamespace(csrf_hash=hash_secret("csrf")))
     app.dependency_overrides[get_current_auth] = lambda: auth
-    app.dependency_overrides[get_db_session] = lambda: None  # homologation flow: no store permissions involved
-    monkeypatch.setattr(router.production, "summary", lambda db, user: {c: dict.fromkeys(("approve", "execute", "restore", "admin"), False)
+    app.dependency_overrides[get_db_session] = lambda: None  # identity is mocked in these low-level tests
+    monkeypatch.setattr(router.production, "summary", lambda db, user: {c: dict.fromkeys(("approve", "execute", "restore", "admin"), True)
                                                                          for c in ("choice", "sag", "portwell")})
     monkeypatch.setattr(router.production, "people", lambda db, org: {})
     monkeypatch.setattr(store_integrations, "StoreSettings", lambda: settings)
@@ -513,7 +509,7 @@ def test_api_flow_and_page(jobs, settings, monkeypatch):
         assert client.post(url + "/executar", json={"skus": None}, headers={"X-CSRF-Token": "csrf"}).status_code == 422  # not approved
         assert client.post(url + "/aprovar", json={"skus": ["000123"]}, headers={"X-CSRF-Token": "csrf"}).status_code == 200
         state = lambda body: next(i["state"] for i in body["items"] if i["sku"] == "000123")
-        assert state(client.post(url + "/executar", json={"skus": ["000123"]}, headers={"X-CSRF-Token": "csrf"}).json()) == "queued"
+        assert state(client.post(url + "/executar", json={"skus": ["000123"], "confirmacao": "EXECUTAR 1 CHOICE"}, headers={"X-CSRF-Token": "csrf"}).json()) == "queued"
         drain(jobs, settings, shop)
         assert state(client.get(url).json()) == "done" and shop.products["000123"]["gallery"] == []
         assert "Remover fotos da galeria" in client.get(url + "/relatorio").content.decode("utf-8-sig")

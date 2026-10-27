@@ -61,6 +61,15 @@ class WooClient:
             raise ValueError(f"SKU duplicado na loja: {sku}.")
         return exact[0] if exact else None
 
+    def upload_limit(self) -> int | None:
+        """Largest upload the store's WordPress/PHP accepts (wp_max_upload_size), read-only. None = not exposed."""
+        try:
+            status = self._get("system_status", _fields="environment")
+        except ValueError:
+            return None  # needs manage_woocommerce; absence is reported, never guessed
+        size = (status.get("environment") or {}).get("max_upload_size") if isinstance(status, dict) else None
+        return size if type(size) is int and size > 0 else None
+
     def categories(self) -> list[dict]:
         results = []
         for page in range(1, 51):

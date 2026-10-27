@@ -51,7 +51,7 @@
         <button type="button" class="button-primary" data-action="publicar">{{ ui.icon('shield') }}<span>Publicar aprovados</span></button>
         <button type="button" class="button-secondary" data-action="retomar">{{ ui.icon('refresh') }}<span>Retomar pendentes</span></button></div>
     </div>
-    <p class="prm-note">{{ ui.icon('info') }}<span>Sem seleção, a ação vale para todos os produtos aptos. Publicar só enfileira itens aprovados; a gravação nas lojas atuais continua bloqueada sem liberação de homologação específica.</span></p>
+    <p class="prm-note">{{ ui.icon('info') }}<span>Sem seleção, a ação vale para todos os produtos aptos. Publicar exige confirmação e só enfileira arquivos aprovados; o worker verifica cargo, organização e Dry Run antes do envio.</span></p>
     <div class="pub-filters">
       <div class="prm-field"><label for="pub-filter-stage">Etapa</label><select id="pub-filter-stage"><option value="">Todas</option><option value="1">Importação</option><option value="2">Processamento</option><option value="3">Revisão</option><option value="4">Aprovação</option><option value="5">Publicação</option><option value="6">Verificação</option></select></div>
       <div class="prm-field"><label for="pub-filter-issue">Situação</label><select id="pub-filter-issue"><option value="">Todas</option><option value="issues">Com erros ou pendências</option><option value="awaiting">Aguardando cadastro por CSV</option><option value="published">Publicados</option></select></div>
