@@ -1,8 +1,10 @@
 (() => {
   "use strict";
   const get = (id) => document.getElementById(id);
-  const status = get("cadastro-status");
-  const preview = get("cadastro-previa");
+  const value = (id) => get(id)?.value.trim() || "";
+  // O bloco "Cadastro automatizado" saiu da Digitalização: pacote, recuperação e mensagens usam a etapa 08.
+  const status = get("cadastro-status") || get("digitalizacao-pacote-status");
+  const preview = get("cadastro-previa") || document.createElement("pre");
   if (!status || !window.prmDigitalizacao) return;
   const lastRunKey = "prm:digitalizacao:lastRunId";
   let finalizedRun = null;
@@ -17,7 +19,7 @@
       throw new Error("Informe empresa, código CIGAM/SKU e nome técnico.");
     }
     let attributes = [];
-    const raw = get("cadastro-atributos").value.trim();
+    const raw = value("cadastro-atributos");
     if (raw) {
       attributes = JSON.parse(raw);
       if (!Array.isArray(attributes)) throw new Error("Atributos devem formar uma lista JSON.");
@@ -29,22 +31,22 @@
         if (item.campo && item.valor) specs[(section.secao || "Geral") + ": " + item.campo] = item.valor;
       });
     });
-    const parts = get("cadastro-categoria").value.split(">").map((item) => item.trim()).filter(Boolean);
+    const parts = value("cadastro-categoria").split(">").map((item) => item.trim()).filter(Boolean);
     return {
       company: source.company, cigam_code: source.sku, sku: source.sku,
       technical_name: source.technicalName,
-      commercial_title: get("cadastro-titulo").value.trim() || source.technicalName,
-      supplier: get("cadastro-fornecedor").value.trim() || null,
+      commercial_title: value("cadastro-titulo") || source.technicalName,
+      supplier: value("cadastro-fornecedor") || null,
       model: analysis.model || null,
       category_paths: parts.map((_, index) => parts.slice(0, index + 1).join(" > ")),
-      short_description: get("cadastro-descricao-curta").value.trim() || null,
-      full_description: get("cadastro-descricao").value.trim() || null,
+      short_description: value("cadastro-descricao-curta") || null,
+      full_description: value("cadastro-descricao") || null,
       features: Array.isArray(analysis.features) ? analysis.features : [],
       specifications: specs,
       benefits: (analysis.beneficios || []).map((item) => [item.titulo, item.descricao].filter(Boolean).join(": ")),
       applications: (analysis.aplicacoes || []).map((item) => [item.titulo, item.descricao].filter(Boolean).join(": ")),
       attributes,
-      validation_status: get("cadastro-aprovado").checked ? "approved" : "needs_review",
+      validation_status: get("cadastro-aprovado")?.checked ? "approved" : "needs_review",
       warnings: Array.isArray(analysis.alertas) ? analysis.alertas : [],
     };
   }
@@ -221,7 +223,7 @@
       setReady(record);
       preview.hidden = false;
       preview.textContent = JSON.stringify(record.manifest, null, 2);
-      notify("Pasta, manifesto e ZIP salvos e validados no servidor. Agora você pode baixar o pacote completo.");
+      notify("Pasta, manifesto e ZIP salvos e validados em " + record.folder_path + ". Versão " + record.package_version + ". Agora você pode baixar o pacote completo.");
     });
   }
   async function downloadPackage() {

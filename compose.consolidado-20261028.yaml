@@ -1,0 +1,10 @@
+# Deploy consolidado 28/10/2026: Fornecedores (arquivar/excluir), Planner central, follow-up automático, UX/UI fases 1–2.
+# Imagem = prm:ux-fases12-20261028 + app/, migrations/ e scripts/ do worktree. Exige a migração 20261027_0018.
+# Usar no lugar de compose.ux-fases12.yaml, depois de compose.fornecedores-ia.yaml. Muda somente api e worker-alerts.
+# Retorno: voltar a compose.ux-fases12.yaml (api) e prm:rollback-worker-alerts-20261028 (worker-alerts); a 0018 é aditiva
+# e compatível com o código anterior, então não precisa de downgrade.
+services:
+  api:
+    image: prm:consolidado-20261028
+  worker-alerts:
+    image: prm:consolidado-worker-20261028

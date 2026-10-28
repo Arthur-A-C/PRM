@@ -63,7 +63,7 @@ def serialize(activity, now=None, include_evidence=False):
             "end_at": activity.end_at.isoformat() if activity.end_at else None,
             "timezone": activity.timezone, "no_deadline_accepted": activity.no_deadline_accepted,
             "version": activity.version, "deadline": deadline(activity, now), "details": details,
-            "url": f"/cards?activity={activity.id}"}
+            "url": f"/planner?activity={activity.id}"}
 
 
 def audit(db, user, activity, action, reason, changes):
@@ -80,12 +80,14 @@ def sync_alerts(db, activity, now=None):
     active = (activity.approval == "published" and activity.status not in {"done", "cancelled"}
               and not activity.details.get("simulation") and assignee and assignee.active
               and assignee.organization_id == activity.organization_id)
+    # Follow-up automático de fornecedor: um único alerta por item (o do prazo; sem faixa de prazo, "atribuição").
+    kinds = [kind or "assigned"] if activity.details.get("automation") else ["assigned", kind]
     for alert in existing:
-        if not active or alert.deadline_version != activity.deadline_version or alert.recipient_id != activity.assignee_user_id or (alert.kind != kind and alert.kind != "assigned"):
+        if not active or alert.deadline_version != activity.deadline_version or alert.recipient_id != activity.assignee_user_id or alert.kind not in kinds:
             alert.resolved = True
     if not active:
         return
-    for alert_kind in ["assigned", kind]:
+    for alert_kind in kinds:
         match = next((a for a in existing if a.deadline_version == activity.deadline_version
                       and a.recipient_id == activity.assignee_user_id and a.kind == alert_kind), None)
         if alert_kind and match:
@@ -105,7 +107,7 @@ def edit_activity(db, user, activity, payload):
     changes = payload.model_dump(exclude_unset=True)
     allowed = {"status"} if not can_review(user, activity) else {
         "title", "description", "assignee_user_id", "due_date", "due_at", "end_at", "timezone",
-        "no_deadline_accepted", "status", "checklist"}
+        "no_deadline_accepted", "status", "checklist", "priority"}
     if set(changes) - allowed - {"version", "reason"}:
         raise HTTPException(403, "Sem permissão para editar esses campos")
     if "assignee_user_id" in changes and changes["assignee_user_id"]:
@@ -115,6 +117,9 @@ def edit_activity(db, user, activity, payload):
     for field in allowed & changes.keys():
         if field == "checklist":
             activity.details = {**activity.details, "checklist": changes[field], "edited_by_human": True}
+        elif field == "priority":
+            if changes[field]:
+                activity.details = {**activity.details, "priority": changes[field]}
         else:
             setattr(activity, field, changes[field])
     if activity.due_date and activity.due_at:
@@ -193,5 +198,5 @@ def export_cards(rows, fmt):
         return "'" + value if value.lstrip().startswith(("=", "+", "-", "@", "\t", "\r", "\n")) else value
     for a in rows:
         writer.writerow([safe(v) for v in [a.id, a.title, a.description, a.kind, a.approval, a.status,
-                                           a.assignee_user_id, a.due_date, a.due_at, a.timezone, f"/cards?activity={a.id}", timestamp]])
+                                           a.assignee_user_id, a.due_date, a.due_at, a.timezone, f"/planner?activity={a.id}", timestamp]])
     return output.getvalue().encode("utf-8-sig")

@@ -295,7 +295,7 @@ def test_planner_buckets_and_exclusions(world, app_settings, github):
     assert items[f"task:{t['progress']}"]["section"] == "planner_progress"
     for excluded in ("cancelled", "draft", "simulation", "old_done"):
         assert f"task:{t[excluded]}" not in items
-    assert items[f"task:{t['done']}"]["links"] == [{"label": "Card no PRM", "url": f"/cards?activity={t['done']}"}]
+    assert items[f"task:{t['done']}"]["links"] == [{"label": "Card no PRM", "url": f"/planner?activity={t['done']}"}]
 
 
 def test_planner_filter_limits_tasks(world, app_settings, github):

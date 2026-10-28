@@ -5,7 +5,7 @@
 # Chave/modelo: PRM_SUPPLIER_AI_* têm prioridade; sem eles, usa PRM_SUPPLIER_ANTHROPIC_* já definidos no .env.
 services:
   api:
-    image: prm:catalog-publication-supplier-ai-20261027c
+    image: prm:interface-dashboard-20261027
     networks: [isolated, ingress]
     environment:
       PRM_SUPPLIER_AI_API_KEY: ${PRM_SUPPLIER_AI_API_KEY:-${PRM_SUPPLIER_ANTHROPIC_API_KEY:-}}

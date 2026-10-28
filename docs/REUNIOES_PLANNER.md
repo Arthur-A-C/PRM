@@ -1,12 +1,48 @@
 # Reuniões, Cards, Alertas e Planner — implementação em staging
 
+## Planner como centro operacional (28/10/2026)
+
+**Navegação.** “Reuniões” e “Cards” saíram do menu. O Planner concentra tarefas, reuniões, cards e follow-ups de
+fornecedores em três visões: **Agenda**, **Revisão de cards** e **Reuniões e transcrições**. “Pauta semanal” virou
+subitem do Planner. As rotas antigas continuam válidas e redirecionam: `/cards` → `/planner?view=revisao`,
+`/cards?activity=ID` → `/planner?activity=ID`, `/reunioes` → `/planner?view=reunioes`,
+`/reunioes?meeting=ID&segment=S` → `/planner?meeting=ID&segment=S`. Templates, models e endpoints antigos foram mantidos.
+
+**Modelo (sem migração).**
+- Tarefa e card continuam sendo `Activity`. Tarefa criada no Planner entra **publicada** (exige prazo ou “sem prazo”
+  explícito; gera alertas). Card criado no Planner entra como **rascunho** e segue aprovação → publicação.
+- Reunião agendada = `Meeting` (assunto, data, fuso; `metadata_confirmed.schedule` com hora, duração, participantes,
+  local/link, observações e responsável; vínculo com fornecedor) + `MeetingRun` `stage=schedule` (já concluída, sem IA)
+  + `Activity` `kind=event` (`proposal_local_id=meeting-event`), que é o item visual na agenda. Reagendar
+  (`PATCH /api/v1/planner/meetings/{id}/schedule`) atualiza reunião e item juntos, com versão otimista e auditoria.
+  Confirmar metadados da reunião preserva o agendamento.
+- `Activity` exige reunião e execução de origem. Itens avulsos ficam ancorados em um registro “Planner · itens avulsos”
+  por organização (`metadata_confirmed.planner_container=true`, execução `planner-container`), criado sob demanda e
+  oculto da lista de reuniões. Recomendação futura: migração tornando `meeting_id`/`analysis_run_id` opcionais.
+- Follow-up continua em `SupplierTask` (e a próxima ação em `supplier.data`); a agenda só os lê, respeitando o escopo
+  de fornecedores do cargo (vendedor vê só os seus) e excluindo fornecedores arquivados.
+
+**Endpoints novos (mesmo prefixo, CSRF e escopo):** `POST /api/v1/planner/items` (task | card | meeting | followup),
+`GET /api/v1/planner/feed?start&end` (até 120 dias; inclui atrasados abertos e itens sem data),
+`GET /api/v1/planner/summary` (reuniões hoje, tarefas vencidas, cards para revisar, follow-ups vencidos/hoje),
+`PATCH /api/v1/planner/meetings/{id}/schedule`. `EditInput` aceita `priority` (gravada em `details`).
+
+**Fornecedor → Planner.** No drawer: “Agendar reunião” (mesmo `Meeting`, registrado no histórico como
+`meeting_scheduled`), “Criar tarefa”, “Definir próxima ação” e “Ver no Planner” (agenda filtrada pelo fornecedor).
+
+**Reunião → IA → Cards.** Pipeline inalterado. A transcrição pode ser enviada no detalhe da reunião (texto, TXT ou
+áudio); “Analisar com Claude” e a geração de cards seguem iguais; a revisão/publicação acontece na aba “Revisão de cards”.
+
+**Dashboard.** O calendário completo saiu do Dashboard; o bloco “Execução no Planner” mostra reuniões hoje, tarefas
+vencidas, cards para revisar e follow-ups, cada um abrindo o Planner já filtrado.
+
 ## Estado em 16/10/2026
 
 **Atualização posterior:** mock READ AI disponibilizado no dashboard oficial para gestores da organização, por arquivo privado e endpoint autenticado independente do banco. Servidor local reiniciado e rota confirmada; não houve migração oficial. Sete cards de demonstração são somente leitura, não tarefas publicadas; não entram em indicadores operacionais nem alertas. A visualização apresenta apenas o mock quando as tabelas operacionais não estão disponíveis. Datas 16/09 e 24/09 confirmadas, responsável interno pendente. Para reproduzir: `python -m scripts.publish_meeting_demo --transcript "C:/Users/PW/Downloads/Transcrição READ AI.txt"` (idempotente). Testes do módulo: 28 aprovados. Não confundir esta publicação visual com a homologação do pipeline completo abaixo.
 
 Implementação funcional inicial, **ainda não homologada integralmente conforme a especificação**. Código na pasta oficial `C:\Users\PW\Documents\PRM`. Migração aditiva `20261016_0009` aplicada somente em `prm_pipeline_staging`; `prm_mvp` e catálogos publicados não foram alterados. Nenhum serviço existente foi reiniciado, nenhum push/deploy foi realizado.
 
-As páginas existentes mantêm seus templates, tokens, logos e estilos. As novas seções usam CSS com escopo `meeting-module`. Cards e Meus alertas substituem seus placeholders; Reuniões e Planner entram na navegação; o calendário aparece como seção adicional da Visão geral. Não houve revisão visual automatizada em navegador nesta etapa.
+As páginas existentes mantêm seus templates, tokens, logos e estilos. As novas seções usam CSS com escopo `meeting-module`. Cards e Meus alertas substituem seus placeholders; Reuniões e Planner entram na navegação; o calendário aparece como seção adicional do Dashboard. Não houve revisão visual automatizada em navegador nesta etapa.
 
 ## O que funciona
 

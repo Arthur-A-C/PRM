@@ -92,11 +92,15 @@ def test_navigation_and_seller_redirect(accounts):
     client,db,auth=accounts;auth.user.role='vendedor'
     response=client.get('/',follow_redirects=False)
     assert response.status_code==303 and response.headers['location']=='/catalogos'
+    # Cards e Reuniões saíram da navegação; os links antigos abrem o Planner.
+    redirect=client.get('/cards?activity=abc',follow_redirects=False)
+    assert redirect.status_code==303 and redirect.headers['location']=='/planner?activity=abc'
+    assert client.get('/reunioes',follow_redirects=False).headers['location']=='/planner?view=reunioes'
     response=client.get('/cards')
     assert response.status_code==200
-    for href in ('href="/digitalizacao"','href="/importacoes"','href="/gestao"','href="/integracoes-woocommerce"'):
+    for href in ('href="/digitalizacao"','href="/importacoes"','href="/gestao"','href="/integracoes-woocommerce"','href="/reunioes"','href="/cards"'):
         assert href not in response.text
-    assert 'href="/reunioes"' in response.text and 'href="/catalogos"' in response.text
+    assert 'href="/planner"' in response.text and 'href="/catalogos"' in response.text and 'data-planner-hub' in response.text
     assert client.get('/catalogos?internal=1').status_code==403
 
 

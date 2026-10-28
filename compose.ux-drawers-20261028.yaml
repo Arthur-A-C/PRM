@@ -1,0 +1,8 @@
+# Deploy somente da API 28/10/2026: diálogos em painel lateral e confirmações compactas (JS, CSS e templates).
+# Imagem = prm:consolidado-20261028 + app/ do worktree; migrations/ e scripts/ idênticos. Sem migração.
+# Usar depois de compose.consolidado-20261028.yaml. Muda somente a api; worker-alerts e demais serviços seguem iguais.
+# Retorno: retirar este arquivo da lista (api volta a prm:consolidado-20261028, preservada também como
+# prm:rollback-api-ux-drawers-20261028) e recriar só a api.
+services:
+  api:
+    image: prm:ux-drawers-20261028

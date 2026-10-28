@@ -283,12 +283,12 @@ def build_items(sources, planner, monday, now, people=None):
         if task["completed_at"]: detail.append(f"concluída em {fmt_day(task['completed_at'])}")
         if task["changes"]: detail.append(f"{task['changes']} alteração(ões) na semana")
         items.append(_item(f"task:{task['id']}", section, status, task["title"], f"{task['title']} — " + "; ".join(detail) + ".",
-                           people=[task["assignee"]], links=[_link("Card no PRM", f"/cards?activity={task['id']}")],
+                           people=[task["assignee"]], links=[_link("Card no PRM", f"/planner?activity={task['id']}")],
                            origin="planner", evidence=f"Planner · {task['meeting']}"))
         if task["bucket"] == "blocked":
             items.append(_item(f"decision:task:{task['id']}", "decisions", "decision", f"Desbloquear: {task['title']}",
                                f"Definir como desbloquear “{task['title']}” ({'aguardando parceiro' if task['status'] == 'waiting_external' else 'bloqueada'}).",
-                               people=[task["assignee"]], links=[_link("Card no PRM", f"/cards?activity={task['id']}")], origin="planner",
+                               people=[task["assignee"]], links=[_link("Card no PRM", f"/planner?activity={task['id']}")], origin="planner",
                                evidence="Planner"))
     return items
 

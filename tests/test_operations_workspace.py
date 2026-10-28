@@ -18,7 +18,7 @@ class Elements(HTMLParser):
         self.nodes.append((tag, dict(attrs)))
 
 
-def render(title="Visão geral", published=True):
+def render(title="Dashboard", published=True):
     counts = {code: dict(received=0, accepted=0, public_catalog=0, with_attributes=0,
                         unknown_family=0, conflicting_attributes=0)
               for code in ["portwell", "choice", "eco", "dimensional"]}
@@ -27,13 +27,13 @@ def render(title="Visão geral", published=True):
     env = Environment(loader=FileSystemLoader("app/templates"), autoescape=select_autoescape(["html"]))
     return env.get_template("shell.html").render(
         title=title, user={"name": "<script>unsafe</script>", "role": "gestor"},
-        nav_items=[("Visão geral", "/"), ("Digitalização", "/digitalizacao")], active_path="/",
+        nav_items=[("Dashboard", "/"), ("Digitalização", "/digitalizacao")], active_path="/",
         refined_analysis=manifest if published else None, current_analysis=summarize_current(manifest if published else None),
         url_for=lambda endpoint, path: "/static" + path, csrf_token="test-token",
     )
 
 
-@pytest.mark.parametrize("title,initial", [("Visão geral", "overview"), ("Comparador", "attributes"),
+@pytest.mark.parametrize("title,initial", [("Dashboard", "overview"), ("Comparador", "attributes"),
                                           ("Importações e qualidade", "quality")])
 def test_workspace_tabs_and_snapshot_data(title, initial):
     html = render(title)
@@ -62,7 +62,7 @@ def test_workspace_tabs_and_snapshot_data(title, initial):
 
 
 def test_no_snapshot_keeps_activity_map_but_never_renders_catalog_data():
-    # Visão geral: digitalization activity (heatmap, feed) does not depend on a catalog snapshot.
+    # Dashboard: digitalization activity (heatmap, feed) does not depend on a catalog snapshot.
     html = render(published=False)
     assert 'data-operations' in html and 'data-cc-heatmap' in html and 'data-cc-feed' in html
     assert 'Base de catálogo não publicada' in html and 'data-catalog-unpublished' in html
@@ -117,7 +117,7 @@ def test_registration_api_page_controls_and_scoped_assets():
     assert "/js/store-registration.js" not in render("Digitalização")
 
 
-@pytest.mark.parametrize('title',['Visão geral','Planner','Reuniões','Digitalização'])
+@pytest.mark.parametrize('title',['Dashboard','Planner','Reuniões','Digitalização'])
 def test_cards_redesign_not_loaded_on_other_pages(title):
     html = render(title)
     assert '/css/cards-page.css' not in html
@@ -133,12 +133,22 @@ def test_digitalization_keeps_workflow_ids_scripts_and_inspector_target():
     for identifier in ["digitalizacao-empresa", "digitalizacao-codigo", "digitalizacao-produto",
                        "digitalizacao-imagens", "digitalizacao-analisar", "digitalizacao-review",
                        "digitalizacao-gerar-datasheet", "digitalizacao-aprovar", "digitalizacao-gerar",
-                       "digitalizacao-baixar-pacote", "cadastro-automatizado", "cadastro-woo-previa",
+                       "digitalizacao-baixar-pacote", "digitalizacao-pacote-status", "digitalizacao-recuperar",
                        "context-product-name", "digitalizacao-image-dialog", "workspace-product-context"]:
         assert identifier in ids
+    assert "Cadastro automatizado" not in html and not any(i.startswith("cadastro-") for i in ids)
+    assert "#cadastro-automatizado" not in html
     inspector = next(attrs for _, attrs in nodes if "data-workspace-inspector" in attrs)
     assert inspector["aria-controls"] in ids and inspector["aria-expanded"] == "true"
     scripts = [attrs["src"] for tag, attrs in nodes if tag == "script" and "src" in attrs]
     assert [src.split("?")[0] for src in scripts] == ["/static/js/" + name + ".js" for name in
                                                        ["ui", "workspace", "digitalizacao", "registration"]]
     assert 'name="csrf_token" value="test-token"' in html
+
+
+def test_home_is_labelled_dashboard_in_menu_title_and_breadcrumb():
+    from app.routers.pages import NAV_ITEMS
+    assert ("Dashboard", "/") in NAV_ITEMS and all(label != "Visão geral" for label, _ in NAV_ITEMS)
+    html = render("Dashboard")
+    assert "<title>Dashboard · PRM</title>" in html and "<h1>Dashboard</h1>" in html
+    assert '<span aria-current="page">Dashboard</span>' in html and "Visão geral" not in html

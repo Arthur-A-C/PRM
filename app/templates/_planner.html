@@ -1,13 +1,121 @@
-<section class="meeting-module cc-panel" data-planner>
-  <header class="cc-panel-head"><div><p class="cc-kicker">Agenda de compromissos</p><h2>Planner · timeline de atividades</h2></div><a class="cc-btn" href="/reunioes">Nova reunião</a></header>
-  <p class="cc-caption">Tarefas na data do prazo e reuniões no início confirmado. Fuso: <strong>America/Sao_Paulo</strong>. Rascunhos sem data permanecem fora da grade.</p>
-  <form class="mt-filters" data-planner-filters><label>Responsável interno<select name="assignee" data-mt-users><option value="">Todos autorizados</option></select></label><label>Parceiro<input name="partner" placeholder="Nome exato"></label><label>Status<select name="status"><option value="">Todos</option><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="waiting_external">Aguardando parceiro</option><option value="blocked">Bloqueada</option><option value="done">Concluída</option><option value="cancelled">Cancelada</option></select></label><label class="mt-check"><input type="checkbox" name="mine"> Minhas atividades</label><button class="cc-btn" type="submit">Aplicar</button></form>
-  <div class="mt-deadlines" data-deadline-bands aria-label="Prazos das atividades"></div>
-  <label class="mt-check"><input type="checkbox" data-show-proposals> Mostrar propostas datadas na agenda (não entram nos indicadores nem geram alertas)</label>
-  <p class="cc-caption" data-deadline-scope></p>
-  <details><summary>Histograma · intervalos até o prazo</summary><div class="mt-histogram" data-deadline-histogram></div><p class="cc-caption">Intervalos categóricos, não escala linear. Clique para filtrar a agenda. Tarefas abertas publicadas; sem prazo e rascunhos não entram no denominador.</p></details>
-  <div class="mt-calendar-nav"><button type="button" class="cc-btn" data-month-step="-1" aria-label="Mês anterior">←</button><button type="button" class="cc-btn" data-month-today>Hoje</button><label>Mês<input type="month" data-month></label><button type="button" class="cc-btn" data-month-step="1" aria-label="Próximo mês">→</button><button type="button" class="cc-btn" data-clear-band>Limpar faixa</button><span data-calendar-scope class="cc-caption"></span></div>
-  <div class="mt-calendar" data-calendar aria-label="Calendário mensal"></div>
-  <details open><summary>Sem prazo / Sem data confirmada</summary><div data-undated class="mt-card-list"></div></details>
-  <p role="status" data-planner-message></p>
-</section>
+{# Planner — centro operacional: tarefas, reuniões, cards e follow-ups de fornecedores numa só agenda.
+   planner.js monta a agenda (/api/v1/planner/feed) e a criação direta; meetings.js continua cuidando da revisão de
+   cards (data-cards-*), das reuniões/transcrições (data-meeting-*) e do detalhe de atividade (#activity-dialog). #}
+{% set manager = user.role in ['gestor', 'desenvolvedor'] %}
+<div class="pl" data-planner-hub>
+  <div class="pl-head">
+    <div class="pl-tabs" role="tablist" aria-label="Visões do Planner">
+      <button type="button" role="tab" id="pl-tab-agenda" aria-controls="pl-agenda" aria-selected="true" data-pl-view="agenda">Agenda</button>
+      <button type="button" role="tab" id="pl-tab-revisao" aria-controls="pl-revisao" aria-selected="false" tabindex="-1" data-pl-view="revisao">Revisão de cards <b class="pl-count" data-pl-review-count hidden></b></button>
+      <button type="button" role="tab" id="pl-tab-reunioes" aria-controls="pl-reunioes" aria-selected="false" tabindex="-1" data-pl-view="reunioes">Reuniões e transcrições</button>
+    </div>
+    <div class="pl-head-actions">
+      {% if manager %}<a class="cc-btn" href="/reunioes/pauta-semanal">Pauta semanal</a>{% endif %}
+      <a class="cc-btn" href="/alertas">Meus alertas <b class="pl-count is-alert" data-pl-alert-count hidden></b></a>
+      <details class="pl-new">
+        <summary class="cc-btn cc-btn-primary">+ Novo item</summary>
+        <div class="pl-new-menu" role="menu" aria-label="Criar no Planner">
+          <button type="button" role="menuitem" data-pl-new="task"><span class="pl-type-dot is-task" aria-hidden="true"></span><span><strong>Tarefa</strong><small>Entra direto na agenda</small></span></button>
+          <button type="button" role="menuitem" data-pl-new="meeting"><span class="pl-type-dot is-meeting" aria-hidden="true"></span><span><strong>Reunião</strong><small>Data, hora, participantes e local</small></span></button>
+          <button type="button" role="menuitem" data-pl-new="card"><span class="pl-type-dot is-card" aria-hidden="true"></span><span><strong>Card</strong><small>Passa por revisão antes de publicar</small></span></button>
+          <button type="button" role="menuitem" data-pl-new="followup"><span class="pl-type-dot is-followup" aria-hidden="true"></span><span><strong>Follow-up</strong><small>Tarefa ligada a um fornecedor</small></span></button>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <section id="pl-agenda" role="tabpanel" aria-labelledby="pl-tab-agenda" data-pl-pane="agenda" class="pl-pane">
+    <div class="pl-types" role="group" aria-label="Tipo de item">
+      {% for key, label in [('all', 'Todos'), ('task', 'Tarefas'), ('meeting', 'Reuniões'), ('card', 'Cards'), ('followup', 'Follow-ups')] %}
+      <button type="button" data-pl-type="{{ key }}" aria-pressed="{{ 'true' if key == 'all' else 'false' }}">{% if key != 'all' %}<span class="pl-type-dot is-{{ key }}" aria-hidden="true"></span>{% endif %}{{ label }} <b data-pl-type-count="{{ key }}">—</b></button>
+      {% endfor %}
+    </div>
+    <form class="pl-filters" data-pl-filters>
+      <label>Responsável<select name="assignee" data-mt-users><option value="">Todos</option></select></label>
+      <label>Status<select name="status"><option value="open" selected>Em aberto</option><option value="">Todos</option><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="waiting_external">Aguardando parceiro</option><option value="blocked">Bloqueada</option><option value="done">Concluída</option><option value="cancelled">Cancelada</option></select></label>
+      <label>Prioridade<select name="priority"><option value="">Todas</option><option value="alta">Alta</option><option value="normal">Normal</option><option value="baixa">Baixa</option></select></label>
+      <label>Fornecedor<select name="supplier" data-pl-suppliers><option value="">Todos</option></select></label>
+      <label>Período<select name="period"><option value="today">Hoje</option><option value="week">Próximos 7 dias</option><option value="month" selected>Mês</option></select></label>
+      <label class="pl-month-field" data-pl-month-field>Mês<input type="month" name="month"></label>
+      <label class="mt-check"><input type="checkbox" name="proposals"> Incluir cards em revisão</label>
+    </form>
+    <div class="pl-bar">
+      <div class="pl-summary" data-pl-summary aria-live="polite"></div>
+      <div class="pl-layout" role="group" aria-label="Navegação e exibição">
+        <button type="button" class="cc-btn" data-pl-month-step="-1" aria-label="Mês anterior">←</button>
+        <button type="button" class="cc-btn" data-pl-month-today>Hoje</button>
+        <button type="button" class="cc-btn" data-pl-month-step="1" aria-label="Próximo mês">→</button>
+        <span class="pl-layout-sep" aria-hidden="true"></span>
+        <button type="button" class="cc-btn" data-pl-layout="list" aria-pressed="true">Lista</button>
+        <button type="button" class="cc-btn" data-pl-layout="calendar" aria-pressed="false">Calendário</button>
+      </div>
+    </div>
+    <div class="pl-list" data-pl-list aria-live="polite"><div class="prm-loading">Carregando agenda…</div></div>
+    <div class="mt-calendar pl-calendar" data-pl-calendar aria-label="Calendário mensal" hidden></div>
+    <p class="pl-message" role="status" data-planner-message></p>
+    <details class="pl-indicators"><summary>Indicadores de prazo das tarefas publicadas</summary><div class="mt-deadlines" data-pl-bands></div><p class="cc-caption" data-pl-bands-scope></p></details>
+  </section>
+
+  <section id="pl-revisao" role="tabpanel" aria-labelledby="pl-tab-revisao" data-pl-pane="revisao" class="pl-pane cards-workspace pl-review" hidden>
+    <p class="cc-caption">Cards sugeridos pela análise das reuniões e cards criados no Planner. Aprove, atribua e publique: só cards publicados entram na agenda e geram alertas.</p>
+    <form data-cards-filters class="mt-filters"><label>Publicação<select name="approval"><option value="">Todos autorizados</option><option value="draft" selected>Rascunhos</option><option value="approved">Aprovados</option><option value="published">Publicados</option><option value="rejected">Rejeitados</option></select></label><label>Responsável<select name="assignee" data-mt-users><option value="">Todos</option></select></label><label>Status<select name="status"><option value="">Todos</option><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="waiting_external">Aguardando parceiro</option><option value="blocked">Bloqueada</option><option value="done">Concluída</option><option value="cancelled">Cancelada</option></select></label><label>Parceiro<input name="partner"></label><label>Responsável externo<input name="owner" placeholder="Nome exato da transcrição"></label><label>Oportunidade<input name="opportunity"></label><label class="mt-check"><input type="checkbox" name="mine"> Minhas atividades</label><button type="submit" class="cc-btn">Filtrar</button></form>
+    <div class="mt-toolbar mt-bulkbar" role="toolbar" aria-label="Ações para os cards selecionados">
+      <span class="mt-bulk-label">Com a seleção</span>
+      <div class="mt-bulk-group"><button type="button" class="cc-btn" data-review-selected="approved">Aprovar selecionados</button><button type="button" class="cc-btn" data-review-selected="rejected">Rejeitar selecionados</button><button type="button" class="cc-btn" data-review-selected="draft">Devolver seleção à revisão</button></div>
+      <div class="mt-bulk-group"><label>Atribuição em lote<select data-batch-assignee data-mt-users><option value="">Responsável pendente</option></select></label><button type="button" class="cc-btn" data-assign-selected>Atribuir selecionados</button></div>
+      <div class="mt-bulk-group"><button type="button" class="cc-btn" data-publish-selected>Publicar aprovados selecionados</button></div>
+      <details class="mt-bulk-more"><summary>Exportar</summary><div><button type="button" class="cc-btn" data-export="json">Exportar seleção JSON</button><button type="button" class="cc-btn" data-export="csv">Exportar seleção CSV</button><button type="button" class="cc-btn" data-print>Imprimir seleção / PDF</button></div></details>
+    </div>
+    <p data-cards-message role="status"></p><div data-cards-list class="mt-card-list"></div><div class="mt-toolbar"><button type="button" class="cc-btn" data-cards-prev>Anterior</button><span data-cards-count></span><button type="button" class="cc-btn" data-cards-next>Próxima</button></div>
+  </section>
+
+  <section id="pl-reunioes" role="tabpanel" aria-labelledby="pl-tab-reunioes" data-pl-pane="reunioes" class="pl-pane" hidden>
+    <section class="cc-panel"><header class="cc-panel-head"><div><p class="cc-kicker">Transcrição → análise → cards</p><h2>Importar reunião realizada</h2></div></header>
+      <ol class="prm-steps mt-pipeline" aria-label="Como uma reunião vira card"><li>Reunião</li><li>Transcrição</li><li>Análise</li><li>Cards</li><li>Publicação</li></ol>
+      <p class="cc-caption">Para agendar uma reunião futura use “+ Novo item → Reunião”. Aqui você envia a transcrição de uma reunião que já aconteceu. Áudio é transcrito localmente; o texto só vai à API configurada após consentimento. Os cards sugeridos aparecem em “Revisão de cards”.</p>
+      <form data-meeting-create class="mt-form"><label>Título<input name="title" required minlength="3" maxlength="240"></label><label>Parceiro<input name="partner" maxlength="240"></label><label>Oportunidade<input name="opportunity" maxlength="240"></label><label>Data conhecida da reunião<input type="date" name="meeting_date"><small>Deixe vazio se desconhecida.</small></label><label>Fuso<input name="timezone" value="America/Sao_Paulo" required></label><label class="mt-wide">Colar transcrição<textarea name="text" rows="6" placeholder="Ou envie TXT/áudio abaixo"></textarea></label><label>TXT UTF-8<input name="txt" type="file" accept=".txt,text/plain"></label><label>Áudio<input name="audio" type="file" accept=".wav,.mp3,.m4a,.flac,.ogg,.opus,.webm"></label><button type="submit" class="cc-btn cc-btn-primary">Criar reunião privada</button></form>
+      <p role="status" data-meeting-message></p>
+    </section>
+    <section class="cc-panel"><h3>Reuniões autorizadas</h3><div data-meetings-list class="mt-card-list"></div><button type="button" class="cc-btn" data-meetings-more hidden>Mais reuniões</button></section>
+  </section>
+
+  <button type="button" class="pl-backdrop" data-pl-backdrop aria-label="Fechar detalhe" hidden></button>
+  <aside class="pl-drawer" data-pl-drawer role="dialog" aria-modal="true" aria-labelledby="pl-drawer-title" tabindex="-1" hidden>
+    <header class="pl-drawer-head"><div><p class="cc-kicker" data-pl-drawer-kind></p><h2 id="pl-drawer-title" data-pl-drawer-title></h2></div><button type="button" class="cc-btn" data-pl-drawer-close>Fechar</button></header>
+    <div class="pl-drawer-body" data-pl-drawer-body></div>
+    <section class="pl-meeting-detail" data-meeting-detail hidden></section>
+  </aside>
+
+  {# Criação direta em painel lateral (.prm-sheet): mesmo padrão do drawer de fornecedores. #}
+  <dialog class="prm-sheet pl-create" id="pl-create" aria-labelledby="pl-create-title">
+    <form class="prm-sheet-frame" data-pl-create-form novalidate>
+      <header class="prm-sheet-head"><div><p class="prm-sheet-kicker">Planner · novo item</p><h2 id="pl-create-title" data-pl-create-title>Nova tarefa</h2><p class="prm-sheet-sub" data-pl-type-hint></p></div><button type="button" class="prm-sheet-close" data-sheet-close aria-label="Fechar">×</button></header>
+      <div class="prm-sheet-body">
+        <fieldset class="pl-type-picker"><legend>Tipo</legend>
+          {% for key, label in [('task', 'Tarefa'), ('meeting', 'Reunião'), ('card', 'Card'), ('followup', 'Follow-up')] %}
+          <label><input type="radio" name="type" value="{{ key }}"{% if loop.first %} checked{% endif %}><span><span class="pl-type-dot is-{{ key }}" aria-hidden="true"></span>{{ label }}</span></label>
+          {% endfor %}
+        </fieldset>
+        <section class="prm-sheet-section"><h3>O quê</h3><div class="pl-create-grid">
+          <label class="pl-wide"><span data-pl-title-label>Título</span><input name="title" required minlength="3" maxlength="240"></label>
+          <label class="pl-wide"><span data-pl-notes-label>Descrição</span><textarea name="description" rows="3" maxlength="10000"></textarea></label>
+        </div></section>
+        <section class="prm-sheet-section"><h3>Quando</h3><div class="pl-create-grid">
+          <label>Data<input type="date" name="date"></label>
+          <label>Hora <small>opcional</small><input type="time" name="time"></label>
+          <label data-pl-only="meeting">Duração<select name="duration_minutes"><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60" selected>1 hora</option><option value="90">1h30</option><option value="120">2 horas</option><option value="180">3 horas</option></select></label>
+          <label class="mt-check pl-wide" data-pl-only="task"><input type="checkbox" name="no_deadline_accepted"> Sem prazo (aceito explicitamente)</label>
+        </div></section>
+        <section class="prm-sheet-section"><h3>Quem e onde</h3><div class="pl-create-grid">
+          <label>Responsável<select name="assignee_user_id" data-mt-users data-pl-assignee><option value="">Eu</option></select></label>
+          <label>Prioridade<select name="priority"><option value="normal" selected>Normal</option><option value="alta">Alta</option><option value="baixa">Baixa</option></select></label>
+          <label class="pl-wide"><span data-pl-supplier-label>Fornecedor <small>opcional</small></span><select name="supplier_id" data-pl-suppliers><option value="">Nenhum</option></select></label>
+          <label class="pl-wide" data-pl-only="meeting">Participantes <small>um por linha</small><textarea name="participants" rows="2" placeholder="Nome ou e-mail"></textarea></label>
+          <label class="pl-wide" data-pl-only="meeting">Local ou link<input name="location" maxlength="500" placeholder="Sala, endereço ou link da chamada"></label>
+        </div></section>
+        <p class="prm-sheet-error" role="alert" data-pl-create-error></p>
+      </div>
+      <footer class="prm-sheet-foot"><button type="button" class="cc-btn" data-pl-create-close>Cancelar</button><button type="submit" class="cc-btn cc-btn-primary" data-pl-create-submit>Criar tarefa</button></footer>
+    </form>
+  </dialog>
+</div>

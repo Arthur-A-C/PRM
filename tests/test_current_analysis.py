@@ -50,7 +50,7 @@ def test_dashboard_api_returns_only_published_snapshot(monkeypatch):
     assert result["run_id"] == "f" * 24 and "offers" not in result
 
 
-@pytest.mark.parametrize("title", ["Visão geral", "Comparador", "Importações e qualidade"])
+@pytest.mark.parametrize("title", ["Dashboard", "Comparador", "Importações e qualidade"])
 def test_analysis_pages_render_only_current_data_even_with_stale_context(title):
     current = manifest()
     html = templates.get_template("shell.html").render(

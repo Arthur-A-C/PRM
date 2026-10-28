@@ -28,7 +28,8 @@
   function edit(title,hint,text,save){
     $("wa-dialog-title").textContent=title;$("wa-dialog-hint").textContent=hint||"";$("wa-dialog-text").value=text||"";dialogSave=save;$("wa-dialog").showModal();$("wa-dialog-text").focus();
   }
-  $("wa-dialog-cancel").addEventListener("click",()=>$("wa-dialog").close());
+  $("wa-dialog-cancel").addEventListener("click",()=>window.PRM?.sheet?window.PRM.sheet.requestClose($("wa-dialog")):$("wa-dialog").close());
+  const confirmBox=o=>window.PRM?.sheet?window.PRM.sheet.confirm(o):Promise.resolve(confirm([o.title,o.text].filter(Boolean).join("\n\n")));
   $("wa-dialog").querySelector("form").addEventListener("submit",e=>{e.preventDefault();const text=$("wa-dialog-text").value;$("wa-dialog").close();if(dialogSave)guard(()=>dialogSave(text));});
 
   // --- Pauta -------------------------------------------------------------------------------------
@@ -98,7 +99,7 @@
         const b=el("button","Editar","button-secondary");b.type="button";
         b.addEventListener("click",()=>edit("Editar anotação","",m.text,async text=>{agenda=await send(`${api}/pautas/${agenda.id}/anotacoes/${m.id}`,{version:agenda.version,text},"PATCH");render();}));
         const r=el("button","Remover","button-secondary");r.type="button";
-        r.addEventListener("click",()=>{if(confirm("Remover esta anotação? A remoção fica no histórico."))guard(async()=>{agenda=await request(`${api}/pautas/${agenda.id}/anotacoes/${m.id}?version=${agenda.version}`,{method:"DELETE",headers:{"X-CSRF-Token":csrf()}});render();});});
+        r.addEventListener("click",async()=>{if(await confirmBox({title:"Remover anotação",kicker:"Pauta semanal",text:"A anotação sai da pauta; a remoção fica registrada no histórico.",confirm:"Remover",danger:true}))guard(async()=>{agenda=await request(`${api}/pautas/${agenda.id}/anotacoes/${m.id}?version=${agenda.version}`,{method:"DELETE",headers:{"X-CSRF-Token":csrf()}});render();});});
         box.append(b,r);
       }
       host.append(box);
@@ -124,8 +125,9 @@
     agenda=await send(`${api}/pautas/${agenda.id}/anotacoes`,{version:agenda.version,kind:$("wa-manual-kind").value,text:$("wa-manual-text").value});
     $("wa-manual-text").value="";render();message("Anotação adicionada.");});});
   const questions={aprovar:"Aprovar a pauta? Edições exigirão reabrir.",reabrir:"Reabrir a pauta para edição?",arquivar:"Arquivar a pauta? Ela fica no histórico, somente leitura.",desarquivar:"Desarquivar a pauta (volta para rascunho)?"};
-  root.querySelectorAll("[data-transition]").forEach(b=>b.addEventListener("click",()=>{const action=b.dataset.transition;
-    if(agenda&&confirm(questions[action]))guard(async()=>{agenda=await send(`${api}/pautas/${agenda.id}/${action}`,{version:agenda.version});render();history();message(`Pauta: ${agenda.status_label.toLowerCase()}.`);});}));
+  const transitionLabels={aprovar:"Aprovar",reabrir:"Reabrir",arquivar:"Arquivar",desarquivar:"Desarquivar"};
+  root.querySelectorAll("[data-transition]").forEach(b=>b.addEventListener("click",async()=>{const action=b.dataset.transition;
+    if(agenda&&await confirmBox({title:`${transitionLabels[action]} pauta`,kicker:"Pauta semanal",text:questions[action],confirm:transitionLabels[action]}))guard(async()=>{agenda=await send(`${api}/pautas/${agenda.id}/${action}`,{version:agenda.version});render();history();message(`Pauta: ${agenda.status_label.toLowerCase()}.`);});}));
 
   async function open(date){
     const rows=(await request(`${api}/pautas?page=1`)).items;
@@ -136,10 +138,10 @@
   }
   function mondayOf(value){const d=new Date(value+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return d.toISOString().slice(0,10);}
   $("wa-open").addEventListener("click",()=>guard(()=>open($("wa-week").value)));
-  $("wa-week-form").addEventListener("submit",e=>{e.preventDefault();
+  $("wa-week-form").addEventListener("submit",async e=>{e.preventDefault();
     const monday=mondayOf($("wa-week").value),same=agenda&&agenda.week_start===monday;
     if(same&&agenda.status==="archived"){message("Pauta arquivada: desarquive antes de gerar novamente.");return;}
-    if(same&&agenda.status==="approved"&&!confirm("A pauta está aprovada. Gerar novamente a devolve para rascunho (edições humanas são preservadas). Continuar?"))return;
+    if(same&&agenda.status==="approved"&&!await confirmBox({title:"Gerar pauta novamente",kicker:"Pauta semanal",text:"A pauta está aprovada. Gerar novamente a devolve para rascunho.",warnings:["Edições humanas são preservadas."],confirm:"Gerar novamente"}))return;
     guard(async()=>{$("wa-generate").classList.add("is-busy");message("Coletando GitHub e Planner…");
       try{agenda=await send(`${api}/pautas`,{semana:$("wa-week").value,version:same?agenda.version:null});render();history();
         message(agenda.generation.github_error?"Pauta gerada com o Planner; o GitHub não respondeu (veja o aviso).":"Pauta atualizada. Edições humanas foram preservadas.");}

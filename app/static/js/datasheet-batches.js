@@ -119,8 +119,13 @@
     } catch (e) { message(e.message); }
     finally { busy = false; button.disabled = false; if (selected) request(`${api}/${selected}`).then(render).catch(e=>message(e.message)); }
   });
+  const confirmBox=o=>typeof window!=="undefined"&&window.PRM?.sheet?window.PRM.sheet.confirm(o):Promise.resolve(confirm([o.title,o.text].filter(Boolean).join("\n\n")));
   async function queue(action) {
-    if (busy || !selected || !confirm("Esta ação usa a API de IA configurada e pode gerar custos. Continuar?")) return;
+    if (busy || !selected) return;
+    if (!await confirmBox({title: action === "iniciar" ? "Iniciar produtos válidos" : "Reprocessar falhas", kicker: "Geração em lote",
+      details: [["Lote", selected]], warnings: ["Usa a API de IA configurada e pode gerar custos.", "PDFs com avisos exigem revisão humana; nada é publicado automaticamente."],
+      confirm: action === "iniciar" ? "Iniciar geração" : "Reprocessar"})) return;
+    if (busy) return;
     busy = true; $("batch-start").disabled = $("batch-retry").disabled = true;
     try { const data = await request(`${api}/${selected}/${action}`,{method:"POST",headers:headers()}); busy=false; render(data); await loadHistory(); }
     catch(e) { message(e.message); } finally { busy=false; }

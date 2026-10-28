@@ -1,5 +1,11 @@
-{# Abas do módulo Digitalização: mesma navegação em todas as telas do fluxo (somente gestor/desenvolvedor). #}
-{% set dz_tabs = [('Nova digitalização', '/digitalizacao', 'scan'), ('Resolução de imagens', '/digitalizacao/resolucao-imagens', 'image'), ('Cadastro via API', '/digitalizacao/cadastro-api', 'store'), ('Remoção de arquivos', '/digitalizacao/remocao-arquivos', 'trash'), ('Geração em lote', '/digitalizacao/lotes', 'layers'), ('Publicação em lote', '/digitalizacao/publicacao-lote', 'package')] %}
-<nav class="prm-tabs" aria-label="Telas da Digitalização">
-  {% for label, href, icon in dz_tabs %}<a href="{{ href }}"{% if active_path == href %} aria-current="page"{% endif %}>{{ ui.icon(icon) }}<span>{{ label }}</span></a>{% endfor %}
+{# Navegação do módulo Digitalização (somente gestor/desenvolvedor), agrupada pelo tipo de trabalho:
+   um produto, vários produtos ou arquivos de produtos já cadastrados na loja. Nenhuma tela foi removida. #}
+{% set dz_groups = [
+  ('Um produto', [('Nova digitalização', '/digitalizacao', 'scan', 'Do datasheet do fornecedor ao pacote CIGAM'), ('Resolução de imagens', '/digitalizacao/resolucao-imagens', 'image', 'Fotos quadradas, fundo branco, mesmo nome')]),
+  ('Em lote', [('Geração em lote', '/digitalizacao/lotes', 'layers', 'Datasheets de várias pastas de produtos'), ('Publicação em lote', '/digitalizacao/publicacao-lote', 'package', 'Gerar, revisar e publicar vários produtos')]),
+  ('Na loja', [('Cadastro via API', '/digitalizacao/cadastro-api', 'store', 'Enviar imagens e documentos a produtos existentes'), ('Remoção de arquivos', '/digitalizacao/remocao-arquivos', 'trash', 'Desvincular imagens e documentos com restauração')])] %}
+<nav class="prm-tabs" data-dz-tools aria-label="Telas da Digitalização">
+  {% for group, tabs in dz_groups %}<div class="dz-tools-group" role="group" aria-label="{{ group }}"><span class="dz-tools-caption" aria-hidden="true">{{ group }}</span><div class="dz-tools-links">
+    {% for label, href, icon, hint in tabs %}<a href="{{ href }}"{% if active_path == href %} aria-current="page"{% endif %} title="{{ hint }}">{{ ui.icon(icon) }}<span>{{ label }}</span></a>{% endfor %}
+  </div></div>{% endfor %}
 </nav>

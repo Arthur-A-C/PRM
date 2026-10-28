@@ -4,16 +4,11 @@
 <div class="digitalizacao-page">
   <header class="dz-intro">
     <div class="dz-intro-copy">
-      <p class="eyebrow">Fluxo de preparação de produto</p>
       <h2>Nova digitalização</h2>
-      <p>Do material do fabricante ao pacote final: identificação, fotos, datasheet, análise técnica, revisão e exportação.</p>
+      <p>Um produto por vez: identificação, fotos, datasheet, análise técnica, revisão e pacote final. Siga as etapas na ordem; o painel ao lado mostra o que falta e a próxima ação.</p>
     </div>
     <div class="dz-intro-actions">
-      <a class="prm-btn" href="/digitalizacao/resolucao-imagens">{{ ui.icon('image') }}<span>Resolução de imagens</span></a>
-      <a class="prm-btn" href="/digitalizacao/publicacao-lote">{{ ui.icon('package') }}<span>Publicação em lote</span></a>
-      <a class="prm-btn" href="/digitalizacao/lotes">{{ ui.icon('layers') }}<span>Geração em lote</span></a>
-      <a class="prm-btn" href="/digitalizacao/remocao-arquivos">{{ ui.icon('trash') }}<span>Remoção de arquivos</span></a>
-      <a class="prm-btn" href="/digitalizacao/cadastro-api">{{ ui.icon('store') }}<span>Cadastro via API</span></a>
+      {# Os atalhos para as demais ferramentas ficam na navegação do módulo, acima. #}
       <button type="button" class="prm-btn prm-btn-ghost dz-inspector-toggle" data-workspace-inspector aria-expanded="true" aria-controls="workspace-product-context">Recolher contexto do produto</button>
     </div>
   </header>
@@ -301,45 +296,6 @@
           </div>
         </div>
       </section>
-
-      <!-- APÓS O PACOTE · CADASTRO -->
-      <section class="dz-card dz-registration" id="cadastro-automatizado" aria-labelledby="cadastro-heading">
-        <header class="dz-card-head">
-          <span class="dz-card-index" aria-hidden="true">{{ ui.icon('store') }}</span>
-          <div class="dz-card-title"><p class="eyebrow">Após o pacote</p><h3 id="cadastro-heading">Cadastro automatizado</h3><p>Revise o produto estruturado, gere arquivos locais e aprove cada saída antes de qualquer cadastro externo.</p></div>
-        </header>
-
-        <div class="dz-form-grid">
-          <div class="prm-field dz-span-3"><label for="cadastro-titulo">Título comercial</label><input id="cadastro-titulo" type="text" placeholder="Nome exibido no WooCommerce"></div>
-          <div class="prm-field"><label for="cadastro-fornecedor">Fornecedor/fabricante</label><input id="cadastro-fornecedor" type="text"></div>
-          <div class="prm-field dz-span-2"><label for="cadastro-categoria">Categoria hierárquica</label><input id="cadastro-categoria" type="text" placeholder="Categoria > Subcategoria"></div>
-          <div class="prm-field dz-span-3"><label for="cadastro-descricao-curta">Descrição curta</label><textarea id="cadastro-descricao-curta" rows="3"></textarea></div>
-          <div class="prm-field dz-span-3"><label for="cadastro-descricao">Descrição completa <span class="dz-optional">HTML revisável</span></label><textarea id="cadastro-descricao" class="dz-mono" rows="9"></textarea></div>
-          <div class="prm-field dz-span-3"><label for="cadastro-atributos">Atributos <span class="dz-optional">JSON: nome e valores</span></label><textarea id="cadastro-atributos" class="dz-mono" rows="5" placeholder='[{"name":"Tipo","values":["Painel"]}]'></textarea></div>
-          <div class="prm-field"><label for="cadastro-export">Export WooCommerce atualizado</label><input id="cadastro-export" type="file" accept=".csv"><small>Opcional. Por padrão usa o ZIP Choice/SAG/Portwell instalado no servidor.</small></div>
-          <div class="prm-field"><label for="cadastro-cigam-modelo">Modelo CIGAM</label><input id="cadastro-cigam-modelo" type="file" accept=".xlsx"></div>
-          <div class="prm-field"><label for="cadastro-planilha">Planilha de lote</label><input id="cadastro-planilha" type="file" accept=".xlsx,.csv"><small>XLSX ou CSV.</small></div>
-        </div>
-
-        <div class="dz-registration-actions">
-          <div class="dz-action-group" role="group" aria-label="Preparar">
-            <span>Preparar</span>
-            <button type="button" class="prm-btn" id="cadastro-descricao-gerar" disabled>{{ ui.icon('sparkle') }}<span>Gerar descrição fundamentada</span></button>
-            <button type="button" class="prm-btn" id="cadastro-lote-previa">{{ ui.icon('sheet') }}<span>Prévia do lote</span></button>
-            <button type="button" class="prm-btn" id="cadastro-arquivos-previa">{{ ui.icon('search') }}<span>Localizar arquivos do SKU</span></button>
-            <button type="button" class="prm-btn" id="cadastro-woo-previa" disabled>{{ ui.icon('eye') }}<span>Prévia ao vivo no WooCommerce</span></button>
-          </div>
-          <div class="dz-action-group" role="group" aria-label="Baixar">
-            <span>Baixar</span>
-            <button type="button" class="prm-btn" id="cadastro-cigam-baixar">{{ ui.icon('download') }}<span>CIGAM</span></button>
-            <button type="button" class="prm-btn" id="cadastro-woo-baixar" disabled>{{ ui.icon('download') }}<span>Cadastro WooCommerce (CSV)</span></button>
-            <button type="button" class="prm-btn" id="cadastro-pacote-baixar" disabled>{{ ui.icon('download') }}<span>Pacote validado</span></button>
-          </div>
-        </div>
-        <label class="prm-check dz-approval"><input id="cadastro-aprovado" type="checkbox"> Revisei o produto e aprovo a geração do CSV WooCommerce</label>
-        <p id="cadastro-status" class="prm-status is-boxed" role="status">Nenhuma saída gerada. Cadastro direto na loja permanece desativado até configuração e validação.</p>
-        <pre id="cadastro-previa" class="digitalizacao-registration-preview" hidden></pre>
-      </section>
     </div>
 
     <aside class="digitalizacao-context" id="workspace-product-context" aria-label="Contexto da digitalização">
@@ -369,7 +325,6 @@
           <a href="#digitalizacao-review"><span>06</span>Revisão</a>
           <a href="#digitalizacao-geracao-etapa"><span>07</span>Geração</a>
           <a href="#digitalizacao-pacote-etapa"><span>08</span>Pacote</a>
-          <a href="#cadastro-automatizado"><span>+</span>Cadastro</a>
         </nav>
       </div>
     </aside>

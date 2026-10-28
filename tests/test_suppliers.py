@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import uuid
 import pytest
 from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
@@ -6,7 +7,9 @@ from sqlalchemy import select
 from app.config import Settings,get_settings
 from app.db import get_db_session
 from app.dependencies import get_current_auth, require_module_access
-from app.models.suppliers import MODELS,SupplierInteraction
+from app.models.suppliers import (AI_MODELS, AUDIT_MODELS, MODELS, Supplier, SupplierAIRun,
+                                  SupplierContact, SupplierDeletionAudit, SupplierDocument,
+                                  SupplierInteraction, SupplierTask)
 from app.routers import suppliers as routes
 from app.services.security import hash_secret
 from test_store_removal_production import people
@@ -15,6 +18,7 @@ H={'X-CSRF-Token':'csrf'}
 @pytest.fixture
 def setup(people,tmp_path):
     for model in MODELS:model.__table__.create(people.engine)
+    for model in (*AI_MODELS,*AUDIT_MODELS):model.__table__.create(people.engine)
     app=FastAPI();app.include_router(routes.router,dependencies=[Depends(require_module_access)])
     state=SimpleNamespace(user=people.users['vera'])
     app.dependency_overrides[get_current_auth]=lambda:SimpleNamespace(user=state.user,login_session=SimpleNamespace(csrf_hash=hash_secret('csrf')))
@@ -118,9 +122,29 @@ def test_migration_matches_models_and_is_additive(people):
         with Operations.context(MigrationContext.configure(connection)):
             module.upgrade()
             for model in MODELS:
-                assert {c['name'] for c in inspect(connection).get_columns(model.__tablename__)}==set(model.__table__.columns.keys())
+                columns={c['name'] for c in inspect(connection).get_columns(model.__tablename__)}
+                expected=set(model.__table__.columns.keys())-({'archived_at','archived_by'} if model is Supplier else set())
+                assert columns==expected
             module.downgrade()
             assert 'users' in inspect(connection).get_table_names()
+
+def test_archive_delete_migration_matches_models(people):
+    import importlib.util
+    from pathlib import Path
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from sqlalchemy import inspect
+    loaded=[]
+    for filename in ('20261026_0015_suppliers.py','20261027_0016_supplier_ai_runs.py',
+                     '20261027_0017_supplier_ai_runs_optional_supplier.py','20261027_0018_supplier_archive_delete.py'):
+        path=Path('migrations/versions')/filename
+        spec=importlib.util.spec_from_file_location(filename,path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);loaded.append(module)
+    with people.engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            for module in loaded:module.upgrade()
+            assert {c['name'] for c in inspect(connection).get_columns('suppliers')}==set(Supplier.__table__.columns.keys())
+            assert {c['name'] for c in inspect(connection).get_columns('supplier_deletion_audits')}==set(SupplierDeletionAudit.__table__.columns.keys())
+            for module in reversed(loaded):module.downgrade()
 
 def test_internal_task_appears_on_card_without_planner(setup):
     s=setup;item=create(s);url='/api/v1/fornecedores/'+item['id']
@@ -137,3 +161,98 @@ def test_inline_patch_persists_audit_without_overwriting_profile(setup):
     assert s.client.patch(url,headers=H,json={'responsible_user_id':str(s.people.users['ana'].id)}).status_code==403
     s.state.user=s.people.users['fora']
     assert s.client.patch(url,headers=H,json={'score':'frio'}).status_code==404
+
+def test_archive_hides_from_default_filter_preserves_relations_and_restores(setup):
+    s=setup;item=create(s);url='/api/v1/fornecedores/'+item['id']
+    s.client.post(url+'/contacts',headers=H,json={'name':'Contato'})
+    s.client.post(url+'/tasks',headers=H,json={'title':'Acompanhar'})
+    document=s.client.post(url+'/documents',headers=H,data={'category':'Contratos'},files={'file':('contrato.pdf',b'%PDF-1.4 arquivo','application/pdf')}).json()
+    current=s.client.get(url).json()
+    archived=s.client.post(url+'/archive',headers=H,json={'expected_updated_at':current['updated_at'],'reason':'Relacionamento pausado'})
+    assert archived.status_code==200,archived.text
+    assert archived.json()['archived_at'] and archived.json()['archived_by']==str(s.state.user.id)
+    assert s.client.get('/api/v1/fornecedores').json()['items']==[]
+    assert [x['id'] for x in s.client.get('/api/v1/fornecedores?archive_status=archived').json()['items']]==[item['id']]
+    assert [x['id'] for x in s.client.get('/api/v1/fornecedores?archive_status=all').json()['items']]==[item['id']]
+    detail=s.client.get(url).json()
+    assert len(detail['contacts'])==len(detail['tasks'])==len(detail['documents'])==1
+    event=next(x for x in detail['history'] if x['event']=='supplier_archived')
+    assert event['actor_id']==str(s.state.user.id) and event['data']['reason']=='Relacionamento pausado'
+    assert s.client.get(url+'/documents/'+document['id']+'/download').status_code==200
+    restored=s.client.post(url+'/restore',headers=H,json={'expected_updated_at':archived.json()['updated_at'],'reason':''})
+    assert restored.status_code==200,restored.text
+    assert restored.json()['archived_at'] is None and restored.json()['stage']==item['stage']
+    assert s.client.get('/api/v1/fornecedores').json()['items'][0]['id']==item['id']
+    assert 'supplier_restored' in {x['event'] for x in s.client.get(url).json()['history']}
+
+def test_archive_and_delete_require_csrf_and_current_version(setup):
+    s=setup;item=create(s);url='/api/v1/fornecedores/'+item['id']
+    assert s.client.post(url+'/archive',json={'expected_updated_at':item['updated_at']}).status_code==403
+    changed=s.client.patch(url,headers=H,json={'score':'quente'}).json()
+    conflict=s.client.post(url+'/archive',headers=H,json={'expected_updated_at':item['updated_at']})
+    assert conflict.status_code==409 and 'alterado por outra pessoa' in conflict.text
+    s.state.user=s.people.users['ana']
+    assert s.client.request('DELETE',url,json={'expected_updated_at':changed['updated_at'],'confirm_name':item['name']}).status_code==403
+
+def test_permanent_delete_permissions_confirmation_scope_quarantine_ai_and_audit(setup):
+    s=setup;item=create(s);url='/api/v1/fornecedores/'+item['id']
+    s.client.post(url+'/contacts',headers=H,json={'name':'Contato'})
+    s.client.post(url+'/tasks',headers=H,json={'title':'Tarefa'})
+    document=s.client.post(url+'/documents',headers=H,files={'file':('ficha.pdf',b'%PDF-1.4 ficha')}).json()
+    with s.people.session() as db:
+        db.add(SupplierAIRun(organization_id=s.people.org.id,supplier_id=uuid.UUID(item['id']),actor_id=s.state.user.id,
+            source_type='website',source_hash='a'*64,model='mock',status='applied',data={'audit':'preservar'}));db.commit()
+    current=s.client.get(url).json()
+    s.state.user=s.people.users['vera']
+    assert s.client.request('DELETE',url,headers=H,json={'expected_updated_at':current['updated_at'],'confirm_name':item['name']}).status_code==403
+    s.state.user=s.people.users['fora']
+    assert s.client.request('DELETE',url,headers=H,json={'expected_updated_at':current['updated_at'],'confirm_name':item['name']}).status_code==404
+    s.state.user=s.people.users['ana']
+    assert s.client.request('DELETE',url,headers=H,json={'expected_updated_at':current['updated_at'],'confirm_name':'nome incorreto'}).status_code==422
+    result=s.client.request('DELETE',url,headers=H,json={'expected_updated_at':current['updated_at'],'confirm_name':item['name'],'reason':'Duplicado'})
+    assert result.status_code==200,result.text
+    assert result.json()['counts']=={'contacts':1,'tasks':1,'documents':1,'history':4,'ai_runs_detached':1}
+    assert result.json()['document_policy']=='quarantined'
+    assert s.client.get(url).status_code==404
+    assert s.client.get(url+'/documents/'+document['id']+'/download').status_code==404
+    with s.people.session() as db:
+        assert db.get(Supplier,uuid.UUID(item['id'])) is None
+        for model in (SupplierContact,SupplierTask,SupplierDocument,SupplierInteraction):
+            assert db.scalar(select(model).where(model.supplier_id==uuid.UUID(item['id']))) is None
+        run=db.scalar(select(SupplierAIRun));assert run and run.supplier_id is None and run.status=='supplier_deleted'
+        audit=db.scalar(select(SupplierDeletionAudit));assert audit.actor_id==s.state.user.id and audit.supplier_name==item['name']
+        assert audit.data['documents']==1 and audit.data['reason']=='Duplicado' and audit.data['document_policy']=='quarantined'
+    assert not (s.tmp/'docs'/str(s.people.org.id)/item['id']).exists()
+    assert list((s.tmp/'docs'/'_deleted'/str(s.people.org.id)/item['id']).rglob('ficha.pdf'))==[]  # names are never physical paths
+    assert len([p for p in (s.tmp/'docs'/'_deleted').rglob('*') if p.is_file()])==1
+
+def test_stale_delete_after_other_user_edit_returns_409_and_keeps_supplier(setup):
+    s=setup;item=create(s);url='/api/v1/fornecedores/'+item['id']
+    s.state.user=s.people.users['ana'];opened=s.client.get(url).json()  # A abre o fornecedor
+    s.state.user=s.people.users['vera']                                     # B edita (inclusive só um contato)
+    assert s.client.post(url+'/contacts',headers=H,json={'name':'Novo contato'}).status_code==200
+    s.state.user=s.people.users['ana']
+    stale=s.client.request('DELETE',url,headers=H,json={'expected_updated_at':opened['updated_at'],'confirm_name':item['name']})
+    assert stale.status_code==409 and 'alterado por outra pessoa' in stale.text
+    assert s.client.get(url).status_code==200
+    assert s.client.post(url+'/archive',headers=H,json={'expected_updated_at':opened['updated_at']}).status_code==409
+    fresh=s.client.get(url).json()
+    archived=s.client.post(url+'/archive',headers=H,json={'expected_updated_at':fresh['updated_at']}).json()
+    assert s.client.post(url+'/archive',headers=H,json={'expected_updated_at':archived['updated_at']}).status_code==409  # já arquivado
+    gone=s.client.request('DELETE',url,headers=H,json={'expected_updated_at':archived['updated_at'],'confirm_name':item['name']})
+    assert gone.status_code==200,gone.text  # arquivado pode ser excluído
+    with s.people.session() as db:
+        audit=db.scalar(select(SupplierDeletionAudit));assert audit.data['was_archived'] is True and audit.data['document_policy']=='no_physical_directory'
+    assert s.client.request('DELETE',url,headers=H,json={'expected_updated_at':archived['updated_at'],'confirm_name':item['name']}).status_code==404
+
+def test_delete_failure_after_quarantine_restores_files_and_rows(setup,monkeypatch):
+    s=setup;item=create(s);url='/api/v1/fornecedores/'+item['id']
+    s.client.post(url+'/documents',headers=H,files={'file':('ficha.pdf',b'%PDF-1.4 ficha')})
+    current=s.client.get(url).json();s.state.user=s.people.users['ana']
+    def boom(**_):raise RuntimeError('falha simulada na auditoria')
+    monkeypatch.setattr(routes,'SupplierDeletionAudit',boom)
+    with pytest.raises(RuntimeError):
+        s.client.request('DELETE',url,headers=H,json={'expected_updated_at':current['updated_at'],'confirm_name':item['name']})
+    after=s.client.get(url);assert after.status_code==200 and len(after.json()['documents'])==1
+    assert s.client.get(url+'/documents/'+after.json()['documents'][0]['id']+'/download').status_code==200
+    assert not [p for p in (s.tmp/'docs'/'_deleted').rglob('*') if p.is_file()]

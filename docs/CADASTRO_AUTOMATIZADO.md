@@ -18,7 +18,7 @@ Ambiguidades global/local encontradas: Choice — `Campo de visão`, `Faixa de m
 
 ## Fluxo disponível agora
 
-Na Digitalização, selecione a empresa, SKU e nome técnico, envie os documentos e rode a análise. Gere e revise o datasheet, depois finalize a pasta física e o pacote ZIP conforme [DIGITALIZACAO_PRODUTO.md](DIGITALIZACAO_PRODUTO.md). Só então a seção **Cadastro automatizado** libera descrição, prévia WooCommerce e CSV. Também há prévia de planilha de lote, descoberta de arquivos e arquivo CIGAM.
+Na Digitalização, selecione a empresa, SKU e nome técnico, envie os documentos e rode a análise. Gere e revise o datasheet, depois finalize a pasta física e o pacote ZIP conforme [DIGITALIZACAO_PRODUTO.md](DIGITALIZACAO_PRODUTO.md). Desde 27/10/2026 a seção **Cadastro automatizado** (título comercial, fornecedor, categoria, descrições, atributos, prévia WooCommerce, CSV, lote, descoberta de arquivos e CIGAM) não aparece mais na Digitalização; os endpoints `/api/v1/digitalizacao/cadastro/*` e os serviços foram preservados, sem tela que os chame. O pacote final usa o nome técnico como título comercial.
 
 O CSV usa cabeçalhos reais do export, não índices. Para SKU existente, parte da linha integral e preserva campos comerciais e metadados não alterados; para SKU novo, cria rascunho. A geração do CSV requer pacote validado e a caixa de aprovação marcada, mas **baixar o arquivo não publica nem importa o produto**. O cabeçalho `X-PRM-Review-Warnings` informa quantos avisos precisam de revisão. A planilha CIGAM deixa campos desconhecidos em branco e sinaliza a contagem. O ZIP agora é recuperado da pasta persistida no servidor.
 

@@ -50,7 +50,7 @@ def test_overview_separates_audited_source_from_live_database(staging_report):
     assert report is not None
     environment = Environment(loader=FileSystemLoader("app/templates"), autoescape=True)
     html = environment.get_template("shell.html").render(
-        title="Visão geral",
+        title="Dashboard",
         user={"name": "Teste", "role": "gestor"},
         nav_items=[],
         active_path="/",

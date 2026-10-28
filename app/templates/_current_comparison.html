@@ -1,28 +1,118 @@
-<section class="notice"><strong>Comparação de características</strong><span>Os indicadores comparam cada produto com o primeiro da tabela (referência). Equivalente indica o mesmo valor após normalização. A substituição de um produto exige conferir o conjunto das características.</span></section>
-<section class="panel">
-  <a href="/catalogos">Voltar aos produtos atuais</a>
-  <p>Cada característica reúne seus detalhes em uma única linha. Correspondência parcial indica detalhes coincidentes e informações ainda ausentes ou não interpretadas. Capacidade máxima, capacidade informada e configurações suportadas são comparadas separadamente.</p>
-  <div class="table-scroll"><table class="technical-matrix"><thead><tr><th>Característica</th>{% for item in current_comparison['items'] %}<th>{{ item.source_name|default(item.source_id) }}<br>{{ item.title_display }}<br><small>{{ item.sku or item.record_key }}{% if loop.first %} · Referência{% endif %}</small></th>{% endfor %}</tr></thead><tbody>
-    <tr><th>Origem</th>{% for item in current_comparison['items'] %}<td>{{ 'Nossa base' if item.source_group == 'internal' else 'Concorrência' }}</td>{% endfor %}</tr>
-    <tr><th>Família proposta</th>{% for item in current_comparison['items'] %}<td>{{ item.classification.family_label }}</td>{% endfor %}</tr>
-    <tr><th>Preços observados</th>{% for item in current_comparison['items'] %}<td>{% for p in item.commercial.prices %}{% if p.amount and (p.visibility != 'internal_only' or user.role in ['gestor', 'desenvolvedor']) %}<p>{{ p.kind }}: R$ {{ p.amount }}{% if p.visibility == 'internal_only' %} · uso interno{% endif %}</p>{% endif %}{% endfor %}<small>Condições não verificadas; sem preço visível não significa gratuito.</small></td>{% endfor %}</tr>
-    {% for row in current_comparison.display_rows %}<tr><th scope="row">{{ row.label }}{% if row.code == 'compute.os' %}<p><small>Presença e suporte equivalem por família de SO; versão e edição não alteram este indicador.</small></p>{% endif %}</th>
-      {% for item in current_comparison['items'] %}{% set cell = row.cells[item.item_id] %}<td>
-        <span class="comparison-verdict comparison-verdict--{{ cell.status.code }}">{{ cell.status.label }}</span>
-        <dl class="comparison-details">
-          {% for detail in cell.details %}<dt>{{ detail.label }}{% if detail.scope != 'Escopo não informado' %} · {{ detail.scope }}{% endif %}{% if detail.unit %} ({{ detail.unit }}){% endif %}</dt>
-          <dd>{% for value in detail['values'] %}{{ value.normalized if value.normalized is not none else value.raw }}{% if not loop.last %}; {% endif %}{% else %}Não informado{% endfor %}
-            {% if item.item_id != current_comparison.reference_id %}<br><small class="comparison-verdict comparison-verdict--{{ detail.status.code }}">{{ detail.status.label }}</small>
-            {% if detail.status.code in ['different','insufficient','conflict'] %}<br><small>Referência: {% for value in detail.reference %}{{ value.normalized if value.normalized is not none else value.raw }}{% if not loop.last %}; {% endif %}{% else %}Não informado{% endfor %}</small>{% endif %}{% endif %}
-          </dd>{% endfor %}
-        </dl>
-        {% if user.role in ['gestor', 'desenvolvedor'] %}<details><summary>Dados originais e origem</summary>
-          {% for value in row['values'].get(item.item_id,[]) %}<p>{{ value.raw }}<br><small data-scope="{{ value.scope }}">Origem: {{ value.name }} · {{ {'unspecified':'Escopo não informado','supported':'Suportado','installed':'Instalado','optional':'Opcional'}.get(value.scope,value.scope) }} · {{ {'known':'observado','unknown':'desconhecido','conflicting':'conflito','unparseable':'não interpretado'}.get(value.state,value.state) }}</small></p>{% else %}<p>Não informado</p>{% endfor %}
-        </details>{% else %}
-        <details><summary>Descrição técnica</summary>
-          {% for value in row['values'].get(item.item_id,[]) %}<p data-technical-scope="{{ value.scope }}">{{ value.raw }} <small>{{ {'unspecified':'Escopo não informado','supported':'Suportado','installed':'Instalado','optional':'Opcional'}.get(value.scope,value.scope) }} · {{ {'known':'observado','unknown':'desconhecido','conflicting':'conflito','unparseable':'não interpretado'}.get(value.state,value.state) }}</small></p>{% else %}<p>Não informado</p>{% endfor %}
-        </details>{% endif %}
-      </td>{% endfor %}</tr>{% endfor %}
-    {% if user.role in ['gestor', 'desenvolvedor'] %}<tr><th>Pendências</th>{% for item in current_comparison['items'] %}<td>{{ item.quality_issues|join(', ') or 'Sem alertas registrados; não significa aprovação técnica.' }}</td>{% endfor %}</tr>{% endif %}
-  </tbody></table></div>
-</section>
+{# Comparação lado a lado. A primeira coluna é a referência; os estados vêm do backend (igual, equivalente, parcial,
+   diferente, dados insuficientes, conflito). Não há "melhor/pior": o backend não informa o sentido de cada atributo.
+   data-cmp-* são ganchos de comparison-view.js (somente filtro visual). #}
+{% set manager = user.role in ['gestor', 'desenvolvedor'] %}
+{% set items = current_comparison['items'] %}
+{% set rows = current_comparison.display_rows %}
+{% set price_kinds = {'regular': 'Preço', 'sale': 'Promocional', 'pix': 'Pix', 'card': 'Cartão', 'current': 'Preço atual', 'reference': 'Preço "de"'} %}
+{% set tag_of = {'equal': 'equal', 'equivalent': 'equal', 'partial': 'diff', 'different': 'diff', 'conflict': 'diff', 'insufficient': 'missing'} %}
+{% set group_defs = [('Processamento e armazenamento', ['memory', 'storage', 'compute']), ('Tela', ['display']), ('Conectividade e E/S', ['ports', 'network', 'communication', 'io']), ('Alimentação e elétrica', ['power', 'electrical']), ('Físico e proteção', ['physical', 'protection', 'environment', 'mechanical', 'cable']), ('Controle', ['control'])] %}
+{% set group_of = {} %}{% for label, prefixes in group_defs %}{% for prefix in prefixes %}{% set _ = group_of.update({prefix: label}) %}{% endfor %}{% endfor %}
+{% set buckets = {} %}{% for row in rows %}{% set g = group_of.get(row.code.split('.')[0], 'Outras características') %}{% if g not in buckets %}{% set _ = buckets.update({g: []}) %}{% endif %}{% set _ = buckets[g].append(row) %}{% endfor %}
+{% set totals = namespace(diff=0, equal=0, missing=0) %}
+{% macro brl(value) %}{% set n = value|float(-1) %}{% if n >= 0 %}R$&nbsp;{{ '{:,.2f}'.format(n).replace(',', '#').replace('.', ',').replace('#', '.') }}{% else %}{{ value }}{% endif %}{% endmacro %}
+{% macro values_of(list) %}{% for value in list %}{{ value.normalized if value.normalized is not none else value.raw }}{% if not loop.last %}; {% endif %}{% endfor %}{% endmacro %}
+
+<div class="cmp" data-cmp>
+  <header class="cmp-head">
+    <div>
+      <h2>Comparação lado a lado</h2>
+      <p>A primeira coluna é a <strong>referência</strong>. Cada característica mostra se o valor é igual, diferente ou se falta informação para comparar. A substituição de um produto exige conferir o conjunto das características.</p>
+    </div>
+    <a class="prm-btn" href="/catalogos">← Voltar aos produtos</a>
+  </header>
+
+  {% for row in rows %}{% set tags = [] %}{% for item in items %}{% if item.item_id != current_comparison.reference_id %}{% set t = tag_of.get(row.cells[item.item_id].status.code) %}{% if t and t not in tags %}{% set _ = tags.append(t) %}{% endif %}{% endif %}{% endfor %}
+    {% if 'diff' in tags %}{% set totals.diff = totals.diff + 1 %}{% endif %}{% if 'equal' in tags %}{% set totals.equal = totals.equal + 1 %}{% endif %}{% if 'missing' in tags %}{% set totals.missing = totals.missing + 1 %}{% endif %}
+  {% endfor %}
+  <div class="cmp-toolbar">
+    <div class="cmp-filter" role="group" aria-label="Mostrar características">
+      <button type="button" data-cmp-filter="all" aria-pressed="true">Todas <b>{{ rows|length }}</b></button>
+      <button type="button" data-cmp-filter="diff" aria-pressed="false"><i class="cmp-dot is-diff" aria-hidden="true"></i>Diferenças <b>{{ totals.diff }}</b></button>
+      <button type="button" data-cmp-filter="equal" aria-pressed="false"><i class="cmp-dot is-equal" aria-hidden="true"></i>Iguais <b>{{ totals.equal }}</b></button>
+      <button type="button" data-cmp-filter="missing" aria-pressed="false"><i class="cmp-dot is-missing" aria-hidden="true"></i>Sem dado <b>{{ totals.missing }}</b></button>
+    </div>
+    <span class="cmp-filter-status" data-cmp-status role="status" aria-live="polite"></span>
+    <details class="cmp-legend">
+      <summary>Como ler</summary>
+      <ul>
+        <li><span class="comparison-verdict comparison-verdict--equal">Igual</span> mesmo valor informado.</li>
+        <li><span class="comparison-verdict comparison-verdict--equivalent">Equivalente</span> mesmo valor após padronizar unidade ou escrita.</li>
+        <li><span class="comparison-verdict comparison-verdict--partial">Correspondência parcial</span> parte coincide; o restante falta ou não foi interpretado.</li>
+        <li><span class="comparison-verdict comparison-verdict--different">Diferente</span> valores distintos. Não indica melhor nem pior.</li>
+        <li><span class="comparison-verdict comparison-verdict--insufficient">Dados insuficientes</span> falta o valor em um dos produtos ou a descrição é ambígua.</li>
+        <li><span class="comparison-verdict comparison-verdict--conflict">Conferir conflito</span> a própria fonte traz valores divergentes.</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="table-scroll cmp-scroll">
+    <table class="technical-matrix cmp-table" style="--cmp-cols: {{ items|length }}">
+      <thead><tr>
+        <th scope="col" class="cmp-corner">Característica</th>
+        {% for item in items %}
+        {% set is_ref = item.item_id == current_comparison.reference_id %}
+        {% set prices = [] %}{% for p in item.commercial.prices|default([]) %}{% if p.amount and (p.visibility != 'internal_only' or manager) %}{% set _ = prices.append(p) %}{% endif %}{% endfor %}
+        <th scope="col" class="cmp-product{% if is_ref %} is-reference{% endif %}">
+          <div class="cmp-product-top">
+            <span class="prm-badge {{ 'is-info' if item.source_group == 'internal' else 'is-neutral' }}">{{ 'Nossa base' if item.source_group == 'internal' else 'Concorrência' }}</span>
+            {% if is_ref %}<span class="cmp-ref-tag">Referência</span>{% endif %}
+          </div>
+          <span class="cmp-source">{{ item.source_name|default(item.source_id) }}</span>
+          <span class="cmp-title">{{ item.title_display }}</span>
+          <small class="cmp-sku">{{ item.sku or item.record_key }} · {{ item.classification.family_label }}</small>
+          <div class="cmp-prices">
+            {% for p in prices %}<span class="{{ 'cmp-price-main' if loop.first else 'cmp-price' }}" data-amount="{{ p.amount }}"><small>{{ price_kinds.get(p.kind, p.kind) }}{% if p.visibility == 'internal_only' %} · uso interno{% endif %}</small><b>{{ brl(p.amount) }}</b></span>{% else %}<span class="cmp-price is-empty"><small>Preço</small><b>Não informado</b></span>{% endfor %}
+          </div>
+          <span class="cmp-avail{% if not item.commercial.availability_raw %} is-empty{% endif %}"><small>Disponibilidade</small>{{ item.commercial.availability_raw or 'Não informada' }}</span>
+          {% if not is_ref %}{% set sc = namespace(eq=0, df=0, ms=0) %}{% for row in rows %}{% set t = tag_of.get(row.cells[item.item_id].status.code) %}{% if t == 'equal' %}{% set sc.eq = sc.eq + 1 %}{% elif t == 'diff' %}{% set sc.df = sc.df + 1 %}{% elif t == 'missing' %}{% set sc.ms = sc.ms + 1 %}{% endif %}{% endfor %}
+          <span class="cmp-score" aria-label="Frente à referência: {{ sc.eq }} iguais, {{ sc.df }} diferentes, {{ sc.ms }} sem dado"><span><i class="cmp-dot is-equal" aria-hidden="true"></i>{{ sc.eq }} {{ 'igual' if sc.eq == 1 else 'iguais' }}</span><span><i class="cmp-dot is-diff" aria-hidden="true"></i>{{ sc.df }} {{ 'diferente' if sc.df == 1 else 'diferentes' }}</span><span><i class="cmp-dot is-missing" aria-hidden="true"></i>{{ sc.ms }} sem dado</span></span>
+          {% endif %}
+        </th>
+        {% endfor %}
+      </tr></thead>
+      {% for group_label in group_defs|map(attribute='0')|list + ['Outras características'] %}{% if group_label in buckets %}
+      <tbody data-cmp-group>
+        <tr class="cmp-group-row"><th scope="rowgroup" colspan="{{ items|length + 1 }}">{{ group_label }}</th></tr>
+        {% for row in buckets[group_label] %}
+        {% set tags = [] %}{% for item in items %}{% if item.item_id != current_comparison.reference_id %}{% set t = tag_of.get(row.cells[item.item_id].status.code) %}{% if t and t not in tags %}{% set _ = tags.append(t) %}{% endif %}{% endif %}{% endfor %}
+        <tr data-cmp-row="{{ tags|join(' ') }}">
+          <th scope="row">{{ row.label }}{% if row.code == 'compute.os' %}<p><small>Presença e suporte equivalem por família de SO; versão e edição não alteram este indicador.</small></p>{% endif %}</th>
+          {% for item in items %}{% set cell = row.cells[item.item_id] %}{% set is_ref = item.item_id == current_comparison.reference_id %}
+          {% set informed = cell.details|selectattr('values')|list|length %}
+          <td class="cmp-cell is-{{ cell.status.code }}{% if not informed %} is-empty{% endif %}">
+            {% if not is_ref and informed %}<span class="comparison-verdict comparison-verdict--{{ cell.status.code }}">{{ cell.status.label }}</span>{% endif %}
+            {% if informed %}
+            <dl class="comparison-details">
+              {% for detail in cell.details %}<div class="cmp-detail">
+                {% if cell.details|length > 1 or detail.label != 'Valor' or detail.scope != 'Escopo não informado' %}<dt>{{ detail.label }}{% if detail.scope != 'Escopo não informado' %} · {{ detail.scope }}{% endif %}{% if detail.unit %} ({{ detail.unit }}){% endif %}</dt>{% endif %}
+                <dd>{% if detail['values'] %}{{ values_of(detail['values']) }}{% else %}<span class="cmp-none">Não informado</span>{% endif %}
+                  {% if not is_ref and cell.details|length > 1 %} <small class="comparison-verdict comparison-verdict--{{ detail.status.code }}">{{ detail.status.label }}</small>{% endif %}
+                  {% if not is_ref and detail.status.code in ['different','insufficient','conflict'] and detail.reference %}<small class="cmp-ref-value">Referência: {{ values_of(detail.reference) }}</small>{% endif %}
+                </dd>
+              </div>{% endfor %}
+            </dl>
+            {% elif is_ref %}<span class="cmp-none">Não informado</span>
+            {% else %}<span class="comparison-verdict comparison-verdict--{{ cell.status.code }}" title="{{ cell.status.label }}">Não informado</span>{% endif %}
+            {% if manager and row['values'].get(item.item_id) %}<details class="cmp-raw"><summary>Dados originais e origem</summary>
+              {% for value in row['values'].get(item.item_id,[]) %}<p>{{ value.raw }}<br><small data-scope="{{ value.scope }}">Origem: {{ value.name }} · {{ {'unspecified':'Escopo não informado','supported':'Suportado','installed':'Instalado','optional':'Opcional'}.get(value.scope,value.scope) }} · {{ {'known':'observado','unknown':'desconhecido','conflicting':'conflito','unparseable':'não interpretado'}.get(value.state,value.state) }}</small></p>{% else %}<p>Não informado</p>{% endfor %}
+            </details>{% elif row['values'].get(item.item_id) %}<details class="cmp-raw"><summary>Descrição técnica</summary>
+              {% for value in row['values'].get(item.item_id,[]) %}<p data-technical-scope="{{ value.scope }}">{{ value.raw }} <small>{{ {'unspecified':'Escopo não informado','supported':'Suportado','installed':'Instalado','optional':'Opcional'}.get(value.scope,value.scope) }} · {{ {'known':'observado','unknown':'desconhecido','conflicting':'conflito','unparseable':'não interpretado'}.get(value.state,value.state) }}</small></p>{% endfor %}
+            </details>{% endif %}
+          </td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% endif %}{% endfor %}
+      {% if manager %}
+      <tbody>
+        <tr class="cmp-group-row"><th scope="rowgroup" colspan="{{ items|length + 1 }}">Qualidade dos dados</th></tr>
+        <tr data-cmp-row="meta"><th scope="row">Pendências</th>{% for item in items %}<td class="cmp-cell cmp-meta">{{ item.quality_issues|join(', ') or 'Sem alertas registrados; não significa aprovação técnica.' }}</td>{% endfor %}</tr>
+      </tbody>
+      {% endif %}
+    </table>
+  </div>
+  <div class="prm-empty" data-cmp-empty hidden><strong>Nenhuma característica neste filtro.</strong><p>Escolha outro filtro para ver as demais características.</p></div>
+  {% if not rows %}<div class="prm-empty"><strong>Nenhuma característica estruturada para comparar.</strong><p>Os produtos não têm atributos interpretados nesta base. Preços e disponibilidade aparecem acima.</p></div>{% endif %}
+  <p class="cmp-foot">Preços observados na fonte: condições não verificadas; sem preço visível não significa gratuito. Capacidade máxima, capacidade informada e configurações suportadas são comparadas separadamente.</p>
+</div>

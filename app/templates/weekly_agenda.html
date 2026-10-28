@@ -8,7 +8,7 @@
       <p>Atualizações de segunda a sexta (America/Sao_Paulo) a partir de commits, pull requests, issues e tarefas do Planner. Cada item mostra a situação comprovada e a origem. Integrado na main não é implantado; testes aprovados não são entrega.</p>
     </div>
     <div class="prm-page-actions">
-      <a href="/reunioes" class="prm-btn">{{ ui.icon('calendar') }}<span>Reuniões</span></a>
+      <a href="/planner" class="prm-btn">{{ ui.icon('calendar') }}<span>Planner</span></a>
     </div>
   </header>
 
@@ -81,12 +81,12 @@
     </form>
   </details>
 
-  <dialog id="wa-dialog" aria-labelledby="wa-dialog-title">
-    <form method="dialog" class="wa-dialog">
-      <h2 id="wa-dialog-title">Editar</h2>
-      <p id="wa-dialog-hint" class="prm-status"></p>
-      <div class="prm-field"><label for="wa-dialog-text">Texto</label><textarea id="wa-dialog-text" rows="6" maxlength="3000"></textarea></div>
-      <footer><button type="button" class="button-secondary" id="wa-dialog-cancel">Cancelar</button><button type="submit" class="button-primary">Salvar</button></footer>
+  {# Edição de resumo/anotação em painel lateral (.prm-sheet). IDs são contratos de weekly-agenda.js. #}
+  <dialog id="wa-dialog" class="prm-sheet" aria-labelledby="wa-dialog-title">
+    <form method="dialog" class="prm-sheet-frame">
+      <header class="prm-sheet-head"><div><p class="prm-sheet-kicker">Pauta semanal</p><h2 id="wa-dialog-title">Editar</h2><p id="wa-dialog-hint" class="prm-sheet-sub"></p></div><button type="button" class="prm-sheet-close" data-sheet-close aria-label="Fechar">×</button></header>
+      <div class="prm-sheet-body"><div class="prm-field"><label for="wa-dialog-text">Texto</label><textarea id="wa-dialog-text" rows="10" maxlength="3000"></textarea></div></div>
+      <footer class="prm-sheet-foot"><button type="button" class="button-secondary" id="wa-dialog-cancel">Cancelar</button><button type="submit" class="button-primary">Salvar</button></footer>
     </form>
   </dialog>
 </div>

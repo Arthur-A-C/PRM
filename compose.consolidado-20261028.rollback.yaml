@@ -1,0 +1,7 @@
+# Retorno do deploy consolidado 28/10/2026 (somente código). Usar no lugar de compose.consolidado-20261028.yaml.
+# Não faz downgrade da 0018 (aditiva; o código anterior ignora as colunas novas). Não restaurar o banco automaticamente.
+services:
+  api:
+    image: prm:rollback-api-20261028
+  worker-alerts:
+    image: prm:rollback-worker-alerts-20261028

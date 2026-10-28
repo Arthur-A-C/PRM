@@ -1,0 +1,15 @@
+{# Guia de andamento das ferramentas: etapas, etapa atual, próxima ação e alertas.
+   Cada etapa é (rótulo, seletor que indica que terminou, alvo na página, próxima ação). O estado é calculado por
+   flow-guide.js a partir da própria página; nenhuma regra de negócio é duplicada aqui. #}
+{% macro guide(label, steps, complete='Todas as etapas concluídas.', alerts=[]) %}
+<section class="prm-flow" data-flow data-flow-complete="{{ complete }}" aria-label="{{ label }}">
+  <div class="prm-flow-head">
+    <span class="prm-flow-count" data-flow-count>Etapa 1 de {{ steps|length }}</span>
+    <ol class="prm-steps prm-flow-steps" aria-label="Etapas">
+      {% for step_label, done, target, next in steps %}<li data-flow-done="{{ done }}" data-flow-target="{{ target }}" data-flow-next="{{ next }}"{% if loop.first %} aria-current="step"{% endif %}>{{ step_label }}</li>{% endfor %}
+    </ol>
+  </div>
+  <p class="prm-flow-next"><span>Próxima ação</span><strong data-flow-next-text>{{ steps[0][3] }}</strong><a class="prm-flow-go" data-flow-go href="{{ steps[0][2] }}">Ir para a etapa</a></p>
+  {% for selector, text, tone in alerts %}<p class="prm-flow-alert is-{{ tone }}" data-flow-alert="{{ selector }}" hidden>{{ text }}</p>{% endfor %}
+</section>
+{% endmacro %}

@@ -19,7 +19,7 @@ from app.routers.pages import NAV_ITEMS
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "app" / "static"
-PAGES = {"/": "Visão geral", "/digitalizacao": "Digitalização",
+PAGES = {"/": "Dashboard", "/digitalizacao": "Digitalização",
          "/comparador": "Comparador", "/importacoes": "Importações e qualidade",
          "/digitalizacao/lotes": "Geração em Lote", "/digitalizacao/cadastro-api": "Cadastro via API",
          "/integracoes": "Integrações WooCommerce", "/gestao": "Gestão"}

@@ -1029,7 +1029,7 @@
     if (state.analyzed) next = "Revise os dados técnicos e gere o PDF.";
     if (state.datasheetGenerated) next = "Confira as páginas e aprove o datasheet.";
     if (state.approved) next = state.savedImageCount ? "Crie a pasta CIGAM e valide o pacote." : "Adicione uma foto principal antes de finalizar o pacote.";
-    if (state.finalized) next = "Pacote validado. Revise a preparação do cadastro.";
+    if (state.finalized) next = "Pacote validado. Baixe o pacote completo.";
     put("context-next-action", next);
   }
 

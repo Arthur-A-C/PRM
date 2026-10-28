@@ -1,6 +1,7 @@
 """Supplier CRM, independent of meeting Activity until an explicit future integration."""
 import uuid
-from sqlalchemy import ForeignKey, String, JSON
+from datetime import datetime
+from sqlalchemy import DateTime, ForeignKey, JSON, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, UUIDPrimaryKeyMixin, TimestampMixin
 
@@ -11,6 +12,8 @@ class Supplier(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200))
     stage: Mapped[str] = mapped_column(String(50), default='base_ativa', index=True)
     score: Mapped[str] = mapped_column(String(30), default='morno')
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)
+    archived_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     data: Mapped[dict] = mapped_column(JSON, default=dict)
 
 class SupplierChild(UUIDPrimaryKeyMixin, TimestampMixin):
@@ -46,3 +49,14 @@ class SupplierAIRun(SupplierChild, Base):
     status: Mapped[str] = mapped_column(String(20))
 
 AI_MODELS = (SupplierAIRun,)
+
+class SupplierDeletionAudit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Minimal durable evidence retained after a supplier and its FK children are removed."""
+    __tablename__ = 'supplier_deletion_audits'
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('organizations.id'), index=True)
+    actor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('users.id'))
+    supplier_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), index=True)
+    supplier_name: Mapped[str] = mapped_column(String(200))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+
+AUDIT_MODELS = (SupplierDeletionAudit,)

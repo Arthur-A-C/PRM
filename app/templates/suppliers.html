@@ -1,11 +1,18 @@
-<link rel="stylesheet" href="{{ url_for('static', path='/css/suppliers.css') }}?v=20261027-novo">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/suppliers.css') }}?v=20261027-ux">
 <section id="suppliers" class="prm-stack">
   <div class="panel"><div class="prm-section-title"><div><h2>Relacionamento com fornecedores</h2><p>Ficha, contatos, documentos e próximos passos em um só lugar.</p></div><div class="prm-page-actions"><button id="supplier-new" type="button" class="button-primary">+ Novo fornecedor</button><button id="supplier-new-ai" type="button">✨ Novo fornecedor com IA</button></div></div>
   <form id="supplier-filters" class="prm-form"></form><p id="supplier-message" role="status" aria-live="polite"></p></div>
   <div id="supplier-board" aria-label="Kanban de fornecedores"></div>
   <button id="supplier-backdrop" type="button" aria-label="Fechar detalhe do fornecedor" hidden></button>
-  <section id="supplier-detail" class="panel" role="dialog" aria-label="Detalhe do fornecedor" hidden tabindex="-1"></section>
-  <dialog id="supplier-dialog"><form id="supplier-form" class="prm-form"><h2 id="supplier-form-title"></h2><div id="supplier-fields" class="supplier-fields"></div><p id="supplier-form-error" role="alert"></p><div class="prm-page-actions"><button id="supplier-submit" class="button-primary" type="submit">Salvar</button><button id="supplier-cancel" type="button">Cancelar</button></div></form></dialog>
+  <section id="supplier-detail" role="dialog" aria-modal="true" aria-label="Detalhe do fornecedor" hidden tabindex="-1"></section>
+  {# Painel lateral de formulário (.prm-sheet): novo fornecedor, IA, arquivar, excluir e agendar reunião. IDs são contratos de suppliers.js/supplier-ai.js. #}
+  <dialog id="supplier-dialog" class="prm-sheet" aria-labelledby="supplier-form-title">
+    <form id="supplier-form" class="prm-sheet-frame" novalidate>
+      <header class="prm-sheet-head"><div><p class="prm-sheet-kicker" id="supplier-form-kicker">Fornecedor</p><h2 id="supplier-form-title"></h2><p class="prm-sheet-sub" id="supplier-form-subtitle"></p></div><button type="button" class="prm-sheet-close" data-sheet-close aria-label="Fechar">×</button></header>
+      <div class="prm-sheet-body"><div id="supplier-fields" class="supplier-fields"></div><p id="supplier-form-error" class="prm-sheet-error" role="alert"></p></div>
+      <footer class="prm-sheet-foot"><button id="supplier-cancel" type="button" class="button-secondary">Cancelar</button><button id="supplier-submit" class="button-primary" type="submit">Salvar</button></footer>
+    </form>
+  </dialog>
 </section>
-<script src="{{ url_for('static', path='/js/supplier-ai.js') }}?v=20261027-novo" defer></script>
-<script src="{{ url_for('static', path='/js/suppliers.js') }}?v=20261027-novo" defer></script>
+<script src="{{ url_for('static', path='/js/supplier-ai.js') }}?v=20261028-ux3" defer></script>
+<script src="{{ url_for('static', path='/js/suppliers.js') }}?v=20261028-ux3" defer></script>

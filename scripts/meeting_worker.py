@@ -23,6 +23,19 @@ def weekly_agenda_drafts(engine, settings):
         print(f"Pauta semanal: {type(exc).__name__}", flush=True)
 
 
+def supplier_followups(engine, settings):
+    """Follow-up automático de fornecedores (regras em lote; idempotente). Falha aqui não para os alertas."""
+    try:
+        if inspect(engine).has_table("suppliers"):
+            from app.services.supplier_followups import evaluate
+            with Session(engine) as db, db.begin():
+                stats = evaluate(db, settings=settings)
+            if any(stats.values()):
+                print(f"Follow-up de fornecedores: {stats}", flush=True)
+    except Exception as exc:
+        print(f"Follow-up de fornecedores: {type(exc).__name__}", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", choices=["analysis", "cards", "transcription", "alerts", "text"], default="text")
@@ -38,6 +51,7 @@ def main():
                     with Session(engine) as db, db.begin():
                         for activity in db.scalars(select(Activity).where(Activity.approval == "published").with_for_update()).yield_per(100):
                             sync_alerts(db, activity)
+                    supplier_followups(engine, settings)
                     weekly_agenda_drafts(engine, settings)
                 else:
                     for stage in (["analysis", "cards"] if args.stage == "text" else [args.stage]):

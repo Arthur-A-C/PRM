@@ -1,16 +1,23 @@
 {% import "_workspace_icons.html" as ui %}
+{% import "_flow_guide.html" as flow %}
 {# IDs e names são contratos de store-registration.js e de /api/v1/cadastro-api. #}
 <section id="api-registration" class="prm-stack">
   <header class="prm-page-head">
     <div>
       <p class="eyebrow">Digitalização / Cadastro via API</p>
       <h2>Arquivos de produtos existentes</h2>
-      <p>Adiciona imagens e documentos WCDA a produtos já cadastrados, localizados por SKU exato. Nome, descrições, categorias, atributos, preço, estoque e status continuam no fluxo CSV e nunca são enviados por aqui. A prévia só lê a loja.</p>
+      <p>Adiciona imagens e documentos WCDA a produtos já cadastrados, localizados por SKU exato. A prévia (Dry Run) só lê a loja.</p>
+      <details class="prm-help"><summary>O que nunca é alterado</summary><p class="prm-note">Nome, descrições, categorias, atributos, preço, estoque e status continuam no fluxo CSV e nunca são enviados por aqui.</p></details>
     </div>
   </header>
-  <ol class="prm-steps" aria-label="Etapas do cadastro">
-    <li>Importar arquivos</li><li>Dry Run</li><li>Aprovação</li><li>Envio</li><li>Verificação</li>
-  </ol>
+  {{ flow.guide('Andamento do cadastro', [
+    ('Importar arquivos', '#api-registration-actions:not([hidden])', '#api-registration-upload', 'Marque o que deseja cadastrar, escolha o ZIP ou a pasta e clique em Importar e preparar prévia.'),
+    ('Dry Run', '#api-registration-items .prm-badge:not(.is-busy)', '#api-registration-items', 'A prévia está consultando a loja. A lista atualiza sozinha.'),
+    ('Aprovação', '#api-registration-confirm:not(:disabled), #api-registration-restore:not(:disabled)', '#api-registration-items', 'Abra o Dry Run de cada SKU, selecione os itens prontos e clique em Aprovar Dry Run dos selecionados.'),
+    ('Envio', '#api-registration-restore:not(:disabled)', '#api-registration-actions', 'Clique em Enviar aprovados. O envio roda em segundo plano e cada produto é conferido na loja.'),
+    ('Verificação', '#api-registration[data-never-done]', '#api-registration-items', 'Confira o status Verificado de cada SKU. Itens Incertos precisam ser reconciliados; Restaurar desfaz o envio.')],
+    alerts=[('#api-registration-items .prm-badge.is-alert', 'Há itens com erro ou bloqueados. Veja a coluna Avisos/erros e use Refazer prévia depois de corrigir.', 'alert'),
+            ('#api-registration-items .prm-badge.is-warn', 'Há itens aguardando decisão: escolher a foto principal, aguardar o produto ou reconciliar.', 'warn')]) }}
 
   <div class="panel">
     <div class="prm-section-title"><div><h2>Importar arquivos</h2><p>ZIP com pastas por SKU ou arquivos diretamente em SKU.zip. Os arquivos vão ao PRM, não à loja.</p></div></div>

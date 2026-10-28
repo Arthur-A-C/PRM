@@ -1,45 +1,176 @@
 # Status do projeto
 
-## Revisão consolidada — 23/10/2026
+## Consolidação para o GitHub — 28/10/2026
 
-Base inspecionada: `179c702` (merge do PR #5, pauta semanal), na branch local `feature/arthur-desenvolvimento`. O checkout estava sem alterações antes da atualização documental. Esta revisão consultou código, migrações, testes e documentação local; não consultou o estado remoto atual de CI, proteção de branches ou implantação.
+- O conjunto publicado e validado visualmente em produção pelo usuário foi reunido na branch
+  `fix/remocao-autorizacao-cargos`. Esta sessão não reiniciou containers, não executou deploy e não alterou banco;
+  a correspondência operacional foi conferida pelo código e pelos overlays versionados.
+- Inclui o ciclo de vida de fornecedores (arquivar, restaurar e excluir), migration aditiva
+  `20261027_0018`, Planner centralizado, reuniões/cards, follow-ups, alertas, dashboard, comparador,
+  assistentes de catálogo/digitalização e formulários em painéis laterais com `PRM.sheet`.
+- A quarentena de documentos usa identificador interno compacto para permanecer acessível também no limite legado
+  de caminhos do Windows, sem reduzir as validações, a auditoria ou a capacidade de restauração.
+- Validação local sem chamadas reais a WooCommerce, WordPress ou Anthropic: **971 testes Python aprovados e 24
+  ignorados** por fixtures privadas/locais indisponíveis; **35 testes JavaScript aprovados**; `git diff --check`,
+  composição Docker e Alembic aprovados, com uma única head (`20261027_0018`).
+- O ambiente Python local precisou receber `xlrd==2.0.2` e `resvg-py==0.5.0`, ambas dependências já fixadas no
+  `requirements.txt`; isso não altera a aplicação versionada.
 
-### Implementação disponível
+## Formulários em painel lateral — 28/10/2026
+
+- Modais centrais de Fornecedores e Planner viraram painel lateral reutilizável (`.prm-sheet` + `PRM.sheet`). Lógica,
+  endpoints, CSRF, permissões, auditoria e concorrência inalterados. Sem deploy.
+- Finalização: nenhum `alert/confirm/prompt` nativo no fluxo normal. Novo fornecedor com IA (duplicidade), importação
+  de catálogo (criar concorrente, confirmar importação com a prévia), publicação da base oficial, Geração em lote,
+  Publicação em lote, Cadastro via API, Remoção de arquivos, Resolução de imagens e Pauta semanal usam confirmação
+  compacta/painel com escopo, quantidade e consequências. Proteções: envio em andamento não fecha, alteração não
+  salva pede confirmação, foco volta a quem abriu. Sem deploy.
+
+## Follow-up automático de fornecedores — 28/10/2026
+
+- Seis regras (sem interação, quente sem próxima ação, aguardando retorno, ficha cadastral, validade de documentos,
+  próxima ação espelhada) avaliadas em lote pelo worker de alertas existente e, por fornecedor, após cada ação na tela.
+  Itens vão ao Planner como Follow-up e a Meus alertas; idempotentes, resolvidos automaticamente, seguem o responsável
+  atual, ignoram arquivados. Sem migração (depende da `0018` já pendente no worktree). Detalhes em `docs/FORNECEDORES.md`.
+
+## Planner como centro operacional — 28/10/2026
+
+- Reuniões e Cards saíram da navegação; o Planner concentra agenda (tarefas, reuniões, cards, follow-ups), revisão de
+  cards e reuniões/transcrições. Rotas antigas redirecionam. Criação direta (“+ Novo item”), detalhe contextual
+  (reunião com dados, fornecedor, participantes, transcrição, análise, cards sugeridos e histórico), filtros por tipo,
+  responsável, status, prioridade, fornecedor e período, lista agrupada (Atrasados, Hoje, Amanhã, 7 dias, Sem data) e
+  calendário. Fornecedor: agendar reunião, criar tarefa e próxima ação aparecem na agenda. Dashboard aponta para o
+  Planner. Sem migração; models e endpoints antigos preservados. Detalhes em `docs/REUNIOES_PLANNER.md`.
+- Depende do worktree atual (inclui arquivar/excluir fornecedores e a migração `0018`, ainda não aplicada em produção).
+  Sem deploy, commit, push ou merge.
+
+## Interface — revisão de UX/UI (fase 2: Comparador, Importação, Digitalização) — 28/10/2026
+
+- Comparação lado a lado (`/comparacao-atual`) redesenhada: produto por coluna com origem, preço principal e
+  disponibilidade no cabeçalho, placar frente à referência, características agrupadas (Processamento e
+  armazenamento, Tela, Conectividade, Alimentação, Físico, Controle, Outras), filtro Todas/Diferenças/Iguais/Sem dado,
+  destaque discreto (igual, diferente, sem dado, conflito) e legenda “Como ler”. Sem “melhor/pior”.
+- Comparador (`/comparador`): entrada “Compare um produto nosso com concorrentes”, base oficial em uma linha, filtros
+  operacionais ocultos nas visões Atributos/Qualidade, detalhes técnicos da base recolhidos, nomes de concorrentes
+  vindos do registro de fontes.
+- Importação de catálogos em assistente de 5 etapas (Origem → Arquivo → Mapeamento → Prévia → Importar) na mesma
+  página, com etapa atual, concluídas, próximo passo, erro e aviso. Mesmos IDs, payloads, CSRF e importação manual;
+  publicação continua manual.
+- Digitalização: navegação do módulo agrupada (Um produto · Em lote · Na loja); guia de andamento com próxima ação em
+  Resolução de imagens, Cadastro via API, Remoção de arquivos, Geração em lote e Publicação em lote; cabeçalhos curtos
+  com detalhes recolhidos; painel da Nova digitalização marca etapas feitas/atual. Publicação em lote mantida.
+- Sem backend, banco, migrations, endpoints ou regras alterados. Validado em laboratório isolado (dados fictícios)
+  em 1440/1366/1024/768/390 px, claro e escuro. Sem deploy, commit, push ou merge.
+
+## Interface — revisão de UX/UI (fase 1) — 27/10/2026
+
+- Design system refinado em `prm-system.css`: paleta neutra com destaque reservado a ação/seleção/foco, aliases `--space-*`, `--radius-*`, `--surface-*`, `--text-*`, `--accent*`, tipografia em tokens (`--type-*`), controles de 36px, superfícies sem sombra, foco com anel suave, selos/estados vazios/skeleton/toasts padronizados. Detalhes em `docs/DESIGN_SYSTEM.md`.
+- Shell: barra lateral mais leve (estado ativo claro, grupos compactos, rodapé sem logos em telas baixas), cabeçalho mais baixo.
+- Dashboard: resumo com hierarquia (funil de fornecedores à esquerda, catálogo em faixa), abas da central funcionando também sem snapshot (antes os três painéis apareciam juntos e os gráficos ficavam em skeleton).
+- Fornecedores: barra de filtros compacta (busca + 4 selects + “Mais filtros”, aplicação ao mudar), cartões do Kanban com score, próxima ação, responsável e prazo `dd/mm` destacado quando vencido, estados vazios com ações, edição inline discreta no drawer.
+- Cards: barra única de ações em lote com “Exportar”, cartões compactos sem altura fixa, selos coloridos por significado. Meus alertas agrupados (Atrasados, Hoje, Próximos, Atribuições). Reuniões com o fluxo Reunião → Transcrição → Análise → Cards → Publicação.
+- Catálogos: “Base oficial de comparação” virou painel de estado (Nossa base × Concorrência, última importação, análise publicada) com etapas Importar → Revisar → Publicar; mesmos `data-publication-*`.
+- Sem backend, banco, migrations, endpoints ou permissões alterados. Validado em laboratório isolado (Postgres descartável, dados fictícios) por capturas em 1440/1024/768/390 px, claro e escuro: sem rolagem horizontal e sem erro de JavaScript. Testes: suíte backend completa e JavaScript aprovados. Sem deploy, commit, push ou merge.
+
+## Fornecedores — arquivamento e exclusão segura — 27/10/2026
+
+- Arquivar/restaurar reversível com filtro Ativos/Arquivados/Todos; exclusão definitiva só para gestor/desenvolvedor, com nome digitado, `updated_at` como trava otimista (409), CSRF e isolamento por organização.
+- Documentos de fornecedor excluído vão para quarentena física fora do download (com retorno em caso de falha); `supplier_ai_runs` preservados e desvinculados; auditoria durável em `supplier_deletion_audits`.
+- Migração `20261027_0018` criada (não aplicada). Testes: 67 Python de fornecedores/IA, **32 JavaScript**, suíte backend **951 passed / 27 skipped**. Sem deploy, commit, push ou merge.
+
+## Fornecedores — UX de CRM contextual — 27/10/2026
+
+- Kanban preservado como tela principal; fornecedor abre em drawer amplo, responsivo e restaurável pela URL.
+- Edição da ficha passou de formulário grande para campos inline; score, etapa, responsável e próxima ação continuam nos endpoints auditados existentes.
+- Contatos, histórico, tarefas e documentos agora operam em cinco abas com composers internos, timeline visual, conclusão rápida, pastas e drag/drop documental.
+- Cadastro manual reduzido ao essencial; manual e IA terminam no mesmo drawer. Backend, schema, migrations, permissões e fluxo de IA não foram modificados.
+- Testes: **29 JavaScript**, **68 Python focados** e suíte backend completa com **944 passed / 27 skipped**. Sem deploy, commit, push ou merge.
+
+## Consolidação estrutural — 27/10/2026
+
+- Worktree auditado: `PRM-remocao-cargos`, branch `fix/remocao-autorizacao-cargos`; alterações funcionais preexistentes foram preservadas e copiadas para backup privado fora do repositório antes da revisão.
+- Estrutura mantida como monólito modular FastAPI. Nenhum módulo crítico foi movido, nenhum endpoint foi renomeado e nenhuma regra de negócio foi alterada apenas para organização.
+- Fluxos atuais de Catálogos e Fornecedores adicionados ao inventário de arquitetura; o fluxo oficial de catálogo agora está documentado como arquivo → `Offer` → publicação explícita → snapshot → Comparador/Visão Geral.
+- Os 22 arquivos Compose foram inventariados. Overlays incrementais e de rollback foram preservados, pois ainda não há evidência suficiente de equivalência operacional para removê-los.
+- `.gitignore` ampliado para caches de análise, temporários, backups locais e dumps SQL; `.env`, dados, filas e artefatos continuam excluídos.
+- Documentação central criada para variáveis de ambiente e deploy/rollback. Configurações de IA permanecem independentes por módulo; não houve refatoração arriscada dos clientes Anthropic.
+- Alembic: uma única head, `20261027_0017 (access_levels)`; migrations aplicadas não foram reescritas.
+- Suíte backend isolada e sem rede: **944 passed, 27 skipped, 1 warning**. Os skips dependem de fixtures privadas/arquivos locais e de Node ausente na imagem de runtime.
+- Suíte JavaScript local: **25 passed**. Nenhuma chamada real a Anthropic, WooCommerce, WordPress ou sites externos foi executada.
+- Não houve migration, deploy, recriação de container, alteração de banco, volume ou credencial nesta consolidação.
+
+## Catálogos — correção CSRF — 27/10/2026
+
+- Causa confirmada: ambiente Docker usa `prm_docker_csrf`, enquanto o JavaScript do importador procurava o cookie fixo `prm_csrf`.
+- Importador passou a usar exatamente o padrão do Cadastro via API: ler `input[name="csrf_token"]` renderizado pelo servidor a cada chamada, enviar `X-CSRF-Token`, `credentials: same-origin` e `cache: no-store`. Leitura, prévia, confirmação e criação de concorrente compartilham o helper. Token acompanha o template após login/reload; não há cache do valor no JavaScript.
+- Autenticação, cookies, backend CSRF e parser XLSX não foram alterados. Versão do asset atualizada para `20261027-csrf`.
+- Validação: **19 testes Python e 1 JavaScript aprovados**; CSV/XLSX válidos, token ausente/incorreto com 403 nas três ações, prévia sem escrita e confirmação protegida. Testes com banco temporário e API/DOM simulados, sem importação real.
+- Overlay exclusivo de API: `compose.catalogos-csrf.yaml`, imagem `prm:catalog-csrf-20261027`. Sem commit/push. Recarregar Catálogos com Ctrl+F5.
+
+## Catálogos — Nossa base / Concorrência — 27/10/2026
+
+- Origem explícita reutilizando `Company.company_type`; validação por organização e empresa, filtros nas duas visualizações, badges e identificação no comparador. SKUs iguais não colidem entre origens. Sem nova tabela ou migration.
+- Importador CSV/XLSX/XLS em Catálogos: origem, empresa/concorrente, mapeamento, prévia sem escrita e confirmação; modos adicionar/atualizar, modelo CSV e histórico. Limite próprio de 50 MiB configurável. Importação disponível para gestor/desenvolvedor, com CSRF e rollback transacional.
+- Novas importações aparecem no catálogo cadastrado (`/catalogos?view=legacy`) e na comparação direta. A análise publicada permanece preservada e não é recalculada automaticamente.
+- Testes: suíte completa **880 aprovados / 28 ignorados**; após ajustes finais, **39 testes relacionados aprovados**, incluindo filtros do snapshot e numeração original de linhas; **1 teste JavaScript aprovado** com API/DOM simulados. Os testes usam dados sintéticos, sem lojas ou banco real.
+- Deploy exclusivo da API em `localhost:8001`, imagem `prm:catalog-origin-test`, overlay `compose.catalogos-origens.yaml` após o design system. API saudável; JavaScript HTTP 200, endpoint de importação sem login HTTP 401. Workers, gateway, bancos, volumes e ambiente `prm-kaue` mantiveram os IDs anteriores. Sem importação real, commit, push ou merge.
+- Detalhes, arquivos e rollback: [CATALOGOS_ORIGENS.md](CATALOGOS_ORIGENS.md). Recarregar com Ctrl+F5.
+
+## Fornecedores — interface CRM — 26/10/2026
+
+- Kanban com arraste persistido, rollback visual em erro e contadores; drawer lateral, score/etapa/responsável inline, cadastro essencial, ficha agrupada, pastas/timeline/tarefas e filtros rápidos.
+- PATCH parcial protegido por CSRF, organização e responsável; conflito de etapa retorna 409. Nenhuma mudança de modelos/migration ou integração automática com Planner.
+- Validação: 45 testes Python e 5 JS passaram. Overlay exclusivo da API: compose.fornecedores-crm.yaml. Sem dados fictícios, sem operações nas lojas, sem commit/push/merge. Detalhes em FORNECEDORES.md.
+
+## Fornecedores e permissão por responsável — 26/10/2026
+
+- Módulo ativo em `/fornecedores`, com Kanban, criação, ficha, contatos, interações, tarefas, documentos e histórico. Vendedor cria e gerencia somente fornecedores próprios; gestor/desenvolvedor gerencia toda a organização. CSRF, usuário ativo, isolamento e downloads autenticados testados.
+- Migration aditiva `20261026_0015` aplicada após backup privado. Cinco tabelas novas vazias; nenhuma massa fictícia criada. Somente API atualizada, demais containers e lojas preservados.
+- Testes: 857 passaram, 28 ignorados; 2 testes JavaScript passaram. Sem commit/push/merge. Procedimento, arquivos, limitações e rollback em [FORNECEDORES.md](FORNECEDORES.md). Overlay ativo adicional: `compose.fornecedores.yaml` no worktree `PRM-remocao-cargos`.
+
+## Remoção por cargo ativada — 23/10/2026
+
+- Implantação explicitamente autorizada: `prm-docker`, porta **8001**, somente API e worker-removal recriados usando `prm:removal-roles-20261023` (imagem testada). Original/credenciais/volumes/Compose principal preservados; demais containers com os mesmos IDs.
+- Saúde HTTP 200 (`database: available`), API sem login retorna 401, JavaScript novo servido e worker com lock adquirido. Estados da fila antes/depois idênticos: 1 concluído, 8 erros e 4 em revisão; nenhum item em execução/fila no momento da troca. Não foram efetuadas operações nas lojas.
+- Backup fora do Git: `C:\Users\PW\Documents\PRM-deploy-backups\removal-20261023` (PostgreSQL e volume da fila). Imagem anterior preservada em `prm:before-removal-roles-20261023`.
+- Overlay obrigatório para manter esta implantação: `compose.remocao-cargos.yaml` no worktree isolado. Sem commit/push/merge; uma reconstrução a partir do checkout original sem integrar a branch pode reverter a funcionalidade. Procedimento em [DEPLOY_REMOCAO_CARGOS.md](DEPLOY_REMOCAO_CARGOS.md).
+
+## Remoção por cargo — 23/10/2026 (branch local, sem deploy)
+
+- Escopo permanente confirmado explicitamente pelo usuário: somente remoção, acesso automático de gestores/desenvolvedores da organização configurada às três lojas, sem grants, SKU pré-liberado, trava de produção ou segundo aprovador. Substitui as regras históricas de remoção descritas abaixo.
+- Worktree isolado `C:\Users\PW\Documents\PRM-remocao-cargos`, branch `fix/remocao-autorizacao-cargos`, base `origin/main@179c702`. PRs #4/#5 já integrados nessa base. Nenhuma alteração nos outros worktrees ou módulo de reuniões.
+- API/worker revalidam identidade e escopo aprovado/confirmado; backup verificado, proteção de campos, concorrência, releitura, restauração e auditoria preservados. UI sem controles legados; detalhes de erro/validação legíveis e botões por estado.
+- Novas prévias também incluem assinatura dos campos protegidos. Filas antigas sem confirmação role-v1 são bloqueadas, não executadas automaticamente. Não há migration nova; históricos e configurações são mantidos.
+- Build `prm:removal-roles-test` aprovado. Suíte completa no container sem rede/volumes/credenciais: **713 passaram, 27 ignorados, 1 aviso**, 75,83 s. Skips: fixtures privadas (25), Compose excluído da imagem (1), Node ausente no runtime (1).
+- Focados: **126 passaram**; JavaScript no host: **4 passaram** (Node apenas para teste). Ambos os arquivos Compose validados sem iniciar serviços. Aviso preexistente de depreciação AnyIO/Starlette.
+- Nenhuma escrita nas lojas, uso de IA, deploy, reinício, modificação de bancos/volumes ou credenciais. Sem commit/push/merge nesta entrega; alterações salvas na branch para revisão.
+- Operação, arquivos alterados e próximos passos: [REMOCAO_ARQUIVOS.md](REMOCAO_ARQUIVOS.md) e [HANDOFF_REMOCAO_CARGOS.md](HANDOFF_REMOCAO_CARGOS.md).
+
+
+## Revisão consolidada histórica — 23/10/2026
+
+Base então inspecionada: `179c702` (merge do PR #5, pauta semanal), na branch local `feature/arthur-desenvolvimento`.
+O checkout estava sem alterações antes da atualização documental. A revisão consultou código, migrações, testes e
+documentação local; não consultou o estado remoto de CI, proteção de branches ou implantação.
+
+### Implementação disponível naquela revisão
 
 | Área | Estado no repositório |
 |---|---|
 | Catálogos | Snapshots refinados, qualidade, busca/filtros e comparação de 2–8 produtos; histórico legado preservado |
 | Atributos | Normalização e comparação de memória, armazenamento, USB e SO; equivalência comercial não confirmada automaticamente |
-| Dashboard | Centro operacional e inteligência de portfólio com base atual; resultados do matcher legado não são cobertura do snapshot refinado |
+| Dashboard | Centro operacional e inteligência de portfólio com base atual; matcher legado não era cobertura do snapshot refinado |
 | Digitalização | Datasheets individuais/lotes, arquivos por SKU, filas persistentes e exportações |
 | Arquivos | Envio de pastas pelo navegador, resolução de imagens, publicação e remoção com auditoria/recuperação |
 | Colaboração | Reuniões, revisão/comentários em cards, Planner, atribuição e alertas internos |
 | Pauta semanal | GitHub + Planner, edição, aprovação, PDF, histórico e agendamento pelo worker de alertas |
 | Acesso e infraestrutura | Perfis, permissões de remoção por loja, Docker isolado e CI; nenhum deploy automático |
 
-A migração final disponível é **`20261023_0014`**, que une `20261022_0012` (permissões de remoção) e `20261023_0013` (pauta semanal). Isso não comprova aplicação no banco oficial. A ativação de cards/alertas em `20261021_0011`, registrada abaixo, é evidência histórica de outro ambiente.
-
-### Verificações desta revisão
-
-- Análise sintática via `ast.parse` dos **243 arquivos Python** em `app`, `scripts`, `docker`, `migrations` e `tests`: **sem erros**. Não equivale a importação da aplicação ou execução de testes.
-- **52 arquivos de testes** presentes; CI configurada para Python 3.14, pytest, dependências, build Docker, migrações, health, persistência e segredos.
-- Suíte não executada neste checkout: Python disponível **3.15**, sem pytest; `.venv` e `.env` ausentes; daemon Docker indisponível na consulta.
-- Banco, sessão no navegador, APIs de lojas, filas, workers e implantação não foram verificados nesta revisão.
-- O resultado de **630 aprovados, 26 ignorados e 1 aviso**, abaixo, pertence à validação documentada do PR #4 em 22/10; antecede a integração da pauta e não deve ser apresentado como teste do commit atual.
-
-### Pendências e continuidade
-
-1. Preparar ambiente Python 3.14 ou Docker e verificar a suíte integrada; conferir `alembic current` no destino contra o head `20261023_0014` antes de qualquer implantação.
-2. Confirmar servidor/workers e configuração da pauta, incluindo token de leitura e evidência de commit implantado. O Compose base usa rede interna e não fornece automaticamente credenciais de integrações.
-3. Homologar matching/cobertura da base refinada com revisão técnica; a comparação por atributo já implementada não conclui esse aceite.
-4. Concluir homologação autorizada de escrita/WCDA e recuperação. A remoção em produção possui habilitação própria; não inferir lojas ativas da existência do código.
-5. Seguir as pendências de qualidade, escala e operação das reuniões e demais módulos no [Backlog](BACKLOG.md).
-
-As contagens de **89.693 registros e 500.016 observações de atributos** são da carga refinada documentada em 09/10, não de consulta atual. [README](../README.md) apresenta o escopo consolidado; [Backlog](BACKLOG.md) separa implementação de homologação pendente.
-
-## Histórico de verificações
-
-Os registros a seguir preservam contexto, ambiente, commit e resultados das respectivas etapas. Expressões como “atual”, “pendente”, visibilidade do repositório ou revisão do banco devem ser lidas na data de cada registro; não substituem a revisão consolidada acima. O mesmo vale para [INFRA_STATUS.md](INFRA_STATUS.md), que retrata a entrega de infraestrutura anterior às integrações funcionais.
+Naquele momento, a migração final disponível era `20261023_0014`, unindo `20261022_0012` e `20261023_0013`;
+isso não comprovava aplicação no banco oficial. A revisão validou sintaxe dos 243 arquivos Python, mas não executou
+a suíte, banco ou interface naquele checkout. As pendências registradas eram: validar Python 3.14/Docker e Alembic,
+confirmar serviços/workers da pauta, homologar matching/cobertura e concluir homologação de escrita/WCDA e recuperação.
+As contagens de 89.693 registros e 500.016 observações pertenciam à carga refinada documentada em 09/10.
 
 ## PR #4 — estabilização do teste de deduplicação — 22/10/2026
 
@@ -428,7 +559,7 @@ Infraestrutura isolada na porta 8001, sem migração do banco/filas Windows. Bui
 ## Atualização de 01/10/2026 — política de senha e gestor
 
 - Por solicitação do operador, o mínimo de senha do PRM passou de 12 para **6 caracteres** em `app/services/security.py`; os fluxos interativos de cadastro e o teste de segurança foram atualizados. O hash Argon2 e as demais regras de autenticação não mudaram. Essa redução vale para todas as contas novas e diminui a resistência a tentativas de adivinhação; é recomendado usar senhas longas mesmo com o mínimo reduzido.
-- O usuário `kaue.borges@choicetech.com.br` foi criado no `prm_mvp` como `gestor` ativo (maior perfil de acesso da aplicação). A senha não foi gravada em código, documentação ou saída do terminal; o banco guarda apenas o hash. Essa função não concede privilégios de administrador do Windows ou do PostgreSQL.
+- Um usuário operacional foi criado no `prm_mvp` como `gestor` ativo (maior perfil de acesso da aplicação). A senha não foi gravada em código, documentação ou saída do terminal; o banco guarda apenas o hash. Essa função não concede privilégios de administrador do Windows ou do PostgreSQL.
 - Verificação SQL confirmou o usuário ativo com perfil `gestor`. Suíte completa: **60 testes aprovados, 3 avisos**.
 
 ## Atualização de 28/09/2026 — PostgreSQL de staging e carga Dimensional

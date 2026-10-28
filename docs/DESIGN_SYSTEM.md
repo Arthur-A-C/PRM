@@ -4,21 +4,25 @@ Fonte única: `app/static/css/prm-system.css`, carregada **por último** em `bas
 `--cc-*` (que todas as camadas antigas já usam) e normaliza os componentes compartilhados. Não reescreve módulos.
 Para uma tela nova, use as classes abaixo e evite CSS próprio com cores fixas.
 
-## Tokens
-| Uso | Token | Claro | Escuro |
+## Tokens (refinados em 27/10/2026)
+| Uso | Token (alias curto) | Claro | Escuro |
 |---|---|---|---|
-| Fundo geral | `--cc-bg` | #f3f5f8 | #0b1118 |
-| Superfície | `--cc-surface` / `-2` / `-3` | #fff / #f7f9fb / #edf1f5 | #121a24 / #17212c / #1d2935 |
-| Borda | `--cc-line` / `--cc-line-strong` | #e2e7ed / #cdd5de | #243241 / #334558 |
-| Texto | `--cc-ink` / `-2` / `-3` | #0f1c2b / #3a4859 / #5b6a7b | #e8eef4 / #b6c3d0 / #93a3b4 |
-| Ação | `--cc-primary` (+ `-hover`, `-soft`) | #0a5ccf | #5b9cf0 |
-| Sucesso / aviso / erro | `--cc-ok` / `--cc-warn` / `--cc-alert` (+ `-soft`) | #157a44 / #8a5300 / #b4232f | #62d08f / #f0b54f / #ff8a93 |
+| Fundo geral | `--cc-bg` (`--surface-page`) | #f4f5f7 | #0c1117 |
+| Superfície | `--cc-surface` / `-2` / `-3` (`--surface-1/2/3`) | #fff / #f8f9fb / #eef0f3 | #131a23 / #18202b / #1f2834 |
+| Borda | `--cc-line` / `--cc-line-strong` (`--border-1/2`) | #e5e8ec / #d2d7de | #252f3c / #344152 |
+| Texto | `--cc-ink` / `-2` / `-3` (`--text-1/2/3`) | #121a25 / #3c4655 / #636d7c | #e7ecf2 / #b7c1cd / #8e9aa9 |
+| Destaque | `--cc-primary` (`--accent`, `-hover`, `-soft`, `--accent-ring`) | #2a56c6 | #6d97f2 |
+| Sucesso / aviso / erro | `--cc-ok` / `--cc-warn` / `--cc-alert` (`--success/--warning/--danger`, + `-soft`) | #1b7a48 / #8f5600 / #bb2f2a | #5fcb8b / #eab35a / #f48a86 |
 
-Tipografia (sans do sistema, Segoe UI): título da página 24px (`--ds-text-title`), seção 17px (`--ui-text-lg`),
-corpo 15px (`--ui-text-base`), tabelas/notas 14px (`--ui-text-md`), labels 13px (`--ui-text-sm`), selos 12px
-(`--ui-text-xs`). Rótulos pequenos em caixa alta com tracking leve, sem fonte monoespaçada (ela fica para código).
-Espaçamento em múltiplos de 4px (`--ui-space-*`); raio 12/8/6px; sombra única leve (`--cc-shadow`) e uma de
-elevação para drawers, toasts e barras flutuantes (`--cc-shadow-lift`).
+A cor de destaque é reservada para ação primária, item selecionado, foco e estado importante; filtros, ações
+secundárias e listas usam neutros. Os aliases (`--space-1..7` = 4/8/12/16/24/32/48px, `--radius-sm/md/lg/pill`,
+`--surface-*`, `--text-*`, `--accent*`) apontam para os mesmos valores dos tokens `--cc-*`.
+
+Tipografia (sans do sistema, Segoe UI) em tokens compostos: `--type-page` 22px/650, `--type-section` 16px/650,
+`--type-card` 14,5px/650, `--type-body` 14px, `--type-secondary` 13px, `--type-label` 13px/600,
+`--type-helper` 12px, `--type-caption` 11px/600 em caixa alta. Corpo de produto em 14px (densidade SaaS).
+Controles com 36px de altura (`--ui-control-h`), 30px na versão compacta. Raio 12/8/6px; sem sombra em superfícies
+estáticas, `--cc-shadow-lift` só para drawers, diálogos, popovers, toasts e barras flutuantes.
 
 ## Componentes
 - **Botões:** `.button-primary` (ação principal, um por área), `.button-secondary`/`.prm-btn` (alternativas),
@@ -35,6 +39,53 @@ elevação para drawers, toasts e barras flutuantes (`--cc-shadow-lift`).
 - **Feedback (JS, `ui.js`):** `PRM.toast(mensagem, "success"|"info"|"warning"|"error")` e
   `PRM.busy(botão, "Salvando…")` (devolve a função que restaura). Envio nativo de formulário marca o botão como
   "Enviando…/Carregando…" automaticamente (exceto `method="dialog"`, `target` e `data-prm-no-busy`).
+
+## Padrões de produto (27/10/2026)
+- **Painel lateral de formulário (28/10/2026):** criar/editar/confirmar abre em `<dialog class="prm-sheet">` à direita,
+  no padrão do drawer de fornecedores (cantos 18px à esquerda, sombra lateral, overlay). Estrutura:
+  `.prm-sheet-head` (rótulo, título, subtítulo, ×) · `.prm-sheet-body` (seções `.prm-sheet-section`, erro `.prm-sheet-error`)
+  · `.prm-sheet-foot` fixo (Cancelar + ação principal; perigo com `.prm-btn-danger` e variante `.is-danger`). Tamanhos
+  `.is-narrow` / padrão / `.is-wide`. `ui.js` (`PRM.sheet`) dá clique fora, foco no primeiro campo, `[data-sheet-close]`
+  e `PRM.sheet.ask` / `PRM.sheet.confirm` no lugar de `prompt()` / `confirm()`. ESC e foco preso vêm do `<dialog>` nativo.
+- **Quando usar cada diálogo (28/10/2026):** formulário com vários campos → painel lateral (`.prm-sheet`); ação simples →
+  confirmação compacta (`PRM.sheet.confirm`, `.is-compact`: cartão no canto superior direito, folha inferior no
+  celular); ação destrutiva ou envio real à loja → `danger: true` (botão vermelho) ou painel `.is-danger` com frase
+  digitada. A confirmação diz o que será feito (`title`/`text`), quantos itens (`details: [[rótulo, valor]]`,
+  renderizado em `.prm-sheet-facts`) e as consequências (`warnings`, `.prm-sheet-warnings`). Formulário curto:
+  `PRM.sheet.form({fields:[{name,label,type,required,min,max}], size:"panel"})` com erro ao lado do campo
+  (`.prm-field-error`, `aria-invalid`). Proteções do `PRM.sheet` em todo `.prm-sheet`: não fecha (ESC, clique fora, ×,
+  Cancelar) enquanto houver `[aria-busy="true"]`; com campo alterado pede “Descartar alterações?”
+  (`data-sheet-guard="off"` desliga); devolve o foco a quem abriu (ou ao resumo do menu que se fechou). `alert()`,
+  `confirm()` e `prompt()` nativos só existem como reserva quando `PRM.sheet` não está carregado (testes de JS).
+- **Planner (28/10/2026):** tipo de item tem cor e forma próprias (`.pl-type-dot`: tarefa = destaque azul, reunião =
+  violeta/círculo, card = âmbar, follow-up = verde/losango), sempre junto do nome do tipo. Agenda em lista agrupada
+  (Atrasados, Hoje, Amanhã, Próximos 7 dias, Mais adiante, Sem data) ou calendário; detalhe em painel lateral
+  (`.pl-drawer`); criação em diálogo único com tipo escolhido no topo.
+- **Hierarquia de botões:** um `.button-primary` por área; botões de filtro (`Filtrar`, `Aplicar`, `Pesquisar`) são
+  sempre secundários; `.prm-btn-ghost` para ações de contexto; destrutivas separadas (`.prm-btn-danger`/menu `⋯`).
+- **Barra de filtros:** busca larga + até 4 selects visíveis + `Mais filtros` (`<details>` com popover) + `Filtrar`.
+  Mudar um select já aplica o filtro (Fornecedores). Atalhos rápidos como chips (`aria-pressed`).
+- **Ações em lote:** uma barra única (`.mt-bulkbar`) com grupos separados por divisor e exportações em `Exportar ▸`.
+- **Estado vazio:** `.prm-empty` com título curto, uma frase de orientação e ações (`.prm-empty-actions`);
+  com filtros ativos, oferecer `Limpar filtros` em vez de “criar”.
+- **Carregamento:** `.prm-skeleton` (shimmer) para blocos, `.prm-loading` (spinner pequeno + texto) para trechos.
+- **Selos:** mesma cor = mesmo significado (ok = em dia/concluído/publicado, warn = atenção/priorizar/hoje,
+  alert = vencido/erro, info = aprovado/próximo, neutral = rascunho/sem dado). Em Cards/Alertas: `.mt-chip.is-*`.
+- **Kanban:** colunas em trilho neutro com contador, cartão = empresa + score, próxima ação (2 linhas), rodapé com
+  responsável (inicial) e prazo (`dd/mm`, vermelho quando vencido). Arrastar continua igual.
+- **Fluxos em etapas:** `<ol class="prm-steps">` com `aria-current="step"` e `.is-done` (✓).
+- **Guia de andamento (28/10/2026):** macro `_flow_guide.html` + `flow-guide.js`. Cada etapa declara um seletor CSS
+  que fica verdadeiro quando ela termina (`data-flow-done`); a atual é a primeira não concluída. Mostra “Etapa X de N”,
+  a **Próxima ação** (`data-flow-next`), link “Ir para a etapa” e alertas (`data-flow-alert`, `.is-warn`/`.is-alert`).
+  Só lê a página: não faz requisições nem muda as ferramentas. Usado em Resolução de imagens, Cadastro via API,
+  Remoção de arquivos, Geração em lote, Publicação em lote e no assistente de importação de catálogos.
+- **Comparação lado a lado:** cabeçalho por produto (origem, empresa, título, SKU · família, preço principal em
+  destaque, disponibilidade, placar “iguais / diferentes / sem dado” frente à referência), características agrupadas
+  e filtro Todas/Diferenças/Iguais/Sem dado (`comparison-view.js`). Selos `.comparison-verdict--*`: igual/equivalente
+  = ok, diferente/parcial = âmbar (atenção, nunca “pior”), sem dado = tracejado neutro, conflito = alerta.
+  Não há “melhor/pior”: o backend não informa o sentido de cada atributo.
+- **Detalhes técnicos:** textos longos de cabeçalho vão para `<details class="prm-help">` (“Como funciona”,
+  “O que nunca é alterado”); identificadores de execução ficam em “Detalhes da base”.
 
 ## Navegação
 Menu agrupado em `shell.html` (Operação, Relacionamento, Gestão, Dados, Administração), apenas com os itens que o

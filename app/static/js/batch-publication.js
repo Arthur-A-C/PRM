@@ -6,6 +6,11 @@
   const selected=new Set(),opened=new Set(),replace=new Set();
   const csrf=()=>document.querySelector('input[name="csrf_token"]')?.value||"";
   const message=text=>{$("pub-message").textContent=text;};
+  // Confirmação do design system: o que será feito, quantos itens e consequências (sem ele, confirm() nativo).
+  const confirmBox=o=>typeof window!=="undefined"&&window.PRM?.sheet?window.PRM.sheet.confirm(o):Promise.resolve(confirm([o.title,o.text].filter(Boolean).join("\n\n")));
+  const effects={processar:["Usa a API de IA configurada e pode gerar custos.","Nada é publicado na loja nesta etapa."],reprocessar:["Usa a API de IA configurada e pode gerar custos."],
+    pausar:["Itens já em processamento terminam normalmente."],preparar:["Somente leitura na loja; nada é enviado."],aprovar:["Não publica: a publicação continua exigindo confirmação própria."],
+    publicar:["Envia imagens e documentos aprovados para a loja em produção.","O worker confere cargo, organização e Dry Run antes de cada envio."],retomar:["Refaz o Dry Run; nada é enviado sem nova aprovação."]};
   const tone={done:"is-ok",review:"is-info",blocked:"is-alert",error:"is-alert",invalid:"is-alert",uncertain:"is-alert",
     awaiting_product:"is-warn",queued:"is-busy",running:"is-busy",preview_queued:"is-busy",preview_running:"is-busy"};
   function el(tag,text,className){const node=document.createElement(tag);if(text!=null)node.textContent=text;if(className)node.className=className;return node;}
@@ -90,7 +95,9 @@
     const action=button.dataset.action,skus=[...selected];
     const items=data.items.filter(i=>selected.has(i.sku)).map(i=>i.item);
     const scope=skus.length?`${skus.length} produto(s) selecionado(s)`:"todos os produtos aptos";
-    if(!confirm(`${labels[action]} — ${scope}?`))return;
+    if(!await confirmBox({title:labels[action].split(" (")[0],kicker:"Publicação em lote",details:[["Ação",labels[action]],["Escopo",scope],["Lote",`${data.company.toUpperCase()} · ${data.total} produto(s)`]],
+      warnings:effects[action]||[],confirm:action==="publicar"?"Publicar aprovados":"Confirmar",danger:action==="publicar"}))return;
+    if(busy)return;
     const body={pausar:null,retomar:null,processar:{items:items.length?items:null},reprocessar:{items:items.length?items:null},
       preparar:{skus:skus.length?skus:null},aprovar:{skus:skus.length?skus:null,replace_main:[...replace]},publicar:{skus:skus.length?skus:null,confirmado:true}}[action];
     busy=true;

@@ -232,8 +232,12 @@ function registrationSelectionCount(items, choices) {
       message("Importando arquivos para prévia…");render(await request(api,{method:"POST",headers:headers(),body:form}));picker?.done();message("SKUs identificados; consulta na fila. Nenhuma gravação na loja autorizada.");}
     catch(e){message(e.message);}finally{busy=false;}
   });
+  const confirmBox=o=>typeof window!=="undefined"&&window.PRM?.sheet?window.PRM.sheet.confirm(o):Promise.resolve(confirm([o.title,o.text].filter(Boolean).join("\n\n")));
+  // question: texto simples ou opções completas da confirmação (título, detalhes, avisos, perigo).
   async function post(action,body,question){
-    if(!selected||busy||!confirm(question))return;
+    if(!selected||busy)return;
+    if(!await confirmBox(typeof question==="string"?{title:"Confirmar",kicker:"Cadastro via API",text:question}:{kicker:"Cadastro via API",...question}))return;
+    if(busy)return;
     busy=true;try{render(await request(`${api}/${selected}/${action}`,{method:"POST",headers:headers(Boolean(body)),body:body?JSON.stringify(body):undefined}));}
     catch(e){message(e.message);}finally{busy=false;}
   }
@@ -241,16 +245,18 @@ function registrationSelectionCount(items, choices) {
     const picked=registrationSelected(current?.items||[],choices,"aprovar");
     const replace=picked.filter(sku=>choices.get(sku)?.replace);
     if(!picked.length){message("Selecione um SKU com prévia atualizada para aprovar.");return;}
-    post("aprovar",{skus:picked,replace_main:replace},
-      `Aprovar o Dry Run de ${picked.length} item(ns)? Nenhum arquivo é enviado nesta etapa.`);
+    post("aprovar",{skus:picked,replace_main:replace},{title:"Aprovar Dry Run",details:[["Itens",picked.length],["Trocar foto principal",replace.length||"Não"]],
+      warnings:["Nenhum arquivo é enviado nesta etapa."],confirm:"Aprovar"});
   });
   function sendSelected(action) {
     if(!current)return;
     const skus=registrationSelected(current.items,choices,action);
     if(!skus.length){message("Selecione o SKU desejado na primeira coluna. Nenhum lote será enviado automaticamente.");return;}
-    const question=action==="confirmar" ? `Enviar arquivos dos ${skus.length} produto(s) selecionado(s) para ${current.company.toUpperCase()}? SKUs: ${skus.join(", ")}` :
-      action==="restaurar" ? `Restaurar os vínculos anteriores de ${skus.length} produto(s)? SKUs: ${skus.join(", ")}` :
-      `Refazer o Dry Run de ${skus.length} produto(s) selecionado(s), sem enviar arquivos?`;
+    const list=skus.length>12?skus.slice(0,12).join(", ")+` e mais ${skus.length-12}`:skus.join(", ");
+    const question=action==="confirmar" ? {title:"Enviar arquivos para a loja",details:[["Loja",current.company.toUpperCase()],["Produtos",skus.length],["SKUs",list]],
+        warnings:["Envia imagens e documentos aprovados para produtos já cadastrados na loja em produção.","Nome, descrições, preço, estoque e status não são alterados."],confirm:"Enviar arquivos",danger:true} :
+      action==="restaurar" ? {title:"Restaurar vínculos anteriores",details:[["Produtos",skus.length],["SKUs",list]],warnings:["Os vínculos de imagens e documentos voltam ao estado anterior ao envio."],confirm:"Restaurar",danger:true} :
+      {title:"Refazer Dry Run",details:[["Produtos",skus.length]],warnings:["Somente leitura na loja; nenhum arquivo é enviado."],confirm:"Refazer Dry Run"};
     post(action,{skus,confirmado:true},question);
   }
   $("api-registration-scope-apply").addEventListener("click",()=>{
@@ -258,7 +264,7 @@ function registrationSelectionCount(items, choices) {
     const skus=registrationSelected(current.items,choices,"escopo"),scope=formScope();
     if(!registrationScopeValue(scope)){message("Marque o que deseja cadastrar em “O que deseja cadastrar?”.");return;}
     if(!skus.length){message("Selecione os SKUs que devem mudar de escopo (itens enviados ou em envio não mudam).");return;}
-    post("escopo",{escopo:scope,skus},`Aplicar o escopo ${registrationScopeText(scope)} a ${skus.length} SKU(s)? O Dry Run será refeito e aprovações anteriores serão descartadas.`);
+    post("escopo",{escopo:scope,skus},{title:"Aplicar escopo",details:[["Escopo",registrationScopeText(scope)],["SKUs",skus.length]],warnings:["O Dry Run será refeito e aprovações anteriores serão descartadas."],confirm:"Aplicar escopo"});
   });
   $("api-registration-restore").addEventListener("click",()=>sendSelected("restaurar"));
   $("api-registration-confirm").addEventListener("click",()=>sendSelected("confirmar"));

@@ -15,14 +15,14 @@
   {% set is_manager = user.role in ['gestor', 'desenvolvedor'] %}
   {% set nav_icons = {'/': 'grid', '/fornecedores': 'users', '/catalogos': 'catalog', '/digitalizacao': 'scan', '/integracoes-woocommerce': 'store', '/comparador': 'compare', '/aplicacoes-regioes': 'map', '/cards': 'cards', '/reunioes': 'calendar', '/planner': 'clock', '/alertas': 'bell', '/gestao': 'shield', '/importacoes': 'upload'} %}
   {% set nav_short = {'Integrações WooCommerce': 'Integrações', 'Importações e qualidade': 'Importações'} %}
-  {% set nav_groups = [('', ['/']), ('Operação', ['/digitalizacao', '/integracoes-woocommerce']), ('Relacionamento', ['/fornecedores']), ('Gestão', ['/reunioes', '/cards', '/planner', '/alertas']), ('Dados', ['/catalogos', '/comparador', '/aplicacoes-regioes', '/importacoes']), ('Administração', ['/gestao'])] %}
-  {% set nav_children = {'/digitalizacao': [('Resolução de imagens', '/digitalizacao/resolucao-imagens'), ('Cadastro via API', '/digitalizacao/cadastro-api'), ('Remoção de arquivos', '/digitalizacao/remocao-arquivos'), ('Geração em lote', '/digitalizacao/lotes'), ('Publicação em lote', '/digitalizacao/publicacao-lote')], '/reunioes': [('Pauta semanal', '/reunioes/pauta-semanal')]} if is_manager else {} %}
+  {% set nav_groups = [('', ['/']), ('Operação', ['/digitalizacao', '/integracoes-woocommerce']), ('Relacionamento', ['/fornecedores']), ('Gestão', ['/planner', '/alertas']), ('Dados', ['/catalogos', '/comparador', '/aplicacoes-regioes', '/importacoes']), ('Administração', ['/gestao'])] %}
+  {% set nav_children = {'/digitalizacao': [('Resolução de imagens', '/digitalizacao/resolucao-imagens'), ('Cadastro via API', '/digitalizacao/cadastro-api'), ('Remoção de arquivos', '/digitalizacao/remocao-arquivos'), ('Geração em lote', '/digitalizacao/lotes'), ('Publicação em lote', '/digitalizacao/publicacao-lote')], '/planner': [('Pauta semanal', '/reunioes/pauta-semanal')]} if is_manager else {} %}
   {% set grouped = [] %}{% for _, hrefs in nav_groups %}{% for h in hrefs %}{% set _ = grouped.append(h) %}{% endfor %}{% endfor %}
   {% set nav_parent = namespace(label='', href='') %}
   {% for label, href in nav_items %}{% for child_label, child_href in nav_children.get(href, []) %}{% if active_path == child_href %}{% set nav_parent.label = label %}{% set nav_parent.href = href %}{% endif %}{% endfor %}{% endfor %}
   {% macro nav_link(label, href) -%}
     {% set children = nav_children.get(href, []) %}
-    {% set within = active_path.startswith(href ~ '/') and children %}
+    {% set within = (active_path.startswith(href ~ '/') or active_path in children|map(attribute='1')|list) and children %}
     <a href="{{ href }}" title="{{ label }}" data-nav-label="{{ label }}"{% if active_path == href %} aria-current="page"{% endif %}{% if within %} class="is-within"{% endif %}><span class="nav-icon" aria-hidden="true">{{ ui.icon(nav_icons.get(href, 'activity')) }}</span><span class="nav-label">{{ nav_short.get(label, label) }}</span></a>
     {% if children and (active_path == href or within) %}
     <div class="nav-children">
@@ -61,8 +61,8 @@
       </div>
     </div>
   </aside>
-  <main class="content{% if title not in ['Visão geral', 'Comparador', 'Importações e qualidade', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %} prm-ui{% endif %}" id="conteudo">
-    {% set page_subtitles = {'Visão geral': 'Resumo da operação, do portfólio e das atividades', 'Fornecedores': 'Funil de relacionamento, contatos, documentos e próximos passos', 'Catálogos': 'Ofertas das empresas monitoradas, com filtros e comparação', 'Digitalização': 'Do documento técnico ao pacote de cadastro', 'Resolução de Imagens': 'Tamanho e formato padronizados para as fotos dos produtos', 'Cadastro via API': 'Imagens e documentos enviados a produtos que já existem na loja', 'Remoção de Arquivos': 'Desvínculo de imagens e documentos com Dry Run, aprovação e restauração', 'Geração em Lote': 'Datasheets gerados a partir de pastas de produtos', 'Publicação em Lote': 'Pacotes gerados em lote enviados ao cadastro via API', 'Integrações WooCommerce': 'Conexão e situação das lojas Choice, SAG e Portwell', 'Comparador': 'Atributos e compatibilidade lado a lado', 'Aplicações e regiões': 'Aplicações dos produtos e cobertura por região', 'Cards': 'Tarefas e decisões extraídas das reuniões', 'Reuniões': 'Transcrições, propostas e compromissos', 'Pauta Semanal': 'O que avançou no desenvolvimento do PRM na semana', 'Planner': 'Prazos de tarefas e reuniões em calendário', 'Meus alertas': 'Prazos e pendências atribuídos a você', 'Gestão': 'Contas e níveis de acesso da organização', 'Importações e qualidade': 'Procedência e qualidade da base', 'Comparação atual': 'Produtos lado a lado', 'Comparação direta': 'Produtos lado a lado'} %}
+  <main class="content{% if title not in ['Dashboard', 'Comparador', 'Importações e qualidade', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %} prm-ui{% endif %}" id="conteudo">
+    {% set page_subtitles = {'Dashboard': 'Resumo da operação, do portfólio e das atividades', 'Fornecedores': 'Funil de relacionamento, contatos, documentos e próximos passos', 'Catálogos': 'Ofertas das empresas monitoradas, com filtros e comparação', 'Digitalização': 'Do documento técnico ao pacote de cadastro', 'Resolução de Imagens': 'Tamanho e formato padronizados para as fotos dos produtos', 'Cadastro via API': 'Imagens e documentos enviados a produtos que já existem na loja', 'Remoção de Arquivos': 'Desvínculo de imagens e documentos com Dry Run, aprovação e restauração', 'Geração em Lote': 'Datasheets gerados a partir de pastas de produtos', 'Publicação em Lote': 'Pacotes gerados em lote enviados ao cadastro via API', 'Integrações WooCommerce': 'Conexão e situação das lojas Choice, SAG e Portwell', 'Comparador': 'Atributos e compatibilidade lado a lado', 'Aplicações e regiões': 'Aplicações dos produtos e cobertura por região', 'Cards': 'Tarefas e decisões extraídas das reuniões', 'Reuniões': 'Transcrições, propostas e compromissos', 'Pauta Semanal': 'O que avançou no desenvolvimento do PRM na semana', 'Planner': 'Tarefas, reuniões, cards e follow-ups de fornecedores em um só lugar', 'Meus alertas': 'Prazos e pendências atribuídos a você', 'Gestão': 'Contas e níveis de acesso da organização', 'Importações e qualidade': 'Procedência e qualidade da base', 'Comparação atual': 'Produtos lado a lado', 'Comparação direta': 'Produtos lado a lado'} %}
     <header class="page-header workspace-header cc-header">
       <div class="page-header-main">
         <div class="page-heading">
@@ -83,13 +83,13 @@
       </div>
     </header>
 
-    {% if catalog_publication is defined and title != 'Visão geral' and user.role in ['gestor', 'desenvolvedor'] %}{% include '_catalog_publication.html' %}{% endif %}
-    {% if title == 'Visão geral' %}{% include "_overview.html" %}{% endif %}
+    {% if catalog_publication is defined and title != 'Dashboard' and user.role in ['gestor', 'desenvolvedor'] %}{% include '_catalog_publication.html' %}{% endif %}
+    {% if title == 'Dashboard' %}{% include "_overview.html" %}{% endif %}
     {% if is_manager and title in ['Digitalização', 'Resolução de Imagens', 'Cadastro via API', 'Remoção de Arquivos', 'Geração em Lote', 'Publicação em Lote'] %}{% include "_digitalization_tabs.html" %}{% endif %}
-    {% if title in ['Visão geral', 'Comparador', 'Importações e qualidade'] %}
-      {% if refined_analysis or title == 'Visão geral' %}
+    {% if title in ['Dashboard', 'Comparador', 'Importações e qualidade'] %}
+      {% if refined_analysis or title == 'Dashboard' %}
         {% include "_operations_dashboard.html" %}
-      {% elif title != 'Visão geral' %}
+      {% elif title != 'Dashboard' %}
         <section class="notice prm-notice-compact" role="status"><strong>Base atual indisponível.</strong><span>Não há snapshot oficial publicado para esta organização. Nenhuma análise anterior será usada em seu lugar.</span></section>
       {% endif %}
     {% elif title == "Catálogos" and refined_catalog %}
@@ -220,32 +220,34 @@
       <a class="button-secondary" href="/">Voltar à visão geral</a>
     </section>
     {% endif %}
-    {% if title == 'Visão geral' %}{% include '_planner.html' %}{% endif %}
-    {% if title in ['Visão geral', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}{% include '_activity_dialog.html' %}{% endif %}
+    {% if title in ['Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}{% include '_activity_dialog.html' %}{% endif %}
   </main>
 </div>
 {% endblock %}
 
 {% block scripts %}
   {% if title in ("Cadastro via API", "Resolução de Imagens", "Publicação em Lote", "Geração em Lote") %}<script src="{{ url_for('static', path='/js/local-files.js') }}?v=20261023-svg" defer></script>{% endif %}
-  {% if title == "Cadastro via API" %}<script src="{{ url_for('static', path='/js/store-registration.js') }}?v=20261026-ds1" defer></script>{% endif %}
-  {% if title == "Pauta Semanal" %}<script src="{{ url_for('static', path='/js/weekly-agenda.js') }}?v=20261023-1" defer></script>{% endif %}
-  {% if title == "Remoção de Arquivos" %}<script src="{{ url_for('static', path='/js/store-file-removal.js') }}?v=20261026-sem-copia" defer></script>{% endif %}
-  {% if title == "Resolução de Imagens" %}<script src="{{ url_for('static', path='/js/image-resolution.js') }}?v=20261023-svg" defer></script>{% endif %}
-  {% if title == "Publicação em Lote" %}<script src="{{ url_for('static', path='/js/batch-publication.js') }}?v=20261023-erros" defer></script>{% endif %}
+  {% if title == "Cadastro via API" %}<script src="{{ url_for('static', path='/js/store-registration.js') }}?v=20261028-ux3" defer></script>{% endif %}
+  {% if title == "Pauta Semanal" %}<script src="{{ url_for('static', path='/js/weekly-agenda.js') }}?v=20261028-ux3" defer></script>{% endif %}
+  {% if title == "Remoção de Arquivos" %}<script src="{{ url_for('static', path='/js/store-file-removal.js') }}?v=20261028-ux3" defer></script>{% endif %}
+  {% if title == "Resolução de Imagens" %}<script src="{{ url_for('static', path='/js/image-resolution.js') }}?v=20261028-ux3" defer></script>{% endif %}
+  {% if title == "Publicação em Lote" %}<script src="{{ url_for('static', path='/js/batch-publication.js') }}?v=20261028-ux3" defer></script>{% endif %}
   {% if title == "Integrações WooCommerce" %}<script src="{{ url_for('static', path='/js/store-integrations.js') }}?v=20261020-1" defer></script>{% endif %}
-  {% if title == "Geração em Lote" %}<script src="{{ url_for('static', path='/js/datasheet-batches.js') }}?v=20261022-envio" defer></script>{% endif %}
-  {% if title in ['Visão geral', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
-  <script src="{{ url_for('static', path='/js/meetings.js') }}?v=20261021-assign" defer></script>
+  {% if title == "Geração em Lote" %}<script src="{{ url_for('static', path='/js/datasheet-batches.js') }}?v=20261028-ux3" defer></script>{% endif %}
+  {% if title in ("Resolução de Imagens", "Cadastro via API", "Remoção de Arquivos", "Geração em Lote", "Publicação em Lote") %}<script src="{{ url_for('static', path='/js/flow-guide.js') }}?v=20261028-1" defer></script>{% endif %}
+  {% if title == "Comparação atual" %}<script src="{{ url_for('static', path='/js/comparison-view.js') }}?v=20261028-1" defer></script>{% endif %}
+  {% if title in ['Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
+  <script src="{{ url_for('static', path='/js/meetings.js') }}?v=20261028-ux3" defer></script>
   {% endif %}
-  <script src="{{ url_for('static', path='/js/ui.js') }}?v=20261026-ds1" defer></script>
-  {% if title == 'Visão geral' %}<script src="{{ url_for('static', path='/js/overview.js') }}?v=20261026-ds1" defer></script>{% endif %}
+  {% if title == 'Planner' %}<script src="{{ url_for('static', path='/js/planner.js') }}?v=20261028-ux3" defer></script>{% endif %}
+  <script src="{{ url_for('static', path='/js/ui.js') }}?v=20261028-ux3e" defer></script>
+  {% if title == 'Dashboard' %}<script src="{{ url_for('static', path='/js/overview.js') }}?v=20261028-followup" defer></script>{% endif %}
   <script src="{{ url_for('static', path='/js/workspace.js') }}?v=20261026-ds1" defer></script>
-  {% if refined_analysis and title in ['Visão geral', 'Comparador', 'Importações e qualidade'] %}
+  {% if title == 'Dashboard' or (refined_analysis and title in ['Comparador', 'Importações e qualidade']) %}
   <script src="{{ url_for('static', path='/js/command-center.js') }}?v=20261027-registry" defer></script>
   {% endif %}
   {% if title == "Digitalização" %}
-  <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20261022-envio" defer></script>
-  <script src="{{ url_for('static', path='/js/registration.js') }}?v=20261015-cc1" defer></script>
+  <script src="{{ url_for('static', path='/js/digitalizacao.js') }}?v=20261027-dash" defer></script>
+  <script src="{{ url_for('static', path='/js/registration.js') }}?v=20261027-dash" defer></script>
   {% endif %}
 {% endblock %}

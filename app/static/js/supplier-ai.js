@@ -89,6 +89,8 @@ function supplierAINew(ctx){
   const p=await request('/ai/analisar','POST',fd);msg('Análise concluída. Revise antes de cadastrar.');setTimeout(()=>supplierAINewReview(ctx,p),0);
  },'Analisar e preencher');
 }
+// Confirmação do design system (PRM.sheet); sem ele (testes/ambiente antigo) cai no confirm() nativo com o mesmo texto.
+function supplierAIConfirm(o){const sheet=typeof window!=='undefined'&&window.PRM?.sheet;return sheet?sheet.confirm(o):Promise.resolve(confirm([o.text,(o.warnings||[]).join('\n'),o.question].filter(Boolean).join('\n\n')));}
 function supplierAINewReview(ctx,p){
  const {cfg,node,modal,msg}=ctx;const state=supplierAINewState(p);const byKey=Object.fromEntries(p.fields.map(f=>[f.key,f]));let created=false;
  const dialog=document.getElementById('supplier-dialog');
@@ -133,8 +135,9 @@ function supplierAINewReview(ctx,p){
  },async()=>{
   let result;try{result=await supplierAIPost('/ai/criar',supplierAINewBody(p,state));}
   catch(e){if(e.status===409&&e.detail&&typeof e.detail==='object'){const names=(e.detail.duplicates||[]).map(x=>`${x.name} (${x.reasons.map(r=>SUPPLIER_AI_REASONS[r]).join(', ')})`).join('; ');
-    if(e.detail.can_continue&&confirm(e.detail.message+'\n\n'+names+'\n\nCadastrar mesmo assim?')){state.allowName=true;result=await supplierAIPost('/ai/criar',supplierAINewBody(p,state));}
-    else{const strong=(e.detail.duplicates||[]).find(x=>x.strong);if(strong&&confirm(e.detail.message+'\n\n'+names+'\n\nAbrir o fornecedor existente?')){created=true;dialog?.close();ctx.openSupplier(strong.id);}throw Error(e.detail.message+(names?' — '+names:''));}}
+    const similar=(e.detail.duplicates||[]).map(x=>`${x.name} — ${x.reasons.map(r=>SUPPLIER_AI_REASONS[r]).join(', ')}`);
+    if(e.detail.can_continue&&await supplierAIConfirm({title:'Fornecedor parecido já cadastrado',kicker:'Possível duplicidade',text:e.detail.message,warnings:similar,question:'Cadastrar mesmo assim?',confirm:'Cadastrar mesmo assim'})){state.allowName=true;result=await supplierAIPost('/ai/criar',supplierAINewBody(p,state));}
+    else{const strong=(e.detail.duplicates||[]).find(x=>x.strong);if(strong&&await supplierAIConfirm({title:'Fornecedor já cadastrado',kicker:'Duplicidade',text:e.detail.message,warnings:similar,question:'Abrir o fornecedor existente?',confirm:'Abrir fornecedor existente'})){created=true;dialog?.close();ctx.openSupplier(strong.id);}throw Error(e.detail.message+(names?' — '+names:''));}}
    else throw e;}
   created=true;msg(result.summary);setTimeout(()=>ctx.openSupplier(result.id),0);
  },'Cadastrar fornecedor');
