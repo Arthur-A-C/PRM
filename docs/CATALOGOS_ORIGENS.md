@@ -117,7 +117,7 @@ Isso restaura `prm:design-system-20261026b`; não remove dados nem volumes. Não
 
 ## Publicação da base oficial (Offer → snapshot) — 27/10/2026
 
-A importação grava em `Offer` e **nunca publica sozinha**. Comparador, Visão geral e Importações leem apenas o snapshot
+A importação grava em `Offer` e **nunca publica sozinha**. Comparador, Dashboard e Importações leem apenas o snapshot
 publicado (`RefinedCatalogRun`/`RefinedCatalogItem`). A ponte é explícita e revisada (`app/services/catalog_publication.py`):
 
 1. `/importacoes` (ou `/catalogos`, `/comparador`) → painel **Base oficial de comparação** (gestor/desenvolvedor).
@@ -140,4 +140,4 @@ publicado (`RefinedCatalogRun`/`RefinedCatalogItem`). A ponte é explícita e re
   normalização para ~19 mil ofertas) roda apenas na prévia e na publicação. Sem migração.
 
 Painéis do dashboard, catálogo publicado e comparação passaram a usar o registro de origens do snapshot (nomes e
-grupos), não códigos fixos. O mapa de atividades/digitalização da Visão geral aparece mesmo sem snapshot de catálogo.
+grupos), não códigos fixos. O mapa de atividades/digitalização do Dashboard aparece mesmo sem snapshot de catálogo.

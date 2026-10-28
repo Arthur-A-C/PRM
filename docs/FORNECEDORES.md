@@ -1,5 +1,58 @@
 # Fornecedores — MVP em 26/10/2026
 
+## Follow-up automático — 28/10/2026
+
+Regras em `app/services/supplier_followups.py` (constantes e `Source`), prazos em `app/config.py`
+(`PRM_SUPPLIER_FOLLOWUP_INACTIVE_DAYS=3`, `PRM_SUPPLIER_WAITING_REPLY_DAYS=5`, `PRM_SUPPLIER_DOCUMENT_WARNING_DAYS=[30,7,0]`,
+`PRM_SUPPLIER_REGISTRATION_GRACE_DAYS=2`). Avaliadas a cada ciclo do **worker de alertas existente**
+(`scripts/meeting_worker.py --stage alerts`) e, para o fornecedor afetado, logo após cada ação na tela.
+
+| Regra (`source_type`) | Quando | Item no Planner | Resolve quando |
+|---|---|---|---|
+| `supplier_inactive` | ativo, fora de Congelado/Descartado, ≥ 3 dias sem interação registrada | alerta “X está há N dias sem interação” | nova interação |
+| `supplier_hot_no_next` | score Quente sem próxima ação futura (próxima ação, tarefa do fornecedor ou item ligado no Planner) | alerta de prioridade alta; sugere “Agendar reunião” (não cria) | próxima ação definida |
+| `supplier_waiting_reply` | etapa Aguardando retorno e ≥ 5 dias sem interação | follow-up “Cobrar retorno — X” | retorno registrado (interação) ou saída da etapa |
+| `supplier_missing_registration` | etapa em `REGISTRATION_REQUIRED_STAGES` há ≥ 2 dias sem documento “Ficha cadastral” | alerta | ficha anexada ou etapa alterada |
+| `supplier_document_expiring` | documento com validade em ≤ 30, ≤ 7 dias ou vencido | alerta por limite (uma vez cada) | documento atualizado/substituído |
+| `supplier_next_action` | próxima ação definida no fornecedor (data e horário opcionais) | item único espelhado | próxima ação concluída/removida; concluir no Planner limpa a do fornecedor |
+
+- **Modelo:** `Activity` publicada (Follow-up), ancorada no registro “Planner · itens avulsos”, com
+  `details.automation`, `source_type`, `supplier_id`. Sem migração. Alerta em Meus alertas pelo `sync_alerts`
+  (um alerta por item automático).
+- **Idempotência:** um item aberto por fornecedor + regra (+ documento/limite/validade); avaliação trava as linhas do
+  fornecedor; `proposal_local_id` = chave do episódio (índice único do banco); episódio encerrado por alguém não é recriado
+  até a condição recomeçar.
+- **Responsável:** tudo pertence ao responsável atual; ao trocar, itens abertos e alertas acompanham. Reuniões não mudam.
+- **Arquivados:** fora da avaliação; itens abertos são cancelados (histórico mantido). **Exclusão:** itens abertos
+  cancelados com “Fornecedor excluído”; nada referencia o fornecedor por chave estrangeira.
+- **Tela:** drawer com “Próximos passos” (próxima ação, próximo follow-up, próxima reunião; Concluir/Reagendar/Abrir no
+  Planner); Kanban com “Próxima: … · Hoje” ou “Reunião: … · 31/10 10:30”; Meus alertas com categoria e ações; Dashboard
+  com sem interação, quentes sem próxima ação, follow-ups vencidos e de hoje (abrem o Planner filtrado).
+
+## Arquivar, restaurar e excluir definitivamente — 27/10/2026
+
+- **Arquivar (recomendado):** menu `⋯` do drawer → **Arquivar fornecedor**, com motivo opcional. `POST /api/v1/fornecedores/{id}/archive` grava `archived_at`/`archived_by`; etapa, responsável, score, contatos, interações, tarefas, documentos, histórico e execuções de IA ficam intactos. O card sai do Kanban padrão e não pode ser arrastado; o drawer mostra “Arquivado”. Mesmas permissões de edição (responsável ou gestor/desenvolvedor). Arquivar de novo retorna 409.
+- **Filtro Situação:** `Ativos` (padrão), `Arquivados`, `Todos` (`?archive_status=active|archived|all`). Kanban e contadores refletem a lista carregada pelo filtro. A detecção de duplicidade do “Novo fornecedor com IA” continua considerando arquivados.
+- **Restaurar:** fornecedor arquivado → **Restaurar fornecedor** (`POST .../restore`). Volta para a mesma etapa em que estava (não existe etapa “arquivado”).
+- **Excluir definitivamente:** item destrutivo separado, visível só para **gestor/desenvolvedor** (`DELETE /api/v1/fornecedores/{id}`; demais papéis recebem 403). Exige digitar exatamente o nome do fornecedor (422 caso contrário). Remove o fornecedor e seus contatos, interações/histórico, tarefas e registros de documentos numa única transação, sem erro de FK. Fornecedor de outra organização ou já excluído: 404. Fornecedores arquivados podem ser excluídos.
+- **Concorrência:** arquivar, restaurar e excluir enviam o `updated_at` exibido (`expected_updated_at`). Toda alteração do fornecedor ou de contatos, interações, tarefas, documentos e aplicação de IA atualiza esse carimbo; se outra pessoa alterou algo depois da abertura, a API retorna 409 (“Reabra o cadastro e confirme novamente”) e nada é arquivado/excluído. CSRF obrigatório (403 sem token).
+- **Documentos/quarentena:** antes de apagar as linhas, a pasta física do fornecedor é movida para `<PRM_SUPPLIER_STORAGE_DIR>/_deleted/<org>/<fornecedor>/<carimbo>`. Nada é apagado; o caminho fica fora da árvore servida pelo endpoint de download (que passa a responder 404). Se qualquer passo falhar antes do commit, a transação é desfeita e a pasta volta ao lugar original. Limpeza da quarentena é manual e fora do PRM.
+- **IA:** `supplier_ai_runs` não são apagados; ficam com `supplier_id` vazio, status `supplier_deleted` e data de exclusão no JSON, sempre com a organização original. Não entram no cache, não podem ser aplicados nem reutilizados em “Novo fornecedor com IA” (409).
+- **Auditoria:** arquivamento (`supplier_archived`, com usuário, data e motivo) e restauração (`supplier_restored`) ficam no histórico do fornecedor. A exclusão grava `supplier_deletion_audits`, que sobrevive ao fornecedor: id e nome anteriores, organização, usuário, data, etapa, se estava arquivado, motivo, quantidades removidas (contatos, tarefas, documentos, histórico), execuções de IA desvinculadas, arquivos físicos, caminho relativo da quarentena e id/categoria/SHA-256 dos documentos (sem nomes ou conteúdo).
+- Migração `20261027_0018_supplier_archive_delete` (após `0017`): colunas `suppliers.archived_at` (indexada) e `archived_by` (FK `users`, `SET NULL`) e tabela `supplier_deletion_audits`. Ainda não aplicada em produção.
+
+## Experiência CRM contextual — 27/10/2026
+
+- O Kanban permanece visível e o detalhe abre em drawer direito de 55% da tela, responsivo até largura total no celular. O fornecedor aberto fica em `?fornecedor=<id>` e é reaberto após refresh.
+- Cabeçalho compacto com etapa, responsável, score e ações de interação, tarefa, documento e IA. Próxima ação ganhou destaque e sinalização discreta de atraso.
+- Visão geral exibe valores em modo de leitura. Cada campo abre editor inline com Salvar/Cancelar; score, etapa e responsável usam os endpoints rápidos existentes, com restauração visual em falha. O formulário grande de edição foi removido.
+- Contatos, interações e tarefas usam composers compactos dentro da aba atual. Timeline agrupa eventos por data e tipo; tarefas mantêm conclusão e edição rápidas.
+- Documentos continuam organizados nas categorias existentes, com download, edição, leitura por IA em Ficha cadastral e upload por botão ou arraste para a área documental.
+- Cadastro manual pede apenas nome, site, registro opcional, responsável, etapa e score; depois de criar abre o mesmo drawer. O fluxo “Novo fornecedor com IA” também termina nesse drawer, sem alteração do prompt ou backend.
+- Acessibilidade: dialog identificado, estado de carregamento, Esc/backdrop/X, restauração de foco, contenção de Tab e labels nos controles. Feedback usa mensagem viva/toast; não foi adicionado `alert()`.
+- Nenhum endpoint, model, migration, permissão ou regra de Supplier foi alterado. Exclusão de contatos continua indisponível porque a API atual não define contrato de exclusão/auditoria.
+- Validação focada: 29 testes JavaScript e 68 testes Python de fornecedores/IA/design aprovados, sem rede externa ou IA real. Sem commit, push ou deploy nesta etapa.
+
 ## Evolução CRM / Kanban — 26/10/2026
 
 - Drag-and-drop nativo no desktop, contadores por coluna, atualização otimista com reversão em erro. Novo PATCH parcial preserva ficha e registra os eventos existentes; expected_stage retorna 409 quando outra pessoa moveu o card. Mesmo scope, CSRF e validação de responsável do módulo original. Seletor de etapa mantido para teclado/mobile.

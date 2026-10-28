@@ -1,0 +1,8 @@
+# Deploy 28/10/2026: UX/UI fases 1 e 2 (Dashboard, Fornecedores, Cards/Reuniões/Planner/Alertas, Catálogos,
+# Comparador, importação em assistente, Digitalização). Imagem = prm:interface-dashboard-20261027 + 23 arquivos de
+# interface; sem backend e sem migração (banco segue em 20261027_0017). Arquivar/excluir fornecedores NÃO está incluído.
+# Adicionar ao final dos overlays em uso (após compose.fornecedores-ia.yaml). Apenas a API muda.
+# Rollback: remover este overlay (volta a prm:interface-dashboard-20261027) e recriar só a api.
+services:
+  api:
+    image: prm:ux-fases12-20261028
