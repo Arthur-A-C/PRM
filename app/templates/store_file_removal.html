@@ -1,16 +1,23 @@
 {% import "_workspace_icons.html" as ui %}
+{% import "_flow_guide.html" as flow %}
 {# IDs são contratos de store-file-removal.js e de /api/v1/remocao-arquivos. #}
 <div id="rm-page" class="prm-stack">
   <header class="prm-page-head">
     <div>
       <p class="eyebrow">Digitalização / Arquivos de produtos</p>
       <h2>Remoção de arquivos de produtos</h2>
-      <p>Desvincula imagens e documentos de produtos WooCommerce existentes, localizados por SKU exato. Antes de qualquer alteração o PRM registra e confere o estado anterior (IDs e metadados); os arquivos permanecem na biblioteca de mídia. Nome, descrições, categorias, atributos, preço, estoque, SKU e status nunca são alterados. Dry Run, aprovação e confirmação são obrigatórios.</p>
+      <p>Desvincula imagens e documentos de produtos WooCommerce existentes, localizados por SKU exato. Dry Run, aprovação e confirmação são obrigatórios.</p>
+      <details class="prm-help"><summary>Proteções e o que nunca é alterado</summary><p class="prm-note">Antes de qualquer alteração o PRM registra e confere o estado anterior (IDs e metadados); os arquivos permanecem na biblioteca de mídia. Nome, descrições, categorias, atributos, preço, estoque, SKU e status nunca são alterados.</p></details>
     </div>
   </header>
-  <ol class="prm-steps" aria-label="Etapas da remoção">
-    <li>Produtos e modo</li><li>Dry Run</li><li>Aprovação</li><li>Execução</li><li>Verificação</li>
-  </ol>
+  {{ flow.guide('Andamento da remoção', [
+    ('Produtos e modo', '#rm-current:not([hidden])', '#rm-form', 'Escolha a empresa e o modo de remoção, informe os SKUs e clique em Gerar Dry Run.'),
+    ('Dry Run', '#rm-items .prm-pill:not(.is-busy)', '#rm-items', 'O Dry Run está consultando a loja. A lista atualiza sozinha.'),
+    ('Aprovação', '#rm-current [data-action="executar"]:not(:disabled), #rm-items .prm-pill.is-ok', '#rm-current', 'Revise o que será desvinculado e preservado em cada SKU e clique em Aprovar.'),
+    ('Execução', '#rm-items .prm-pill.is-ok', '#rm-current', 'Clique em Executar aprovados e digite a confirmação pedida.'),
+    ('Verificação', '#rm-page[data-never-done]', '#rm-items', 'Confira os itens Concluídos. Use Reconferir na loja para itens incertos e Restaurar se precisar desfazer.')],
+    alerts=[('#rm-items .prm-pill.is-alert', 'Há itens com erro, bloqueados ou incertos. Veja a coluna Erros e avisos.', 'alert'),
+            ('#rm-items .prm-pill.is-warn', 'Há SKUs que não existem na loja; eles são ignorados.', 'warn')]) }}
 
   <section class="panel" id="rm-environments" aria-labelledby="rm-env-title">
     <div class="prm-section-title"><div><h2 id="rm-env-title">Lojas e acesso</h2><p id="rm-env-summary">Carregando…</p></div></div>
@@ -63,13 +70,17 @@
     <div id="rm-history" class="rm-history"></div>
   </section>
 
-  <dialog id="rm-confirm" aria-labelledby="rm-confirm-title">
-    <form method="dialog" class="rm-confirm">
-      <h2 id="rm-confirm-title">Confirmar</h2>
-      <p id="rm-confirm-text"></p>
-      <p class="prm-note">{{ ui.icon('info') }}<span>Para continuar, digite exatamente: <strong id="rm-confirm-phrase"></strong></span></p>
-      <div class="prm-field"><label for="rm-confirm-input">Confirmação</label><input id="rm-confirm-input" autocomplete="off" spellcheck="false"></div>
-      <footer><button type="button" class="button-secondary" id="rm-confirm-cancel">Cancelar</button><button type="submit" class="button-primary prm-btn-danger" id="rm-confirm-ok" disabled>Confirmar</button></footer>
+  {# Confirmação digitada de operação real na loja: painel de perigo (.prm-sheet). IDs são contratos de store-file-removal.js. #}
+  <dialog id="rm-confirm" class="prm-sheet is-narrow is-danger" aria-labelledby="rm-confirm-title" data-sheet-guard="off">
+    <form method="dialog" class="prm-sheet-frame">
+      <header class="prm-sheet-head"><div><p class="prm-sheet-kicker">Operação real na loja</p><h2 id="rm-confirm-title">Confirmar</h2></div><button type="button" class="prm-sheet-close" data-sheet-close aria-label="Fechar">×</button></header>
+      <div class="prm-sheet-body">
+        <p id="rm-confirm-text"></p>
+        <ul class="prm-sheet-warnings"><li>O PRM grava e confere o estado anterior de cada produto antes de alterar.</li><li>As mídias permanecem na biblioteca; nada é apagado.</li></ul>
+        <p class="prm-note">{{ ui.icon('info') }}<span>Para continuar, digite exatamente: <strong id="rm-confirm-phrase"></strong></span></p>
+        <div class="prm-field"><label for="rm-confirm-input">Confirmação</label><input id="rm-confirm-input" autocomplete="off" spellcheck="false"></div>
+      </div>
+      <footer class="prm-sheet-foot"><button type="button" class="button-secondary" id="rm-confirm-cancel">Cancelar</button><button type="submit" class="button-primary prm-btn-danger" id="rm-confirm-ok" disabled>Confirmar</button></footer>
     </form>
   </dialog>
 </div>

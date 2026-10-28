@@ -1,4 +1,4 @@
-{# Visão geral: resumo montado no navegador a partir de endpoints de leitura já existentes (overview.js).
+{# Dashboard: resumo montado no navegador a partir de endpoints de leitura já existentes (overview.js).
    Cada bloco tem estado de carregamento, estado vazio e some sem erro quando o cargo não tem acesso. #}
 <section class="prm-overview" data-overview aria-label="Resumo da operação">
   <div class="prm-kpis" data-overview-kpis aria-live="polite">
@@ -15,8 +15,8 @@
       <header><h2>Fornecedores</h2><a href="/fornecedores">Abrir funil</a></header>
       <div data-body><span class="prm-skeleton" style="height:4.5rem"></span></div>
     </article>
-    <article class="panel prm-overview-card" data-overview-block="meetings">
-      <header><h2>Reuniões</h2><a href="/reunioes">Abrir reuniões</a></header>
+    <article class="panel prm-overview-card" data-overview-block="execution">
+      <header><h2>Execução no Planner</h2><a href="/planner">Abrir Planner</a></header>
       <div data-body><span class="prm-skeleton" style="height:4.5rem"></span></div>
     </article>
     <article class="panel prm-overview-card" data-overview-block="alerts">

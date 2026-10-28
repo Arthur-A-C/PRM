@@ -1,14 +1,24 @@
 {% import "_workspace_icons.html" as ui %}
+{% import "_flow_guide.html" as flow %}
 {# IDs são contratos de image-resolution.js, local-files.js e de /api/v1/imagens + /api/v1/envios. #}
 <div id="res-page" class="prm-stack">
   <header class="prm-page-head">
     <div>
       <p class="eyebrow">Digitalização / Imagens</p>
       <h2>Resolução de imagens em pasta</h2>
-      <p>Converte as fotos de uma pasta do seu computador, e das subpastas, para um quadrado exato com fundo branco, sem deformar, mantendo nome e formato. O PRM trabalha numa cópia no servidor, guarda os originais recebidos em <code>Backup-fotos</code> e devolve um ZIP com a mesma estrutura de pastas. Nada é alterado no seu computador.</p>
+      <p>Deixa as fotos de uma pasta num quadrado exato com fundo branco, sem deformar, mantendo nome e formato. Nada é alterado no seu computador.</p>
+      <details class="prm-help"><summary>Como funciona</summary><p class="prm-note">O PRM trabalha numa cópia no servidor, guarda os originais recebidos em <code>Backup-fotos</code> e devolve um ZIP com a mesma estrutura de pastas e subpastas.</p></details>
     </div>
     <div class="prm-page-actions"><a href="/digitalizacao" class="prm-btn">{{ ui.icon('scan') }}<span>Digitalização</span></a></div>
   </header>
+
+  {{ flow.guide('Andamento da conversão', [
+    ('Selecionar fotos', '#res-preview:not([hidden]), #res-progress-panel:not([hidden]), #res-result:not([hidden])', '#res-form', 'Escolha a pasta ou as fotos, confira a resolução e clique em Enviar e ver prévia.'),
+    ('Conferir prévia', '#res-progress-panel:not([hidden]), #res-result:not([hidden])', '#res-preview', 'Confira quantas imagens serão convertidas, marque a confirmação e clique em Converter imagens.'),
+    ('Converter', '#res-result:not([hidden])', '#res-progress-panel', 'Acompanhe a conversão. Você pode parar a qualquer momento.'),
+    ('Baixar resultado', '#res-page[data-never-done]', '#res-result', 'Baixe o ZIP com as imagens convertidas. Depois, descarte os arquivos do servidor.')],
+    alerts=[('#res-errors-wrap:not([hidden])', 'Algumas imagens não foram convertidas. Veja a lista de erros no progresso; as demais seguem normalmente.', 'warn'),
+            ('[data-stat="space"].is-alert', 'Espaço livre insuficiente no servidor para converter tudo. Reduza a seleção.', 'alert')]) }}
 
   <section class="panel">
     <div class="prm-section-title"><div><h2>1. Imagens e opções</h2><p>JPG, JPEG, PNG, WEBP e SVG são enviados e convertidos. SVG é sanitizado (declarações, scripts e referências externas removidos) e sempre entregue como PNG no tamanho escolhido; um SVG que não puder ser convertido não interrompe o lote. PDFs, ZIPs, desenhos 3D e outros arquivos da pasta são ignorados.</p></div></div>
@@ -71,12 +81,15 @@
     </div>
   </section>
 
-  <dialog id="res-dialog" aria-labelledby="res-dialog-title">
-    <div class="res-dialog">
-      <header><h2 id="res-dialog-title">Selecionar pasta do servidor</h2><p id="res-dialog-path" class="prm-status"></p></header>
-      <div class="res-dialog-actions"><button type="button" class="button-secondary" id="res-up">↑ <span>Pasta acima</span></button><button type="button" class="button-secondary" id="res-roots"><span>Raízes</span></button></div>
-      <ul id="res-folders" class="res-folders"></ul>
-      <footer><button type="button" class="button-secondary" id="res-cancel">Cancelar</button><button type="button" class="button-primary" id="res-choose" disabled>Usar esta pasta</button></footer>
+  {# Seletor de pasta do servidor em painel lateral (.prm-sheet). IDs são contratos de image-resolution.js. #}
+  <dialog id="res-dialog" class="prm-sheet" aria-labelledby="res-dialog-title">
+    <div class="prm-sheet-frame">
+      <header class="prm-sheet-head"><div><p class="prm-sheet-kicker">Pasta no servidor do PRM</p><h2 id="res-dialog-title">Selecionar pasta do servidor</h2><p id="res-dialog-path" class="prm-sheet-sub"></p></div><button type="button" class="prm-sheet-close" data-sheet-close aria-label="Fechar">×</button></header>
+      <div class="prm-sheet-body">
+        <div class="res-dialog-actions"><button type="button" class="button-secondary" id="res-up">↑ <span>Pasta acima</span></button><button type="button" class="button-secondary" id="res-roots"><span>Raízes</span></button></div>
+        <ul id="res-folders" class="res-folders"></ul>
+      </div>
+      <footer class="prm-sheet-foot"><button type="button" class="button-secondary" id="res-cancel">Cancelar</button><button type="button" class="button-primary" id="res-choose" disabled>Usar esta pasta</button></footer>
     </div>
   </dialog>
 </div>

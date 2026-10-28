@@ -1,16 +1,55 @@
-<section class="panel" id="publicacao" data-catalog-publication>
-  <h2>Base oficial de comparação</h2>
-  {% if catalog_publication.run_id %}<p>Análise publicada: {{ catalog_publication.last_published }}.</p>{% else %}<p>Nenhuma análise publicada.</p>{% endif %}
-  <p>{{ catalog_publication.internal }} produtos internos · {{ catalog_publication.competitor }} produtos da concorrência cadastrados.</p>
-  {% if user.role in ['gestor','desenvolvedor'] %}
-  <p>Última importação: {{ catalog_publication.last_import or 'Nenhuma' }}.</p>
-  {% if catalog_publication.pending and catalog_publication.run_id %}<p>Existem alterações no catálogo que ainda não foram publicadas.</p>{% endif %}
-  {% if catalog_publication.can_publish %}<p>Revise o catálogo e gere a prévia. A confirmação publica uma nova fotografia, preservando a anterior no histórico.</p>
-  <a href="/catalogos?view=legacy">Revisar catálogo cadastrado</a>
-  <button type="button" data-publication-preview>Revisar análise para publicação</button>
-  <button type="button" data-publication-confirm disabled>{{ 'Atualizar análise publicada' if catalog_publication.run_id else 'Publicar base atual' }}</button>
-  {% else %}<p>Importe ao menos um produto interno e um concorrente para habilitar a publicação.</p><a href="/catalogos?view=legacy">Importar catálogo</a>{% endif %}
-  {% else %}<p>Solicite a um gestor a revisão e publicação da base.</p>{% endif %}
+{# Base oficial de comparação: estado real (Offer × snapshot) e o fluxo Importar → Revisar → Publicar.
+   data-publication-* são contratos de catalog-publication.js; a publicação nunca é automática. #}
+{% set pub = catalog_publication %}
+{# Datas chegam em ISO 8601; exibidas como dd/mm/aaaa hh:mm (o horário só quando existe). #}
+{% macro br_date(value) %}{% if value and value|string|length >= 10 %}{% set v = value|string %}{{ v[8:10] }}/{{ v[5:7] }}/{{ v[0:4] }}{% if v|length >= 16 and v[10] in 'T ' %} {{ v[11:16] }}{% endif %}{% else %}{{ value or 'Nenhuma' }}{% endif %}{% endmacro %}
+{% set manager = user.role in ['gestor','desenvolvedor'] %}
+{% set step = 3 if pub.run_id and not pub.pending else 2 if pub.can_publish else 1 %}
+{% if title == 'Comparador' %}
+{# No Comparador basta saber qual base está valendo; revisão e publicação ficam em Catálogos. #}
+<section class="prm-publication is-compact" id="publicacao" aria-label="Base oficial de comparação">
+  <span class="prm-publication-compact-title"><strong>Base oficial de comparação</strong>{% if pub.run_id %} · publicada em {{ br_date(pub.last_published) }}{% endif %}</span>
+  {% if pub.run_id and pub.pending %}<span class="prm-badge is-warn">Alterações não publicadas</span>
+  {% elif pub.run_id %}<span class="prm-badge is-ok">Publicada</span>
+  {% else %}<span class="prm-badge is-neutral">Nenhuma análise publicada</span>{% endif %}
+  <a class="prm-publication-compact-link" href="/catalogos#publicacao">Revisar em Catálogos</a>
+</section>
+{% else %}
+<section class="panel prm-publication" id="publicacao" data-catalog-publication aria-labelledby="publicacao-title">
+  <header class="prm-publication-head">
+    <div>
+      <h2 id="publicacao-title">Base oficial de comparação</h2>
+      <p>O Comparador e o Dashboard usam somente a última base publicada. Importar não publica nada sozinho.</p>
+    </div>
+    {% if pub.run_id and pub.pending %}<span class="prm-badge is-warn">Alterações não publicadas</span>
+    {% elif pub.run_id %}<span class="prm-badge is-ok">Publicada</span>
+    {% else %}<span class="prm-badge is-neutral">Nenhuma análise publicada</span>{% endif %}
+  </header>
+  <dl class="prm-publication-stats">
+    <div class="is-own"><dt>Nossa base</dt><dd>{{ '{:,}'.format(pub.internal).replace(',', '.') }}</dd><small>produtos internos cadastrados</small></div>
+    <div class="is-rival"><dt>Concorrência</dt><dd>{{ '{:,}'.format(pub.competitor).replace(',', '.') }}</dd><small>produtos de concorrentes</small></div>
+    {% if manager %}<div><dt>Última importação</dt><dd class="is-text">{{ br_date(pub.last_import) }}</dd><small>catálogos de origem</small></div>{% endif %}
+    <div><dt>Análise publicada</dt><dd class="is-text">{{ br_date(pub.last_published) if pub.run_id else 'Nenhuma' }}</dd><small>{{ 'fotografia vigente' if pub.run_id else 'publique para habilitar o Comparador' }}</small></div>
+  </dl>
+  {% if manager %}
+  <ol class="prm-steps prm-publication-flow" aria-label="Fluxo da base oficial">
+    <li{% if step == 1 %} aria-current="step"{% elif step > 1 %} class="is-done"{% endif %}>Importar catálogos</li>
+    <li{% if step == 2 %} aria-current="step"{% elif step > 2 %} class="is-done"{% endif %}>Revisar prévia</li>
+    <li{% if step == 3 %} aria-current="step"{% endif %}>Publicar</li>
+  </ol>
+  {% if pub.can_publish %}
+  <p class="prm-publication-note">{% if pub.pending and pub.run_id %}Existem alterações no catálogo que ainda não foram publicadas. {% endif %}Revise a prévia; a confirmação publica uma nova fotografia e preserva a anterior no histórico.</p>
+  <div class="prm-publication-actions">
+    <button type="button" class="button-primary" data-publication-preview>Revisar análise para publicação</button>
+    <button type="button" data-publication-confirm disabled>{{ 'Atualizar análise publicada' if pub.run_id else 'Publicar base atual' }}</button>
+    <a class="prm-btn prm-btn-ghost" href="/catalogos?view=legacy">Revisar catálogo cadastrado</a>
+  </div>
+  {% else %}
+  <p class="prm-publication-note">Importe ao menos um produto interno e um concorrente para habilitar a publicação.</p>
+  <div class="prm-publication-actions"><a class="button-primary" href="/catalogos?view=legacy#catalog-import">Importar catálogo</a></div>
+  {% endif %}
+  {% else %}<p class="prm-publication-note">Solicite a um gestor a revisão e publicação da base.</p>{% endif %}
   <div data-publication-result role="status" aria-live="polite"></div>
 </section>
-{% if user.role in ['gestor','desenvolvedor'] %}<script src="/static/js/catalog-publication.js?v=20261027-1" defer></script>{% endif %}
+{% if manager %}<script src="/static/js/catalog-publication.js?v=20261028-ux3" defer></script>{% endif %}
+{% endif %}

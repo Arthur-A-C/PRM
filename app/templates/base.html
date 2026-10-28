@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="{{ url_for('static', path='/css/command-center.css') }}?v=20261015-cc4">
   <link rel="stylesheet" href="{{ url_for('static', path='/css/prm-ui.css') }}?v=20261020-4">
   {% block page_css %}{% endblock %}
-  {% if title in ['Visão geral', 'Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
+  {% if title in ['Cards', 'Meus alertas', 'Reuniões', 'Planner'] %}
   <link rel="stylesheet" href="{{ url_for('static', path='/css/meetings.css') }}?v=20261016-1">
   {% endif %}
   {% if title == 'Pauta Semanal' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/weekly-agenda.css') }}?v=20261023-1">{% endif %}
@@ -36,7 +36,7 @@
   {% if title in ('Cadastro via API', 'Resolução de Imagens', 'Publicação em Lote', 'Geração em Lote') %}<link rel="stylesheet" href="{{ url_for('static', path='/css/local-files.css') }}?v=20261022-1">{% endif %}
   {% if title == 'Cadastro via API' %}<link rel="stylesheet" href="{{ url_for('static', path='/css/store-registration.css') }}?v=20261021-2">{% endif %}
   {# Design system: tokens únicos e componentes compartilhados. Sempre por último. #}
-  <link rel="stylesheet" href="{{ url_for('static', path='/css/prm-system.css') }}?v=20261026-ds1">
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/prm-system.css') }}?v=20261028-ux3">
 </head>
 
 <body>

@@ -37,18 +37,23 @@
     {% if refined_analysis %}
     <span class="cc-status-chip is-ok"><span class="cc-lamp" aria-hidden="true"></span>Base publicada</span>
     <span><small>Fotografia</small>{{ date_br(refined_analysis.created_at) }}</span>
-    <span><small>Execução</small><code title="{{ refined_analysis.run_id }}">{{ refined_analysis.run_id[:12] }}</code></span>
-    <span><small>Regras</small>{{ refined_analysis.rule_version|default('—') }}</span>
-    <span><small>Processamento</small>{{ refined_analysis.elapsed_seconds|default('—')|string|replace('.', ',') }} s</span>
-    <span><small>IA no pipeline</small>{{ refined_analysis.ai_calls|default(0) }} chamadas</span>
     <span class="cc-status-chip is-warn">{{ ui.icon('info') }}Equivalência técnica não avaliada</span>
+    <details class="cc-status-more">
+      <summary>Detalhes da base</summary>
+      <div>
+        <span><small>Execução</small><code title="{{ refined_analysis.run_id }}">{{ refined_analysis.run_id[:12] }}</code></span>
+        <span><small>Regras</small>{{ refined_analysis.rule_version|default('—') }}</span>
+        <span><small>Processamento</small>{{ refined_analysis.elapsed_seconds|default('—')|string|replace('.', ',') }} s</span>
+        <span><small>IA no pipeline</small>{{ refined_analysis.ai_calls|default(0) }} chamadas</span>
+      </div>
+    </details>
     {% else %}
     <span class="cc-status-chip is-warn">{{ ui.icon('info') }}Base de catálogo não publicada</span>
     {% endif %}
     <span class="cc-statusline-sync" data-cc-sync role="status" aria-live="polite"></span>
   </div>
 
-  <section id="ops-overview" role="tabpanel" aria-labelledby="ops-tab-overview" data-ops-pane="overview" class="cc-pane">
+  <section id="ops-overview" role="tabpanel" aria-labelledby="ops-tab-overview" data-ops-pane="overview" class="cc-pane"{% if title in ["Comparador", "Importações e qualidade"] %} hidden{% endif %}>
 
     <header class="cc-section-head cc-reveal">
       <div><p class="cc-kicker">01 · Centro de operações</p><h2>Digitalização e cadastro</h2></div>
@@ -271,12 +276,28 @@
     {% endif %}
   </section>
 
-  <section id="ops-attributes" role="tabpanel" aria-labelledby="ops-tab-attributes" data-ops-pane="attributes" class="cc-pane">
-    {% if refined_analysis %}{% include '_attribute_analysis.html' %}{% endif %}
+  <section id="ops-attributes" role="tabpanel" aria-labelledby="ops-tab-attributes" data-ops-pane="attributes" class="cc-pane"{% if title != "Comparador" %} hidden{% endif %}>
+    {% if refined_analysis %}
+    <section class="cc-panel cc-compare-start cc-reveal" aria-labelledby="cc-compare-start-heading">
+      <div class="cc-compare-start-copy">
+        <p class="cc-kicker">Comparação lado a lado</p>
+        <h3 id="cc-compare-start-heading">Compare um produto nosso com concorrentes</h3>
+        <p class="cc-caption">Características, preço e disponibilidade na mesma tela, com o que é igual, diferente ou sem dado em destaque.</p>
+        <ol class="prm-steps" aria-label="Como comparar">
+          <li>Escolha um produto da nossa base</li><li>Marque concorrentes da mesma família</li><li>Compare lado a lado</li>
+        </ol>
+      </div>
+      <div class="cc-compare-start-actions">
+        <a class="cc-btn cc-btn-primary" href="/catalogos?source_group=internal">{{ ui.icon('search') }}<span>Escolher produto da nossa base</span></a>
+        <a class="cc-btn" href="/catalogos?source_group=competitor"><span>Ver produtos da concorrência</span></a>
+      </div>
+    </section>
+    {% include '_attribute_analysis.html' %}
+    {% endif %}
     {% if not current_analysis.attribute_analysis %}<section class="cc-panel cc-empty"><h3>Análise de atributos ainda não disponível</h3><p>O snapshot publicado não inclui esses indicadores.</p><a class="cc-link" href="/catalogos">Explorar os dados disponíveis {{ ui.icon('arrow') }}</a></section>{% endif %}
   </section>
 
-  <section id="ops-quality" role="tabpanel" aria-labelledby="ops-tab-quality" data-ops-pane="quality" class="cc-pane">
+  <section id="ops-quality" role="tabpanel" aria-labelledby="ops-tab-quality" data-ops-pane="quality" class="cc-pane"{% if title != "Importações e qualidade" %} hidden{% endif %}>
     {% if refined_analysis %}
     <div class="cc-quality-grid">
       <section class="cc-panel cc-reveal" aria-labelledby="cc-sources-heading">

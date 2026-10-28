@@ -1,4 +1,4 @@
-// Visão geral: resumo a partir de endpoints de leitura existentes. Nenhuma escrita; dados renderizados como texto.
+// Dashboard: resumo a partir de endpoints de leitura existentes. Nenhuma escrita; dados renderizados como texto.
 (() => {
   "use strict";
   const root = document.querySelector("[data-overview]");
@@ -47,10 +47,10 @@
   Promise.allSettled([
     get("/api/v1/planner/activities/overview"), get("/api/v1/planner/alerts"), get("/api/v1/fornecedores"),
     get("/api/v1/fornecedores/config"), get("/api/v1/operations/overview"), get("/api/v1/cadastro-api"),
-    get("/api/v1/remocao-arquivos"), get("/api/v1/planner/meetings"),
-  ]).then(([planner, alerts, suppliers, supplierConfig, operations, registrations, removals, meetings]) => {
+    get("/api/v1/remocao-arquivos"), get("/api/v1/planner/summary"),
+  ]).then(([planner, alerts, suppliers, supplierConfig, operations, registrations, removals, execution]) => {
     const value = result => result.status === "fulfilled" ? result.value : null;
-    const [p, a, s, sc, o, r, m, mt] = [planner, alerts, suppliers, supplierConfig, operations, registrations, removals, meetings].map(value);
+    const [p, a, s, sc, o, r, m, ex] = [planner, alerts, suppliers, supplierConfig, operations, registrations, removals, execution].map(value);
 
     // Indicadores
     if (p) kpi(0, String(p.denominator), p.bands.overdue.count ? `${p.bands.overdue.count} vencida(s)` : "Nenhuma vencida", "/planner", p.bands.overdue.count ? "is-alert" : "");
@@ -76,9 +76,8 @@
       ...(r ? r.items : []).map(x => ({at: x.created * 1000, badge: "Cadastro", badgeClass: "is-info", title: `${COMPANY[x.company] || x.company} · lote de arquivos`, href: `/digitalizacao/cadastro-api?lote=${encodeURIComponent(x.id)}`})),
       ...(m ? m.items : []).map(x => ({at: x.created * 1000, badge: "Remoção", badgeClass: "is-warn", title: `${COMPANY[x.company] || x.company} · ${REMOVAL_MODE[x.mode] || x.mode}`, href: `/digitalizacao/remocao-arquivos?lote=${encodeURIComponent(x.id)}`})),
       ...runs.map(x => ({at: Date.parse(x.created_at), badge: "Digitalização", badgeClass: "", title: x.name || x.sku || "Execução", href: "/digitalizacao"})),
-      ...(mt ? mt.items : []).map(x => ({at: Date.parse(x.date + "T12:00:00"), badge: "Reunião", badgeClass: "is-ok", title: x.title || "Reunião", href: `/reunioes?meeting=${encodeURIComponent(x.id)}`})),
     ].filter(x => !Number.isNaN(x.at)).sort((x, y) => y.at - x.at).slice(0, 6).map(x => ({...x, meta: when(x.at / 1000)}));
-    if (!r && !m && !o && !mt) hide("recent");
+    if (!r && !m && !o) hide("recent");
     else if (recent.length) block("recent").replaceChildren(list(recent));
     else empty(block("recent"), "Nenhuma atividade recente.");
 
@@ -100,10 +99,24 @@
       block("suppliers").replaceChildren(bars, foot);
     }
 
-    // Reuniões
-    if (!mt) hide("meetings");
-    else if (!mt.items.length) empty(block("meetings"), "Nenhuma reunião registrada.", ["Nova reunião", "/reunioes"]);
-    else block("meetings").replaceChildren(list(mt.items.slice(0, 4).map(x => ({title: x.title || "Reunião", meta: [x.date ? new Date(x.date + "T12:00:00").toLocaleDateString("pt-BR") : "", x.partner || "Parceiro pendente"].filter(Boolean).join(" · "), href: `/reunioes?meeting=${encodeURIComponent(x.id)}`}))));
+    // Execução no Planner: cada número abre o Planner já filtrado.
+    if (!ex) hide("execution");
+    else {
+      const grid = el("div", null, "prm-exec-grid");
+      const source = key => "/planner?source=" + encodeURIComponent((ex.filters || {})[key] || "");
+      [["Reuniões hoje", ex.meetings_today, "/planner?type=meeting&period=today", ""],
+       ["Tarefas vencidas", ex.overdue_tasks, "/planner?type=task&due=overdue", "is-alert"],
+       ["Cards para revisar", ex.cards_review, "/planner?view=revisao", "is-warn"],
+       ["Follow-ups vencidos", ex.followups_overdue ?? ex.followups, "/planner?type=followup&due=overdue", "is-alert"],
+       ["Follow-ups de hoje", ex.followups_today ?? 0, "/planner?type=followup&period=today", "is-warn"],
+       ["Fornecedores sem interação", ex.suppliers_inactive ?? 0, source("suppliers_inactive"), "is-warn"],
+       ["Quentes sem próxima ação", ex.hot_no_next ?? 0, source("hot_no_next"), "is-alert"]].forEach(([label, count, href, tone]) => {
+        const a = el("a", null, "prm-exec-tile" + (count && tone ? " " + tone : "")); a.href = href;
+        a.append(el("strong", String(count)), el("span", label)); grid.append(a);
+      });
+      const foot = el("p", "Inclui os follow-ups automáticos dos fornecedores.", "prm-overview-muted");
+      block("execution").replaceChildren(grid, foot);
+    }
 
     // Alertas
     if (!a) hide("alerts");

@@ -1,11 +1,13 @@
 {% import "_workspace_icons.html" as ui %}
+{% import "_flow_guide.html" as flow %}
 {# IDs são contratos de batch-publication.js e de /api/v1/publicacao-lote. #}
 <div id="pub-page" class="prm-stack">
   <header class="prm-page-head">
     <div>
       <p class="eyebrow">Digitalização / Publicação em lote</p>
       <h2>Digitalização e publicação em lote</h2>
-      <p>Importe um ZIP com uma pasta por CIGAM/SKU, gere os datasheets, revise e publique imagens e documentos em produtos já cadastrados. Nome, descrições, categorias, atributos e CSV continuam no fluxo atual e nunca são alterados aqui.</p>
+      <p>Gera os datasheets de várias pastas, revisa e publica imagens e documentos em produtos já cadastrados.</p>
+      <details class="prm-help"><summary>O que nunca é alterado</summary><p class="prm-note">Nome, descrições, categorias, atributos e CSV continuam no fluxo atual e nunca são alterados aqui. O datasheet original do fornecedor é usado como fonte e nunca é publicado.</p></details>
     </div>
     <div class="prm-page-actions">
       <a href="/digitalizacao" class="prm-btn">{{ ui.icon('scan') }}<span>Digitalização individual</span></a>
@@ -14,7 +16,16 @@
     </div>
   </header>
 
-  <ol class="pub-steps" id="pub-steps" aria-label="Etapas">
+  {{ flow.guide('Andamento do lote', [
+    ('Importar', '#pub-current:not([hidden])', '#pub-upload', 'Escolha a empresa e o ZIP (ou a pasta) com uma pasta por SKU e clique em Importar e validar.'),
+    ('Processar', '#pub-steps li:is([data-stage="3"], [data-stage="4"], [data-stage="5"], [data-stage="6"]).has-items', '#pub-current', 'Clique em Processar para gerar os datasheets. Esta etapa usa a API paga.'),
+    ('Revisar Dry Run', '#pub-steps li:is([data-stage="4"], [data-stage="5"], [data-stage="6"]).has-items', '#pub-current', 'Clique em Gerar Dry Run e confira o que será enviado a cada produto.'),
+    ('Aprovar', '#pub-steps li:is([data-stage="5"], [data-stage="6"]).has-items', '#pub-current', 'Selecione os produtos revisados e clique em Aprovar.'),
+    ('Publicar', '#pub-steps li[data-stage="6"].has-items', '#pub-current', 'Clique em Publicar aprovados e confirme. O envio roda em segundo plano.'),
+    ('Verificar', '#pub-page[data-never-done]', '#pub-items', 'Confira na coluna WooCommerce se cada produto foi verificado. Use Retomar pendentes se algo ficou na fila.')],
+    alerts=[('#pub-items .prm-pill.is-alert', 'Há produtos com erro ou bloqueados. Veja a coluna Erros e pendências.', 'alert')]) }}
+
+  <ol class="pub-steps" id="pub-steps" aria-label="Produtos por etapa">
     {% for label, hint in [("Importação", "ZIP por SKU"), ("Processamento", "Datasheets"), ("Revisão", "Dry Run"), ("Aprovação", "Individual ou lote"), ("Publicação", "Imagens e WCDA"), ("Verificação", "Releitura")] %}
     <li data-stage="{{ loop.index }}"><span class="pub-step-index">{{ loop.index }}</span><span><strong>{{ label }}</strong><small>{{ hint }}</small></span><b data-stage-count>0</b></li>
     {% endfor %}

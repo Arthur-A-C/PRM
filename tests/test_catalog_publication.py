@@ -1,4 +1,4 @@
-"""Offer → revisão → publicação explícita → RefinedCatalogRun/Item → Comparador / Visão geral (sqlite, sem dados reais)."""
+"""Offer → revisão → publicação explícita → RefinedCatalogRun/Item → Comparador / Dashboard (sqlite, sem dados reais)."""
 import json
 import uuid
 from types import SimpleNamespace
@@ -69,7 +69,7 @@ def publish_via_api(s):
 def render(title, manifest, status, role='gestor'):
     env = Environment(loader=FileSystemLoader('app/templates'), autoescape=select_autoescape(['html']))
     return env.get_template('shell.html').render(
-        title=title, user={'name': 'Gestor', 'role': role}, nav_items=[('Visão geral', '/')], active_path='/',
+        title=title, user={'name': 'Gestor', 'role': role}, nav_items=[('Dashboard', '/')], active_path='/',
         refined_analysis=manifest, current_analysis=summarize_current(manifest), catalog_publication=status,
         analysis_sources=source_registry(manifest), url_for=lambda endpoint, path: '/static' + path, csrf_token='t',
         is_manager=role in ('gestor', 'desenvolvedor'))
@@ -81,7 +81,7 @@ def test_empty_catalog_cannot_publish_and_overview_says_so(pub):
     body, confirm = publish_via_api(pub)
     assert body['can_publish'] is False and confirm.status_code == 409
     assert runs(pub) == {}
-    html = render('Visão geral', None, status)
+    html = render('Dashboard', None, status)
     assert 'Nenhum catálogo importado' in html and 'data-cc-heatmap' in html
 
 
@@ -90,10 +90,10 @@ def test_import_never_publishes_and_offers_without_snapshot_are_reported(pub, tm
     assert runs(pub) == {} and database_manifest(pub.db, pub.org.id) is None
     status = publication.publication_status(pub.db, pub.org.id)
     assert (status['internal'], status['competitor'], status['can_publish'], status['pending']) == (1, 1, True, True)
-    overview = render('Visão geral', None, status)
+    overview = render('Dashboard', None, status)
     assert 'Há produtos importados, mas a base ainda não foi publicada.' in overview and '/importacoes#publicacao' in overview
     assert 'data-cc-heatmap' in overview  # activity map does not depend on the catalog snapshot
-    seller = render('Visão geral', None, status, role='vendedor')
+    seller = render('Dashboard', None, status, role='vendedor')
     assert 'Solicite a um gestor' in seller and 'Revisar e publicar base' not in seller
     comparator = render('Comparador', None, status)
     assert 'Base atual indisponível' in comparator and 'id="publicacao"' in comparator
@@ -131,12 +131,12 @@ def test_publication_creates_snapshot_used_by_comparator_with_audit(pub, tmp_pat
     assert [c['source'] for c in summary['competitors']] == [rival] and summary['own_public'] == 2
     status = publication.publication_status(pub.db, pub.org.id)
     assert status['pending'] is False and status['registered'] and status['run_id'] == manifest['run_id']
-    for title in ('Comparador', 'Visão geral', 'Importações e qualidade'):
+    for title in ('Comparador', 'Dashboard', 'Importações e qualidade'):
         html = render(title, manifest, status)
         assert 'Base atual indisponível' not in html and 'data-operations' in html and 'rival' in html
         families = json.loads(html.split('id="ops-families">')[1].split('</script>')[0])
         assert families['own'] == ['choice', 'portwell'] and families['rivals'] == [rival] and families['totals'] == {'group': 2, rival: 1}
-    overview = render('Visão geral', manifest, status)
+    overview = render('Dashboard', manifest, status)
     assert 'Base publicada' in overview and '2 produtos da nossa base' in overview
 
 

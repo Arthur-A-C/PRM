@@ -41,7 +41,7 @@
   $("res-browse").addEventListener("click",async()=>{try{await browse($("res-path").value.trim()||null);}catch{await browse(null).catch(e=>message(e.message));}$("res-dialog").showModal();});
   $("res-up").addEventListener("click",()=>browse(parent).catch(e=>message(e.message)));
   $("res-roots").addEventListener("click",()=>browse(null).catch(e=>message(e.message)));
-  $("res-cancel").addEventListener("click",()=>$("res-dialog").close());
+  $("res-cancel").addEventListener("click",()=>window.PRM?.sheet?window.PRM.sheet.requestClose($("res-dialog")):$("res-dialog").close());
   $("res-choose").addEventListener("click",()=>{$("res-path").value=browsing;$("res-path").dispatchEvent(new Event("input"));$("res-dialog").close();});
 
   async function showPreview(){
@@ -92,20 +92,24 @@
     try{const task=await request(`${api}/tarefas/${taskId}`);show(task);if(task.status==="running")timer=setTimeout(poll,1000);else finished();}
     catch(e){message(e.message);}
   }
+  const confirmBox=o=>typeof window!=="undefined"&&window.PRM?.sheet?window.PRM.sheet.confirm(o):Promise.resolve(confirm([o.title,o.text].filter(Boolean).join("\n\n")));
   $("res-start").addEventListener("click",async()=>{
     const where=mode==="envio"?"na cópia enviada ao servidor":"na pasta do servidor";
-    if(!previewed||!confirm(`Converter ${previewed.pending} imagem(ns) para ${previewed.size} × ${previewed.size} px ${where}? Os originais ficam em Backup-fotos.`))return;
+    if(!previewed)return;
+    if(!await confirmBox({title:"Converter imagens",kicker:"Resolução de imagens",details:[["Imagens a converter",previewed.pending],["Tamanho final",`${previewed.size} × ${previewed.size} px`],["Onde",where]],
+      warnings:["Os originais ficam em Backup-fotos, preservando as subpastas.",mode==="envio"?"Nada é alterado no seu computador.":"As imagens da pasta do servidor são substituídas."],confirm:"Converter"}))return;
     try{const task=await request(url("processar"),body({confirmar:true}));taskId=task.id;$("res-start").disabled=true;show(task);poll();}catch(e){message(e.message);}
   });
   $("res-stop").addEventListener("click",async()=>{if(taskId){try{show(await request(`${api}/tarefas/${taskId}/parar`,{}));}catch(e){message(e.message);}}});
   $("res-restore").addEventListener("click",async()=>{
     const path=$("res-path").value.trim();if(!path){message("Informe ou selecione a pasta do servidor.");return;}
-    if(!confirm(`Restaurar as imagens originais de ${path}/Backup-fotos? As versões convertidas serão substituídas pelos originais.`))return;
+    if(!await confirmBox({title:"Restaurar backups",kicker:"Resolução de imagens",details:[["Pasta",`${path}/Backup-fotos`]],warnings:["As versões convertidas são substituídas pelos originais.","Imagens alteradas depois da conversão não são sobrescritas."],confirm:"Restaurar originais",danger:true}))return;
     mode="servidor";
     try{const task=await request(`${api}/restaurar`,{caminho:path,confirmar:true});taskId=task.id;show(task);poll();}catch(e){message(e.message);}
   });
   $("res-discard").addEventListener("click",async()=>{
-    if(!envio||!confirm("Remover do servidor as imagens enviadas, convertidas e o Backup-fotos desta operação?"))return;
+    if(!envio)return;
+    if(!await confirmBox({title:"Descartar arquivos do servidor",kicker:"Resolução de imagens",text:"Remove do servidor as imagens enviadas, as convertidas e o Backup-fotos desta operação.",warnings:["Baixe o ZIP antes, se ainda precisar dele. Nada é alterado no seu computador."],confirm:"Descartar arquivos",danger:true}))return;
     try{await request(`/api/v1/envios/${envio}`,{},"DELETE");picker()?.done();envio=null;
       $("res-result").hidden=true;$("res-preview").hidden=true;$("res-progress-panel").hidden=true;message("Arquivos removidos do servidor.");}
     catch(e){message(e.message);}

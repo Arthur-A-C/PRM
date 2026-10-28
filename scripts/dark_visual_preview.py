@@ -20,7 +20,7 @@ env = Environment(
 env.globals["url_for"] = lambda endpoint, path: "/static" + path
 
 NAV = (
-    ("Visão geral", "/"), ("Catálogos", "/catalogos"),
+    ("Dashboard", "/"), ("Catálogos", "/catalogos"),
     ("Digitalização", "/digitalizacao"), ("Comparador", "/comparador"),
     ("Aplicações e regiões", "/aplicacoes-regioes"), ("Cards", "/cards"),
     ("Meus alertas", "/alertas"), ("Gestão", "/gestao"),
@@ -47,7 +47,7 @@ SUMMARY = {
 def render_page(title: str) -> bytes:
     context = dict(
         title=title, user={"name": "Usuário de demonstração", "role": "gestor"},
-        nav_items=NAV, active_path={"Visão geral": "/", "Digitalização": "/digitalizacao", "Catálogos": "/catalogos"}.get(title, "/"),
+        nav_items=NAV, active_path={"Dashboard": "/", "Digitalização": "/digitalizacao", "Catálogos": "/catalogos"}.get(title, "/"),
         csrf_token="", summary=SUMMARY, matching={"summary": None, "selected_company": None},
         comparable=None, dimensional_staging=None, dimensional_database=None,
     )
@@ -115,7 +115,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/preview/dashboard":
-            data, kind = render_page("Visão geral"), "text/html; charset=utf-8"
+            data, kind = render_page("Dashboard"), "text/html; charset=utf-8"
         elif path == "/preview/catalogos":
             data, kind = render_page("Catálogos"), "text/html; charset=utf-8"
         elif path == "/preview/digitalizacao":

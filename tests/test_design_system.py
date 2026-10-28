@@ -37,10 +37,11 @@ def nav_hrefs(html):
 
 def test_every_allowed_page_stays_in_the_grouped_menu_for_each_role():
     for role in ("gestor", "desenvolvedor", "vendedor"):
-        html = render("Cards", "/cards", role)
+        html = render("Planner", "/planner", role)
         hrefs = nav_hrefs(html)
         assert {href for _, href in visible_navigation(role, NAV_ITEMS)} <= set(hrefs), role
-        assert len([h for h in hrefs if h == "/cards"]) == 1
+        assert len([h for h in hrefs if h == "/planner"]) == 1
+        assert "/cards" not in hrefs and "/reunioes" not in hrefs  # o Planner concentra cards e reuniões
 
 
 def test_sellers_never_see_manager_subpages_and_groups_are_labelled():
@@ -77,7 +78,7 @@ def test_digitalization_pages_share_module_tabs_and_unique_ids(title, path):
 
 
 def test_overview_has_empty_states_and_keeps_snapshot_notice():
-    html = render("Visão geral", "/")
+    html = render("Dashboard", "/")
     assert "data-overview" in html and "Nenhum catálogo importado" in html and "data-cc-heatmap" in html
     assert html.count('data-overview-block="') == 6 and "/static/js/overview.js" in html
 

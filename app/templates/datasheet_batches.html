@@ -1,17 +1,26 @@
 {% import "_workspace_icons.html" as ui %}
+{% import "_flow_guide.html" as flow %}
 {# IDs e names são contratos de datasheet-batches.js e do endpoint /api/v1/digitalizacao/lotes. #}
 <div id="batch-page" class="prm-stack">
   <header class="prm-page-head">
     <div>
       <p class="eyebrow">Digitalização / Documentação técnica</p>
       <h2>Geração de datasheets em lote</h2>
-      <p>Importe um ZIP com pastas por CIGAM/SKU ou com CSV e PDFs originais. Confira a prévia antes de iniciar: a validação não chama a IA nem publica na loja.</p>
+      <p>Gera datasheets de várias pastas de produtos de uma vez. A validação não chama a IA nem publica na loja.</p>
     </div>
     <div class="prm-page-actions">
       <a href="/digitalizacao" class="prm-btn">{{ ui.icon('scan') }}<span>Digitalização individual</span></a>
       <a href="/api/v1/digitalizacao/lotes/modelo.csv" class="prm-btn">{{ ui.icon('download') }}<span>Baixar CSV modelo</span></a>
     </div>
   </header>
+
+  {{ flow.guide('Andamento do lote', [
+    ('Importar ZIP', '#batch-current:not([hidden])', '#batch-upload', 'Escolha a empresa e o ZIP (ou a pasta) com uma pasta por CIGAM/SKU e clique em Importar e validar.'),
+    ('Conferir e iniciar', '#batch-products .prm-pill:is(.is-info, .is-ok, .is-warn)', '#batch-current', 'Confira os produtos válidos e clique em Iniciar produtos válidos. Esta etapa usa a API paga.'),
+    ('Gerar datasheets', '#batch-products:has(.prm-pill:is(.is-ok, .is-warn)):not(:has(.prm-pill.is-info))', '#batch-current', 'Os datasheets estão sendo gerados. A lista atualiza sozinha.'),
+    ('Revisar e baixar', '#batch-page[data-never-done]', '#batch-current', 'Revise os itens marcados para revisão e baixe o ZIP com datasheets e relatório.')],
+    alerts=[('#batch-products .prm-pill.is-alert', 'Há produtos com erro ou ignorados na validação. Veja Detalhes; use Reprocessar falhas quando fizer sentido.', 'alert'),
+            ('#batch-products .prm-pill.is-warn', 'Há datasheets com avisos: revise-os antes de usar.', 'warn')]) }}
 
   <section class="panel">
     <div class="prm-section-title"><div><h2>Importar lote</h2><p>Modo pastas: 119002000072/datasheet.pdf e imagens/documentos na mesma pasta ou subpastas. A pasta externa Produtos/ é reconhecida automaticamente. Sem acesso a pastas de rede.</p></div></div>

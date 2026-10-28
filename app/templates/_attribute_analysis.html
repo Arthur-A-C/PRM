@@ -1,5 +1,6 @@
 {% if current_analysis.attribute_analysis %}
 {% set aa = current_analysis.attribute_analysis %}
+{% set names = registry if registry is defined and registry else {} %}
 <section class="cc-panel cc-reveal" aria-labelledby="cc-os-heading">
   <header class="cc-panel-head">
     <div><p class="cc-kicker">Atributo · sistema operacional</p><h3 id="cc-os-heading">Comparação de sistema operacional</h3></div>
@@ -10,7 +11,7 @@
     {% for c in aa.competitors %}
     {% set assessed = c.equivalent + c.different + c.inconclusive %}
     <article class="cc-os-card">
-      <header><span class="cc-rival-dot" aria-hidden="true"></span><strong>{{ 'ECO Automação' if c.source == 'eco' else 'Dimensional' }}</strong><small>{{ '{:,}'.format(c.total).replace(',', '.') }} registros</small></header>
+      <header><span class="cc-rival-dot" aria-hidden="true"></span><strong>{{ names[c.source].name if c.source in names else 'ECO Automação' if c.source == 'eco' else 'Dimensional' if c.source == 'dimensional' else c.source }}</strong><small>{{ '{:,}'.format(c.total).replace(',', '.') }} registros</small></header>
       <div class="cc-os-figure"><strong>{{ c.equivalent }}</strong><span>registros com o mesmo conjunto de famílias de SO de um produto próprio da mesma família · {% if c.equivalent and not c.equivalent_percent_total %}menos de 0,01{% else %}{{ c.equivalent_percent_total }}{% endif %}% do catálogo</span></div>
       <div class="cc-meter-row"><span>Informam SO</span><div class="cc-meter" role="img" aria-label="{{ c.with_os|default(0) }} de {{ c.total }} registros informam SO"><i style="--w: {{ (100 * c.with_os|default(0) / c.total) if c.total else 0 }}%"></i></div><b>{{ c.with_os|default(0) }}</b></div>
       {% if assessed %}
@@ -35,7 +36,8 @@
   </header>
   <p class="cc-caption">Quantidade de produtos com descrição interpretada / produtos com o atributo mapeado. Campos sem mapeamento permanecem no painel de qualidade. Mede interpretação dos campos disponíveis, não completude da ficha ou equivalência técnica.</p>
   <div class="table-scroll cc-table-wrap"><table class="cc-heat-table"><thead><tr><th scope="col">Empresa</th><th scope="col">Memória</th><th scope="col">Armazenamento</th><th scope="col">USB</th><th scope="col">SO reconhecido</th></tr></thead><tbody>
-  {% for source, label in [('portwell','Portwell'), ('choice','Choice'), ('eco','ECO'), ('dimensional','Dimensional')] %}
+  {% set table_sources = names.items()|map('first')|list if names else ['portwell', 'choice', 'eco', 'dimensional'] %}
+  {% for source in table_sources %}{% set label = names[source].name if source in names else {'portwell':'Portwell','choice':'Choice','eco':'ECO','dimensional':'Dimensional'}.get(source, source) %}
   {% set c = aa.sources.get(source, {}) %}
   <tr data-source="{{ source }}"><th scope="row"><span class="cc-source-dot src-{{ source }}" aria-hidden="true"></span>{{ label }}</th>
     {% for done_key, total_key in [('memory_interpreted','memory_present'), ('storage_interpreted','storage_present'), ('usb_interpreted','usb_present'), ('recognized_os','with_os')] %}

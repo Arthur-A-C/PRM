@@ -1,24 +1,70 @@
 {% if user.role in ['gestor', 'desenvolvedor'] %}
-<details class="panel" id="catalog-import"><summary>Importar catálogo · Nossa base / Concorrência</summary>
-  <p>Escolha a origem, mapeie as colunas e confira a prévia antes de confirmar. Os novos registros ficam no <a href="/catalogos?view=legacy">catálogo cadastrado</a>; a análise publicada permanece preservada.</p>
-  <form id="catalog-import-form">
-    <div class="filters">
-      <label>Origem<select name="group"><option value="internal">Nossa base</option><option value="competitor">Concorrência</option></select></label>
-      <label>Empresa / concorrente<select name="company_id" required></select></label>
-      <button type="button" id="catalog-new-competitor" hidden>Criar concorrente</button>
-      <label>CSV / Excel<input type="file" name="file" accept=".csv,.xlsx,.xls" required><small id="catalog-file-limit"></small></label>
-      <label>Aba<select name="sheet"><option value="">Selecionar após leitura</option></select></label>
-      <label>Linha do cabeçalho<input name="header_row" type="number" min="1" max="100" value="1" required></label>
-      <label>Modo<select name="mode"><option value="upsert">Adicionar e atualizar</option><option value="add_only">Somente adicionar</option><option value="update_only">Somente atualizar</option></select></label>
-    </div>
-    <p><a href="/api/v1/catalog-imports/template.csv">Baixar modelo CSV</a> · SKU deve estar como texto para preservar zeros à esquerda no Excel.</p>
-    <button type="submit">Ler arquivo e mapear</button>
-    <div id="catalog-mapping" class="filters"></div>
-    <p><button type="button" id="catalog-preview" disabled>Preparar prévia</button> <button type="button" id="catalog-confirm" disabled>Confirmar importação</button></p>
+{# Assistente leve de importação: Origem → Arquivo → Mapeamento → Prévia → Importar, na mesma página.
+   IDs e names são contratos de catalog-import.js; o andamento é lido do próprio formulário por flow-guide.js.
+   Importar nunca publica a análise: a publicação continua manual no painel "Base oficial de comparação". #}
+<details class="panel ci" id="catalog-import">
+  <summary><span class="ci-summary"><strong>Importar catálogo</strong><small>CSV, XLS ou XLSX · Nossa base ou Concorrência · nada é publicado automaticamente</small></span></summary>
+
+  <div class="prm-flow ci-flow" data-flow data-flow-complete="Importação concluída. Os produtos estão no catálogo cadastrado; a análise publicada só muda quando alguém publicar a base.">
+    <ol class="prm-steps prm-flow-steps" aria-label="Etapas da importação">
+      <li data-flow-done='#catalog-import-form select[name="company_id"]:valid' data-flow-target="#ci-step-origem" data-flow-next="Escolha se o arquivo é da nossa base ou de um concorrente e selecione a empresa.">Origem</li>
+      <li data-flow-done="#catalog-mapping:not(:empty)" data-flow-target="#ci-step-arquivo" data-flow-next="Selecione o CSV ou Excel e clique em Ler arquivo e mapear.">Arquivo</li>
+      <li data-flow-done="#catalog-confirm:not(:disabled), #catalog-import-message a" data-flow-target="#ci-step-mapeamento" data-flow-next="Confira o mapeamento (só SKU e Nome são obrigatórios) e clique em Preparar prévia.">Mapeamento</li>
+      <li data-flow-done="#catalog-import-message a" data-flow-target="#ci-step-previa" data-flow-next="Revise novos, atualizados e erros na prévia. Estando correto, clique em Confirmar importação.">Prévia</li>
+      <li data-flow-done="#catalog-import-message a" data-flow-target="#ci-step-importar" data-flow-next="Confirme a importação das linhas válidas.">Importar</li>
+    </ol>
+    <p class="prm-flow-next"><span>Próximo passo</span><strong data-flow-next-text>Escolha a origem do catálogo.</strong></p>
+    <p class="prm-flow-alert is-alert" data-flow-alert='#catalog-import-message[data-tone="error"]' hidden>A última etapa não foi concluída. Veja a mensagem abaixo, corrija e tente novamente.</p>
+    <p class="prm-flow-alert is-warn" data-flow-alert="#catalog-import-preview details" hidden>Algumas linhas têm erro e não serão importadas. Abra “Linhas com erro” na prévia para conferir.</p>
+  </div>
+  <p id="catalog-import-message" class="ci-message" role="status" aria-live="polite"></p>
+
+  <form id="catalog-import-form" class="ci-form">
+    <fieldset class="ci-step" id="ci-step-origem">
+      <legend><span class="ci-step-n" aria-hidden="true">1</span>Origem</legend>
+      <div class="ci-fields">
+        <label>Origem<select name="group"><option value="internal">Nossa base</option><option value="competitor">Concorrência</option></select></label>
+        <label>Empresa / concorrente<select name="company_id" required></select></label>
+        <button type="button" id="catalog-new-competitor" class="prm-btn-ghost" hidden>+ Criar concorrente</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="ci-step" id="ci-step-arquivo">
+      <legend><span class="ci-step-n" aria-hidden="true">2</span>Arquivo</legend>
+      <div class="ci-fields">
+        <label class="ci-file">CSV ou Excel (.csv, .xls, .xlsx)<input type="file" name="file" accept=".csv,.xlsx,.xls" required><small id="catalog-file-limit"></small></label>
+        <label>Aba<select name="sheet"><option value="">Selecionar após leitura</option></select></label>
+        <label>Linha do cabeçalho<input name="header_row" type="number" min="1" max="100" value="1" required></label>
+      </div>
+      <p class="ci-hint"><a href="/api/v1/catalog-imports/template.csv">Baixar modelo CSV</a> · Deixe o SKU como texto no Excel para preservar zeros à esquerda.</p>
+      <div class="ci-actions"><button type="submit" class="button-primary">Ler arquivo e mapear</button></div>
+    </fieldset>
+
+    <fieldset class="ci-step" id="ci-step-mapeamento">
+      <legend><span class="ci-step-n" aria-hidden="true">3</span>Mapeamento</legend>
+      <p class="ci-hint">Associe cada campo do PRM a uma coluna do arquivo. Campos em “Ignorar” não são importados.</p>
+      <div id="catalog-mapping" class="filters ci-mapping"></div>
+      <div class="ci-fields">
+        <label>Modo<select name="mode"><option value="upsert">Adicionar e atualizar</option><option value="add_only">Somente adicionar</option><option value="update_only">Somente atualizar</option></select></label>
+      </div>
+      <div class="ci-actions"><button type="button" id="catalog-preview" class="button-secondary" disabled>Preparar prévia</button></div>
+    </fieldset>
+
+    <fieldset class="ci-step" id="ci-step-previa">
+      <legend><span class="ci-step-n" aria-hidden="true">4</span>Prévia</legend>
+      <div id="catalog-import-preview" class="table-scroll ci-preview"></div>
+      <p class="ci-hint ci-preview-empty">A prévia mostra as primeiras linhas e quantos produtos são novos, atualizados ou têm erro. Nada é gravado nesta etapa.</p>
+    </fieldset>
+
+    <fieldset class="ci-step" id="ci-step-importar">
+      <legend><span class="ci-step-n" aria-hidden="true">5</span>Importar</legend>
+      <p class="ci-hint">Grava somente as linhas válidas na origem escolhida. A análise publicada não muda até alguém publicar a base.</p>
+      <div class="ci-actions"><button type="button" id="catalog-confirm" class="button-primary" disabled>Confirmar importação</button></div>
+    </fieldset>
   </form>
-  <p id="catalog-import-message" role="status" aria-live="polite"></p>
-  <div id="catalog-import-preview" class="table-scroll"></div>
-  <details><summary>Histórico de importações</summary><button type="button" id="catalog-history">Atualizar histórico</button><div id="catalog-history-content" class="table-scroll"></div></details>
+
+  <details class="ci-history"><summary>Histórico de importações</summary><button type="button" id="catalog-history" class="button-secondary">Atualizar histórico</button><div id="catalog-history-content" class="table-scroll"></div></details>
 </details>
-<script src="/static/js/catalog-import.js?v=20261027-csrf" defer></script>
+<script src="/static/js/catalog-import.js?v=20261028-ux3" defer></script>
+<script src="/static/js/flow-guide.js?v=20261028-1" defer></script>
 {% endif %}

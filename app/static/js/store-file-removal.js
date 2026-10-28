@@ -32,6 +32,7 @@ function removalActionAvailability(data, selected = new Set(), busy = false) {
   const selected=new Set(),opened=new Set();
   const csrf=()=>document.querySelector('input[name="csrf_token"]')?.value||"";
   const message=text=>{$("rm-message").textContent=text;};
+  const confirmBox=o=>typeof window!=="undefined"&&window.PRM?.sheet?window.PRM.sheet.confirm(o):Promise.resolve(confirm([o.title,o.text].filter(Boolean).join("\n\n")));
   const COMPANY={choice:"Choice",sag:"SAG",portwell:"Portwell"};
   const labels={preview_queued:"Dry Run na fila",preview_running:"Consultando loja",review:"Dry Run pronto",nothing:"Nada a remover",
     not_found:"SKU inexistente",blocked:"Bloqueado",queued:"Na fila de execução",running:"Executando",done:"Concluído",
@@ -187,7 +188,10 @@ function removalActionAvailability(data, selected = new Set(), busy = false) {
       const text=action==="executar"?`Remover (${data.mode_label.toLowerCase()}) de ${count} produto(s) da ${COMPANY[data.company]} em produção. Antes de cada produto o PRM grava e confere o registro do estado anterior (IDs e metadados, sem cópia dos arquivos); as mídias ficam na biblioteca.`
         :`Restaurar os vínculos anteriores de ${count} produto(s) da ${COMPANY[data.company]} em produção. Só são revinculadas as mídias que ainda estão na biblioteca; mídias apagadas não são reenviadas. Documentos voltam como estavam.`;
       confirmacao=await typed(action==="executar"?"Executar remoção em produção":"Restaurar em produção",text,phrase);if(!confirmacao)return;
-    }else if(!confirm(`${questions[action]} — ${scope}?`))return;
+    }else if(!await confirmBox({title:questions[action],kicker:"Remoção de arquivos",details:[["Escopo",scope],["Lote",`${data.mode_label} · ${COMPANY[data.company]||data.company}`]],
+      warnings:action==="cancelar"?["O produto em execução termina e é verificado; só os itens ainda na fila são cancelados."]:action==="reconferir"?["Somente leitura na loja."]:[],
+      confirm:{aprovar:"Aprovar",pausar:"Pausar",cancelar:"Cancelar fila",reprocessar:"Refazer Dry Run",reconferir:"Reconferir"}[action]||"Confirmar",danger:action==="cancelar"}))return;
+    if(busy)return;
     busy=true;updateActions();
     try{const body=withSkus.has(action)?{skus:skus.length?skus:null,confirmacao}:{};
       data=await post(`${api}/${data.id}/${action}`,body);message("Operação registrada.");render();}
