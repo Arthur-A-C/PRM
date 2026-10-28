@@ -1,6 +1,7 @@
 """Single supplier scope check, reused by every read, mutation and download."""
 import re
 import unicodedata
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -34,10 +35,23 @@ def audit(db, supplier, actor, event, data=None):
     db.add(SupplierInteraction(supplier_id=supplier.id,organization_id=supplier.organization_id,
                               actor_id=actor.id,event=event,data=data or {}))
 
+def version_check(supplier, expected):
+    """updated_at is the existing optimistic lock; normalize SQLite's naive test timestamps."""
+    actual=supplier.updated_at
+    if actual.tzinfo is not None:actual=actual.astimezone(timezone.utc).replace(tzinfo=None)
+    if expected.tzinfo is not None:expected=expected.astimezone(timezone.utc).replace(tzinfo=None)
+    if actual!=expected:raise HTTPException(409,'O fornecedor foi alterado por outra pessoa. Reabra o cadastro e confirme novamente.')
+
+def touch(supplier):
+    """Make the existing updated_at lock precise and include child-record mutations."""
+    supplier.updated_at=datetime.now(timezone.utc)
+
 def row(item):
     result={'id':str(item.id),'created_at':item.created_at.isoformat(),'updated_at':item.updated_at.isoformat(),'data':item.data}
     if isinstance(item,Supplier):
-        result.update(name=item.name,stage=item.stage,score=item.score,responsible_user_id=str(item.responsible_user_id))
+        result.update(name=item.name,stage=item.stage,score=item.score,responsible_user_id=str(item.responsible_user_id),
+                      archived_at=item.archived_at.isoformat() if item.archived_at else None,
+                      archived_by=str(item.archived_by) if item.archived_by else None)
     else:
         result['actor_id']=str(item.actor_id)
         if hasattr(item,'event'):result['event']=item.event

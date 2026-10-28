@@ -10,8 +10,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from app.dependencies import CurrentAuth, DbSession, AppSettings
 from app.models.identity import User
-from app.models.suppliers import Supplier, SupplierContact, SupplierTask, SupplierDocument, SupplierInteraction
+from app.models.suppliers import (Supplier, SupplierAIRun, SupplierContact, SupplierDeletionAudit,
+                                  SupplierDocument, SupplierInteraction, SupplierTask)
 from app.services import suppliers as service
+from app.services import supplier_followups as followups
 from app.services.access import MANAGERS
 from app.services.security import secrets_match
 
@@ -52,6 +54,7 @@ class SupplierInput(Fields):
     notes: str=''
     next_action: str=''
     next_action_date: date|None=None
+    next_action_time: str=Field(default='',pattern=r'^$|^(?:[01]\d|2[0-3]):[0-5]\d$')
     primary_contact: str=''
     # Cadastro internacional / preenchimento com IA (opcionais; fornecedor antigo continua válido).
     country: str=''
@@ -97,6 +100,15 @@ class DocumentInput(Fields):
     start_date: date|None=None
     version: str=''
 
+class ArchiveInput(Fields):
+    expected_updated_at: datetime
+    reason: str=Field(default='',max_length=500)
+
+class DeleteInput(Fields):
+    expected_updated_at: datetime
+    confirm_name: str=Field(min_length=1,max_length=200)
+    reason: str=Field(default='',max_length=500)
+
 def validate_supplier(db,user,body):
     if not body.name.strip(): raise HTTPException(422,'Informe nome da empresa.')
     if body.stage not in service.STAGES or body.score not in service.SCORES: raise HTTPException(422,'Etapa/score inválido.')
@@ -110,13 +122,17 @@ def config(db:DbSession,auth:CurrentAuth):
     service.active(auth.user)
     users=db.scalars(select(User).where(User.organization_id==auth.user.organization_id,User.active.is_(True)).order_by(User.name)).all()
     return {'stages':service.STAGES,'scores':service.SCORES,'categories':service.CATEGORIES,'user_id':str(auth.user.id),
-            'manager':auth.user.role in MANAGERS,'users':[{'id':str(u.id),'name':u.name} for u in users]}
+            'manager':auth.user.role in MANAGERS,'can_delete':auth.user.role in MANAGERS,
+            'users':[{'id':str(u.id),'name':u.name} for u in users]}
 
 @router.get('')
-def listing(db:DbSession,auth:CurrentAuth,q:str='',responsible_user_id:uuid.UUID|None=None,stage:str='',score:str='',category:str='',city:str='',uf:str=''):
+def listing(db:DbSession,auth:CurrentAuth,q:str='',responsible_user_id:uuid.UUID|None=None,stage:str='',score:str='',category:str='',city:str='',uf:str='',
+            archive_status:Literal['active','archived','all']='active'):
     service.active(auth.user)
     query=select(Supplier).where(Supplier.organization_id==auth.user.organization_id).order_by(Supplier.updated_at.desc())
     if auth.user.role not in MANAGERS:query=query.where(Supplier.responsible_user_id==auth.user.id)
+    if archive_status=='active':query=query.where(Supplier.archived_at.is_(None))
+    elif archive_status=='archived':query=query.where(Supplier.archived_at.is_not(None))
     if responsible_user_id:query=query.where(Supplier.responsible_user_id==responsible_user_id)
     if stage:query=query.where(Supplier.stage==stage)
     if score:query=query.where(Supplier.score==score)
@@ -131,6 +147,8 @@ def listing(db:DbSession,auth:CurrentAuth,q:str='',responsible_user_id:uuid.UUID
         tasks=sorted((t for t in pending if str(t.supplier_id)==row['id'] and t.data.get('status')=='pendente'),key=lambda t:t.data.get('due_date') or '9999')
         if tasks and not row['data'].get('next_action'):
             row['data']={**row['data'],'next_action':tasks[0].data['title'],'next_action_date':tasks[0].data.get('due_date')}
+    upcoming=followups.upcoming(db,auth.user,items)
+    for row in rows:row['upcoming']=upcoming.get(row['id'])
     return {'items':rows,'columns':{k:[str(s.id) for s in items if s.stage==k] for k in service.STAGES}}
 
 @router.post('',dependencies=WRITE)
@@ -151,6 +169,7 @@ def detail(identifier:uuid.UUID,db:DbSession,auth:CurrentAuth):
     result=service.row(supplier)
     for key,model in [('contacts',SupplierContact),('tasks',SupplierTask),('documents',SupplierDocument),('history',SupplierInteraction)]:
         result[key]=[service.row(x) for x in db.scalars(select(model).where(model.supplier_id==identifier,model.organization_id==auth.user.organization_id).order_by(model.created_at.desc()))]
+    result['upcoming']=followups.upcoming(db,auth.user,[supplier]).get(str(supplier.id))
     return result
 
 @router.put('/{identifier}',dependencies=WRITE)
@@ -161,9 +180,9 @@ def update(identifier:uuid.UUID,body:SupplierInput,db:DbSession,auth:CurrentAuth
         if old!=new:service.audit(db,s,auth.user,event,{'before':str(old),'after':str(new)})
         setattr(s,key,new)
     data=body.model_dump(mode='json',exclude={'name','stage','score','responsible_user_id'})
-    if any(s.data.get(k)!=data.get(k) for k in ('next_action','next_action_date')):service.audit(db,s,auth.user,'next_action_changed',{'title':body.next_action,'due_date':data['next_action_date']})
+    if any(s.data.get(k,'')!=data.get(k,'') for k in ('next_action','next_action_date','next_action_time')):service.audit(db,s,auth.user,'next_action_changed',{'title':body.next_action,'due_date':data['next_action_date'],'time':data['next_action_time']})
     if s.data.get('last_interaction'):data['last_interaction']=s.data['last_interaction']
-    s.name=body.name.strip();s.data=data;service.audit(db,s,auth.user,'supplier_updated');db.commit();return service.row(s)
+    s.name=body.name.strip();s.data=data;service.audit(db,s,auth.user,'supplier_updated');service.touch(s);followups.refresh_supplier(db,s);db.commit();return service.row(s)
 
 class QuickUpdate(Fields):
     stage: str|None=None
@@ -172,6 +191,7 @@ class QuickUpdate(Fields):
     responsible_user_id: uuid.UUID|None=None
     next_action: str|None=None
     next_action_date: date|None=None
+    next_action_time: str|None=Field(default=None,pattern=r'^$|^(?:[01]\d|2[0-3]):[0-5]\d$')
 
 @router.patch('/{identifier}',dependencies=WRITE)
 def quick_update(identifier:uuid.UUID,body:QuickUpdate,db:DbSession,auth:CurrentAuth):
@@ -188,11 +208,29 @@ def quick_update(identifier:uuid.UUID,body:QuickUpdate,db:DbSession,auth:Current
         if key in body.model_fields_set and getattr(s,key)!=getattr(body,key):
             service.audit(db,s,auth.user,event,{'before':str(getattr(s,key)),'after':str(getattr(body,key))})
             setattr(s,key,getattr(body,key))
-    changed={k:v for k,v in body.model_dump(mode='json',exclude_unset=True).items() if k in {'next_action','next_action_date'}}
+    changed={k:v for k,v in body.model_dump(mode='json',exclude_unset=True).items() if k in {'next_action','next_action_date','next_action_time'}}
     if changed:
         if changed.get('next_action') is None and 'next_action' in changed:changed['next_action']=''
+        if 'next_action_time' in changed and changed['next_action_time'] is None:changed['next_action_time']=''
+        if changed.get('next_action')=='':changed.update(next_action_date=None,next_action_time='')  # concluir/remover limpa prazo e horário
         s.data={**s.data,**changed};service.audit(db,s,auth.user,'next_action_changed',changed)
-    db.commit();return service.row(s)
+    service.touch(s);followups.refresh_supplier(db,s);db.commit();return service.row(s)
+
+@router.post('/{identifier}/archive',dependencies=WRITE)
+def archive(identifier:uuid.UUID,body:ArchiveInput,db:DbSession,auth:CurrentAuth):
+    s=service.scope(db,auth.user,identifier,True);service.version_check(s,body.expected_updated_at)
+    if s.archived_at is not None:raise HTTPException(409,'Fornecedor já está arquivado.')
+    now=datetime.now(timezone.utc);service.audit(db,s,auth.user,'supplier_archived',{'reason':body.reason.strip()})
+    s.archived_at=now;s.archived_by=auth.user.id;service.touch(s);followups.refresh_supplier(db,s);db.commit();db.refresh(s)
+    return service.row(s)
+
+@router.post('/{identifier}/restore',dependencies=WRITE)
+def restore(identifier:uuid.UUID,body:ArchiveInput,db:DbSession,auth:CurrentAuth):
+    s=service.scope(db,auth.user,identifier,True);service.version_check(s,body.expected_updated_at)
+    if s.archived_at is None:raise HTTPException(409,'Fornecedor não está arquivado.')
+    service.audit(db,s,auth.user,'supplier_restored',{})
+    s.archived_at=None;s.archived_by=None;service.touch(s);followups.refresh_supplier(db,s);db.commit();db.refresh(s)
+    return service.row(s)
 
 def child(db,user,supplier,model,identifier):
     obj=db.scalar(select(model).where(model.id==identifier,model.supplier_id==supplier.id,model.organization_id==user.organization_id))
@@ -207,12 +245,12 @@ def contact(identifier:uuid.UUID,body:ContactInput,db:DbSession,auth:CurrentAuth
         for c in db.scalars(select(SupplierContact).where(SupplierContact.supplier_id==s.id,SupplierContact.organization_id==s.organization_id)):
             c.data={**c.data,'is_primary':False}
     c=child(db,auth.user,s,SupplierContact,contact_id) if contact_id else SupplierContact(supplier_id=s.id,organization_id=s.organization_id,actor_id=auth.user.id)
-    c.data=body.model_dump();db.add(c);service.audit(db,s,auth.user,'contact_updated' if contact_id else 'contact_created',{'name':body.name});db.commit();return service.row(c)
+    c.data=body.model_dump();db.add(c);service.audit(db,s,auth.user,'contact_updated' if contact_id else 'contact_created',{'name':body.name});service.touch(s);db.commit();return service.row(c)
 
 @router.post('/{identifier}/interactions',dependencies=WRITE)
 def interaction(identifier:uuid.UUID,body:InteractionInput,db:DbSession,auth:CurrentAuth):
     s=service.scope(db,auth.user,identifier,True);service.audit(db,s,auth.user,'interaction_created',body.model_dump())
-    s.data={**s.data,'last_interaction':datetime.now(timezone.utc).isoformat()};db.commit();return {'ok':True}
+    s.data={**s.data,'last_interaction':datetime.now(timezone.utc).isoformat()};service.touch(s);followups.refresh_supplier(db,s);db.commit();return {'ok':True}
 
 @router.post('/{identifier}/tasks',dependencies=WRITE)
 @router.put('/{identifier}/tasks/{task_id}',dependencies=WRITE)
@@ -223,7 +261,7 @@ def task(identifier:uuid.UUID,body:TaskInput,db:DbSession,auth:CurrentAuth,task_
     completed=(t.data or {}).get('completed_at') if (t.data or {}).get('status')=='concluida' else None
     t.assignee_user_id=owner;t.data=body.model_dump(mode='json',exclude={'assignee_user_id'})
     t.data['completed_at']=(completed or datetime.now(timezone.utc).isoformat()) if body.status=='concluida' else None
-    db.add(t);service.audit(db,s,auth.user,'task_completed' if body.status=='concluida' else 'task_updated' if task_id else 'task_created',{'title':body.title});db.commit();return service.row(t)
+    db.add(t);service.audit(db,s,auth.user,'task_completed' if body.status=='concluida' else 'task_updated' if task_id else 'task_created',{'title':body.title});service.touch(s);followups.refresh_supplier(db,s);db.commit();return service.row(t)
 
 def storage(settings):
     root=Path(settings.supplier_storage_dir).resolve();root.mkdir(parents=True,exist_ok=True);return root
@@ -271,7 +309,7 @@ def document(identifier:uuid.UUID,db:DbSession,auth:CurrentAuth,settings:AppSett
     try:
         doc=SupplierDocument(id=doc_id,supplier_id=s.id,organization_id=s.organization_id,actor_id=auth.user.id,
             data={**meta,'category':category,'description':description,'status':'Em revisão','valid_until':None,'start_date':None,'version':''})
-        db.add(doc);service.audit(db,s,auth.user,'document_uploaded',{'name':meta['original_name'],'category':category});db.commit();return service.row(doc)
+        db.add(doc);service.audit(db,s,auth.user,'document_uploaded',{'name':meta['original_name'],'category':category});service.touch(s);followups.refresh_supplier(db,s);db.commit();return service.row(doc)
     except BaseException:
         db.rollback();path.unlink(missing_ok=True);raise
 
@@ -279,7 +317,7 @@ def document(identifier:uuid.UUID,db:DbSession,auth:CurrentAuth,settings:AppSett
 def organize(identifier:uuid.UUID,document_id:uuid.UUID,body:DocumentInput,db:DbSession,auth:CurrentAuth):
     s=service.scope(db,auth.user,identifier,True);doc=child(db,auth.user,s,SupplierDocument,document_id)
     if body.category not in service.CATEGORIES:raise HTTPException(422,'Categoria inválida.')
-    doc.data={**doc.data,**body.model_dump(mode='json')};service.audit(db,s,auth.user,'document_updated',{'document_id':str(doc.id)});db.commit();return service.row(doc)
+    doc.data={**doc.data,**body.model_dump(mode='json')};service.audit(db,s,auth.user,'document_updated',{'document_id':str(doc.id)});service.touch(s);followups.refresh_supplier(db,s);db.commit();return service.row(doc)
 
 @router.get('/{identifier}/documents/{document_id}/download')
 def download(identifier:uuid.UUID,document_id:uuid.UUID,db:DbSession,auth:CurrentAuth,settings:AppSettings):
@@ -287,3 +325,48 @@ def download(identifier:uuid.UUID,document_id:uuid.UUID,db:DbSession,auth:Curren
     path=document_path(settings,auth.user,identifier,document_id)
     if not path.is_file():raise HTTPException(404,'Arquivo indisponível.')
     return FileResponse(path,media_type=doc.data['mime'],filename=doc.data['original_name'],headers={'X-Content-Type-Options':'nosniff','Cache-Control':'no-store'})
+
+def quarantine_documents(settings,supplier):
+    """Move exclusive files out of the authorized download tree; never silently destroy them."""
+    root=storage(settings);origin=root/str(supplier.organization_id)/str(supplier.id)
+    if not origin.exists():return None,None,0
+    count=sum(1 for item in origin.rglob('*') if item.is_file())
+    # Keep the quarantine path below the legacy Windows MAX_PATH limit while
+    # retaining a sortable timestamp and enough random entropy for uniqueness.
+    quarantine_id=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'-'+uuid.uuid4().hex[:12]
+    destination=root/'_deleted'/str(supplier.organization_id)/str(supplier.id)/quarantine_id
+    destination.parent.mkdir(parents=True,exist_ok=True);os.replace(origin,destination)
+    return origin,destination,count
+
+@router.delete('/{identifier}',dependencies=WRITE)
+def delete_supplier(identifier:uuid.UUID,body:DeleteInput,db:DbSession,auth:CurrentAuth,settings:AppSettings):
+    if auth.user.role not in MANAGERS:raise HTTPException(403,'Somente gestores e desenvolvedores podem excluir definitivamente.')
+    s=service.scope(db,auth.user,identifier,True);service.version_check(s,body.expected_updated_at)
+    if body.confirm_name.strip()!=s.name:raise HTTPException(422,'Digite exatamente o nome do fornecedor para confirmar.')
+    contacts=list(db.scalars(select(SupplierContact).where(SupplierContact.supplier_id==s.id,SupplierContact.organization_id==s.organization_id)))
+    tasks=list(db.scalars(select(SupplierTask).where(SupplierTask.supplier_id==s.id,SupplierTask.organization_id==s.organization_id)))
+    documents=list(db.scalars(select(SupplierDocument).where(SupplierDocument.supplier_id==s.id,SupplierDocument.organization_id==s.organization_id)))
+    history=list(db.scalars(select(SupplierInteraction).where(SupplierInteraction.supplier_id==s.id,SupplierInteraction.organization_id==s.organization_id)))
+    runs=list(db.scalars(select(SupplierAIRun).where(SupplierAIRun.supplier_id==s.id,SupplierAIRun.organization_id==s.organization_id)))
+    counts={'contacts':len(contacts),'tasks':len(tasks),'documents':len(documents),'history':len(history),'ai_runs_detached':len(runs)}
+    origin=quarantine=None
+    try:
+        origin,quarantine,file_count=quarantine_documents(settings,s)
+        followups.close_for_deleted_supplier(db,s,auth.user)  # cada item cancelado registra a própria auditoria
+        for run in runs:
+            run.supplier_id=None;run.status='supplier_deleted'
+            run.data={**(run.data or {}),'supplier_deleted_at':datetime.now(timezone.utc).isoformat()}
+        for item in (*contacts,*tasks,*documents,*history):db.delete(item)
+        db.flush();db.delete(s);db.flush()
+        db.add(SupplierDeletionAudit(organization_id=s.organization_id,actor_id=auth.user.id,supplier_id=s.id,supplier_name=s.name,
+            data={**counts,'physical_files':file_count,'document_policy':'quarantined' if quarantine else 'no_physical_directory',
+                  'quarantine_path':quarantine.relative_to(storage(settings)).as_posix() if quarantine else None,
+                  'document_files':[{'id':str(d.id),'category':d.data.get('category'),'sha256':d.data.get('sha256')} for d in documents],
+                  'stage':s.stage,'was_archived':s.archived_at is not None,'reason':body.reason.strip()}))
+        db.commit()
+    except BaseException:
+        db.rollback()
+        if quarantine is not None and quarantine.exists():
+            origin.parent.mkdir(parents=True,exist_ok=True);os.replace(quarantine,origin)
+        raise
+    return {'ok':True,'supplier_id':str(identifier),'counts':counts,'document_policy':'quarantined' if quarantine else 'no_physical_directory'}

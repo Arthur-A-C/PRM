@@ -19,6 +19,11 @@ class Settings(BaseSettings):
 
     app_name: str = "PRM"
     supplier_storage_dir: str = "data/suppliers"
+    # Follow-up automático de fornecedores (worker de alertas). Prazos em dias corridos; ver app/services/supplier_followups.py.
+    supplier_followup_inactive_days: int = Field(default=3, ge=1, le=90)
+    supplier_waiting_reply_days: int = Field(default=5, ge=1, le=90)
+    supplier_document_warning_days: tuple[int, ...] = (30, 7, 0)
+    supplier_registration_grace_days: int = Field(default=2, ge=0, le=60)
     # Preencher fornecedor com IA: chave/modelo próprios, independentes da IA de reuniões e datasheets.
     supplier_ai_api_key: SecretStr = Field(default=SecretStr(""), repr=False)
     supplier_ai_allow_shared_key: bool = False

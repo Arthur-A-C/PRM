@@ -1,5 +1,5 @@
 from app.models.base import Base
-from app.models.suppliers import Supplier, SupplierContact, SupplierInteraction, SupplierTask, SupplierDocument, SupplierAIRun
+from app.models.suppliers import Supplier, SupplierContact, SupplierInteraction, SupplierTask, SupplierDocument, SupplierAIRun, SupplierDeletionAudit
 from app.models.catalog import (
     AttributeDefinition,
     Brand,

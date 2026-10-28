@@ -37,14 +37,13 @@ templates = Jinja2Templates(directory="app/templates")
 
 NAV_ITEMS = (
     ("Fornecedores", "/fornecedores"),
-    ("Visão geral", "/"),
+    ("Dashboard", "/"),
     ("Catálogos", "/catalogos"),
     ("Digitalização", "/digitalizacao"),
     ("Integrações WooCommerce", "/integracoes-woocommerce"),
     ("Comparador", "/comparador"),
     ("Aplicações e regiões", "/aplicacoes-regioes"),
-    ("Cards", "/cards"),
-    ("Reuniões", "/reunioes"),
+    # Cards e Reuniões saíram da navegação: o Planner é o centro operacional (rotas antigas redirecionam).
     ("Planner", "/planner"),
     ("Meus alertas", "/alertas"),
     ("Gestão", "/gestao"),
@@ -95,13 +94,13 @@ def render_shell(request: Request, settings: AppSettings, title: str, extra_cont
         }
         page_context.update(extra_context or {})
         refined_manifest = database_manifest(db, auth.user.organization_id) if inspect(engine).has_table("refined_catalog_runs") else None
-        if title in {'Catálogos', 'Visão geral', 'Comparador', 'Importações e qualidade'}:
+        if title in {'Catálogos', 'Dashboard', 'Comparador', 'Importações e qualidade'}:
             from app.services.catalog_publication import publication_status
             page_context['catalog_publication'] = publication_status(db, auth.user.organization_id)
             from app.services.refined_catalog_database import source_registry
             page_context['analysis_sources'] = source_registry(refined_manifest)
-        page_context["refined_analysis"] = refined_manifest if title in {"Visão geral", "Comparador", "Importações e qualidade"} else None
-        if title in {"Visão geral", "Comparador", "Importações e qualidade"}:
+        page_context["refined_analysis"] = refined_manifest if title in {"Dashboard", "Comparador", "Importações e qualidade"} else None
+        if title in {"Dashboard", "Comparador", "Importações e qualidade"}:
             page_context["current_analysis"] = summarize_current(refined_manifest)
             page_context["operations"] = operations_overview() if auth.user.role in {"gestor", "desenvolvedor"} else {"status": "restricted", "items": []}
             return templates.TemplateResponse(request=request, name="shell.html", context=page_context)
@@ -280,7 +279,7 @@ def logout_page(
 
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, settings: AppSettings):
-    return render_shell(request, settings, "Visão geral")
+    return render_shell(request, settings, "Dashboard")
 
 
 @router.get("/comparacao-direta", response_class=HTMLResponse)
@@ -328,6 +327,25 @@ def save_comparison_page(
         parameters.append(("reference", str(reference_offer_id)))
     parameters.append(("saved", str(comparison.id)))
     return RedirectResponse(f"/comparador?{urlencode(parameters)}", status_code=303)
+
+
+def planner_redirect(request: Request, view: str):
+    """Links antigos de Cards/Reuniões continuam válidos e abrem o mesmo item dentro do Planner."""
+    query = request.query_params
+    target = [(key, query[key]) for key in ("activity", "meeting", "segment") if query.get(key)]
+    if not query.get("activity") and not (view == "reunioes" and query.get("meeting")):
+        target.insert(0, ("view", view))
+    return RedirectResponse("/planner" + ("?" + urlencode(target) if target else ""), status_code=303)
+
+
+@router.get("/cards")
+def cards_page(request: Request):
+    return planner_redirect(request, "revisao")
+
+
+@router.get("/reunioes")
+def meetings_page(request: Request):
+    return planner_redirect(request, "reunioes")
 
 
 @router.get("/{page:path}", response_class=HTMLResponse)

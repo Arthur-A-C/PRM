@@ -2,7 +2,8 @@
 import hashlib
 import json
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time as Time, timezone
+from datetime import date as Day  # campos chamados "date" não podem sombrear o tipo (anotações tardias do Python 3.14)
 from pathlib import Path
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
@@ -21,6 +22,7 @@ from app.services.meeting_pipeline import add_revision, analysis_context, enqueu
 from app.services.meeting_activities import (activity_query, get_activity, get_meeting, serialize, edit_activity,
     review, publish, export_cards, version_check, can_review, audit, operational_activity)
 from app.services.meeting_deadlines import overview, deadline
+from app.services import planner_hub
 
 
 def ready(db: DbSession):
@@ -100,6 +102,7 @@ class EditInput(Closed):
     no_deadline_accepted: bool = False
     status: Literal["todo", "in_progress", "waiting_external", "blocked", "done", "cancelled"] = "todo"
     checklist: list[str] = Field(default_factory=list, max_length=40)
+    priority: Literal["baixa", "normal", "alta"] | None = None
     _zone = field_validator("timezone")(MeetingInput.valid_zone.__func__)
 
     @field_validator("due_at", "end_at")
@@ -140,6 +143,50 @@ class CommentInput(Closed):
     text: str = Field(min_length=1, max_length=2000)
 
 
+class PlannerItemInput(Closed):
+    """Criação direta no Planner: tarefa, card (para revisão), reunião ou follow-up de fornecedor."""
+    type: Literal["task", "card", "meeting", "followup"]
+    title: str = Field(min_length=3, max_length=240)
+    description: str = Field(default="", max_length=10000)
+    assignee_user_id: uuid.UUID | None = None
+    supplier_id: uuid.UUID | None = None
+    partner: str = Field(default="", max_length=240)
+    priority: Literal["baixa", "normal", "alta"] = "normal"
+    date: Day | None = None
+    time: Time | None = None
+    duration_minutes: int | None = Field(default=None, ge=5, le=720)
+    participants: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=list, max_length=30)
+    location: str = Field(default="", max_length=500)
+    timezone: str = "America/Sao_Paulo"
+    no_deadline_accepted: bool = False
+    origin: Literal["planner", "supplier"] = "planner"
+    _zone = field_validator("timezone")(MeetingInput.valid_zone.__func__)
+
+    @field_validator("time")
+    @classmethod
+    def needs_date(cls, value, info):
+        if value is not None and not info.data.get("date"):
+            raise ValueError("Horário exige data")
+        return value
+
+
+class ScheduleInput(Closed):
+    version: int = Field(ge=1)
+    title: str = Field(min_length=3, max_length=240)
+    description: str = Field(default="", max_length=10000)
+    date: Day
+    time: Time | None = None
+    duration_minutes: int | None = Field(default=None, ge=5, le=720)
+    participants: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=list, max_length=30)
+    location: str = Field(default="", max_length=500)
+    assignee_user_id: uuid.UUID | None = None
+    priority: Literal["baixa", "normal", "alta"] = "normal"
+    status: Literal["todo", "done", "cancelled"] = "todo"
+    timezone: str = "America/Sao_Paulo"
+    reason: str = Field(min_length=3, max_length=1000)
+    _zone = field_validator("timezone")(MeetingInput.valid_zone.__func__)
+
+
 class ExportInput(Closed):
     ids: list[uuid.UUID] = Field(min_length=1, max_length=1000)
     format: Literal["json", "csv"]
@@ -172,7 +219,7 @@ def create_meeting(payload: MeetingInput, auth: CurrentAuth, db: DbSession, sett
 def meetings(auth: CurrentAuth, db: DbSession, offset: int = 0):
     if offset < 0:
         raise HTTPException(422, "Página inválida")
-    query = select(Meeting).where(Meeting.organization_id == auth.user.organization_id)
+    query = select(Meeting).where(Meeting.organization_id == auth.user.organization_id, planner_hub.not_container())
     if auth.user.role not in {"gestor", "desenvolvedor"}:
         query = query.where(Meeting.creator_id == auth.user.id)
     rows = db.scalars(query.order_by(Meeting.created_at.desc(), Meeting.id).offset(offset).limit(100)).all()
@@ -186,7 +233,8 @@ def meeting_detail(identifier: uuid.UUID, auth: CurrentAuth, db: DbSession):
     revisions = db.scalars(select(TranscriptRevision).where(TranscriptRevision.meeting_id == identifier).order_by(TranscriptRevision.created_at.desc())).all()
     runs = db.scalars(select(MeetingRun).where(MeetingRun.meeting_id == identifier).order_by(MeetingRun.created_at.desc()).limit(100)).all()
     audio = db.scalars(select(MeetingAudio).where(MeetingAudio.meeting_id == identifier)).all()
-    return {"id": str(meeting.id), "title": meeting.title, "partner": meeting.partner, "version": meeting.version,
+    event = db.scalar(select(Activity.id).where(Activity.meeting_id == identifier, Activity.proposal_local_id == "meeting-event"))
+    return {"event_activity_id": str(event) if event else None, "creator_id": str(meeting.creator_id),"id": str(meeting.id), "title": meeting.title, "partner": meeting.partner, "version": meeting.version,
             "meeting_date": meeting.meeting_date, "timezone": meeting.timezone, "participants": meeting.participants,
             "metadata": meeting.metadata_confirmed,
             "revisions": [{"id": str(r.id), "source": r.source, "sha256": r.sha256, "segments": r.segments,
@@ -204,7 +252,9 @@ def metadata(identifier: uuid.UUID, payload: MetadataInput, auth: CurrentAuth, d
     meeting = get_meeting(db, auth.user, identifier, lock=True)
     version_check(meeting, payload.version)
     meeting.meeting_date, meeting.timezone = payload.meeting_date, payload.timezone
-    meeting.metadata_confirmed = {"event_date": payload.confirmed_event_date.isoformat() if payload.confirmed_event_date else None,
+    # Agendamento e vínculos do Planner (schedule, fornecedor) são preservados ao confirmar metadados.
+    kept = {k: v for k, v in (meeting.metadata_confirmed or {}).items() if k in {"schedule", "supplier_id", "supplier_name", "planner_origin"}}
+    meeting.metadata_confirmed = {**kept, "event_date": payload.confirmed_event_date.isoformat() if payload.confirmed_event_date else None,
                                   "origin": "human", "reason": payload.reason, "actor": str(auth.user.id)}
     meeting.version += 1
     db.add(ActivityAudit(organization_id=auth.user.organization_id, meeting_id=meeting.id, actor_id=auth.user.id,
@@ -347,6 +397,33 @@ def player(identifier: uuid.UUID, auth: CurrentAuth, db: DbSession, settings: Ap
     return FileResponse(path, headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
 
 
+@router.post("/items", dependencies=[Write])
+def create_item(payload: PlannerItemInput, auth: CurrentAuth, db: DbSession):
+    result = planner_hub.create_item(db, auth.user, payload)
+    db.commit()
+    return result
+
+
+@router.patch("/meetings/{identifier}/schedule", dependencies=[Write])
+def schedule(identifier: uuid.UUID, payload: ScheduleInput, auth: CurrentAuth, db: DbSession):
+    meeting = get_meeting(db, auth.user, identifier, lock=True)
+    result = planner_hub.reschedule(db, auth.user, meeting, payload)
+    db.commit()
+    return result
+
+
+@router.get("/feed")
+def feed(start: date, end: date, auth: CurrentAuth, db: DbSession):
+    if not 0 < (end - start).days <= 120:
+        raise HTTPException(422, "Intervalo da agenda deve ter de 1 a 120 dias; fim exclusivo")
+    return planner_hub.feed(db, auth.user, start, end)
+
+
+@router.get("/summary")
+def summary(auth: CurrentAuth, db: DbSession):
+    return planner_hub.summary(db, auth.user)
+
+
 @router.post("/runs/{identifier}/cancel", dependencies=[Write])
 def cancel(identifier: uuid.UUID, auth: CurrentAuth, db: DbSession):
     run = db.scalar(select(MeetingRun).where(MeetingRun.id == identifier).with_for_update())
@@ -468,6 +545,9 @@ def detail(identifier: uuid.UUID, auth: CurrentAuth, db: DbSession):
 def edit(identifier: uuid.UUID, payload: EditInput, auth: CurrentAuth, db: DbSession):
     activity = get_activity(db, auth.user, identifier, lock=True)
     edit_activity(db, auth.user, activity, payload)
+    if inspect(db.connection()).has_table("suppliers"):  # mesma conexão: não descarta a edição pendente
+        from app.services.supplier_followups import on_planner_item_closed
+        on_planner_item_closed(db, activity, auth.user)
     db.commit()
     return serialize(activity)
 
@@ -560,9 +640,13 @@ def alerts(auth: CurrentAuth, db: DbSession):
         ActivityAlert.recipient_id == auth.user.id, ActivityAlert.resolved.is_(False),
         Activity.assignee_user_id == auth.user.id, Activity.approval == "published",
         Activity.status.not_in(["done", "cancelled"]), operational_activity())
+    from app.services.supplier_followups import category
     return {"items": [{"id": str(a.id), "activity_id": str(row.id), "title": row.title, "kind": a.kind,
                        "read_at": a.read_at, "at": a.created_at, "deadline": deadline(row),
-                       "due_date": row.due_date, "due_at": row.due_at, "timezone": row.timezone}
+                       "due_date": row.due_date, "due_at": row.due_at, "timezone": row.timezone,
+                       "category": category(row.details), "automation": bool((row.details or {}).get("automation")),
+                       "supplier_id": (row.details or {}).get("supplier_id"), "supplier_name": (row.details or {}).get("supplier_name"),
+                       "suggest_meeting": bool((row.details or {}).get("suggest_meeting"))}
                       for a, row in db.execute(query.order_by(ActivityAlert.created_at.desc()).limit(200))]}
 
 

@@ -211,6 +211,7 @@ def apply(identifier:uuid.UUID,body:ApplyInput,db:DbSession,auth:CurrentAuth):
     run.status='applied'
     run.data={**run.data,'applied':{'at':datetime.now(timezone.utc).isoformat(),'by':str(auth.user.id),'fields':applied,
         'contacts':[c['name'] for c in contact_rows],'social':added_social,'skipped_duplicates':skipped}}
+    service.touch(s)
     db.commit()
     return {'applied_fields':len(applied),'contacts':len(contact_rows),'social':len(added_social),'skipped_duplicates':skipped,'summary':' '.join(parts)}
 
